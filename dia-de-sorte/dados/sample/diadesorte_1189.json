@@ -1,0 +1,71 @@
+{
+  "loteria": "diadesorte",
+  "concurso": 1189,
+  "data": "17/03/2026",
+  "local": "ESPAÇO DA SORTE em SÃO PAULO, SP",
+  "concursoEspecial": false,
+  "dezenasOrdemSorteio": [
+    "12",
+    "02",
+    "23",
+    "19",
+    "28",
+    "01",
+    "07"
+  ],
+  "dezenas": [
+    "01",
+    "02",
+    "07",
+    "12",
+    "19",
+    "23",
+    "28"
+  ],
+  "trevos": [],
+  "timeCoracao": null,
+  "mesSorte": "Maio",
+  "premiacoes": [
+    {
+      "descricao": "7 acertos",
+      "faixa": 1,
+      "ganhadores": 0,
+      "valorPremio": 0.0
+    },
+    {
+      "descricao": "6 acertos",
+      "faixa": 2,
+      "ganhadores": 186,
+      "valorPremio": 1527.61
+    },
+    {
+      "descricao": "5 acertos",
+      "faixa": 3,
+      "ganhadores": 5065,
+      "valorPremio": 25.0
+    },
+    {
+      "descricao": "4 acertos",
+      "faixa": 4,
+      "ganhadores": 48943,
+      "valorPremio": 5.0
+    },
+    {
+      "descricao": "Mês da Sorte",
+      "faixa": 5,
+      "ganhadores": 133387,
+      "valorPremio": 2.5
+    }
+  ],
+  "estadosPremiados": [],
+  "observacao": "",
+  "acumulou": true,
+  "proximoConcurso": 1190,
+  "dataProximoConcurso": "19/03/2026",
+  "localGanhadores": [],
+  "valorArrecadado": 3772385.0,
+  "valorAcumuladoConcurso_0_5": 0.0,
+  "valorAcumuladoConcursoEspecial": 0.0,
+  "valorAcumuladoProximoConcurso": 3206242.69,
+  "valorEstimadoProximoConcurso": 3700000.0
+}

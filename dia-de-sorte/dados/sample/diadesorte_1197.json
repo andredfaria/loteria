@@ -1,0 +1,80 @@
+{
+  "loteria": "diadesorte",
+  "concurso": 1197,
+  "data": "04/04/2026",
+  "local": "ESPAÇO DA SORTE em SÃO PAULO, SP",
+  "concursoEspecial": false,
+  "dezenasOrdemSorteio": [
+    "10",
+    "20",
+    "04",
+    "19",
+    "11",
+    "26",
+    "25"
+  ],
+  "dezenas": [
+    "04",
+    "10",
+    "11",
+    "19",
+    "20",
+    "25",
+    "26"
+  ],
+  "trevos": [],
+  "timeCoracao": null,
+  "mesSorte": "Julho",
+  "premiacoes": [
+    {
+      "descricao": "7 acertos",
+      "faixa": 1,
+      "ganhadores": 1,
+      "valorPremio": 1630757.24
+    },
+    {
+      "descricao": "6 acertos",
+      "faixa": 2,
+      "ganhadores": 66,
+      "valorPremio": 1990.96
+    },
+    {
+      "descricao": "5 acertos",
+      "faixa": 3,
+      "ganhadores": 2053,
+      "valorPremio": 25.0
+    },
+    {
+      "descricao": "4 acertos",
+      "faixa": 4,
+      "ganhadores": 23313,
+      "valorPremio": 5.0
+    },
+    {
+      "descricao": "Mês da Sorte",
+      "faixa": 5,
+      "ganhadores": 65917,
+      "valorPremio": 2.5
+    }
+  ],
+  "estadosPremiados": [],
+  "observacao": "",
+  "acumulou": false,
+  "proximoConcurso": 1198,
+  "dataProximoConcurso": "07/04/2026",
+  "localGanhadores": [
+    {
+      "ganhadores": 1,
+      "municipio": "MAGE",
+      "nomeFatansiaUL": "",
+      "serie": "",
+      "posicao": 1,
+      "uf": "RJ"
+    }
+  ],
+  "valorArrecadado": 2188655.0,
+  "valorAcumuladoConcurso_0_5": 0.0,
+  "valorAcumuladoConcursoEspecial": 0.0,
+  "valorAcumuladoProximoConcurso": 0.0,
+  "valorEstimadoProximoConcurso": 150000.0
+}

@@ -1,0 +1,70 @@
+{
+  "loteria": "supersete",
+  "concurso": 92,
+  "data": "17/05/2021",
+  "local": "Espaço Loterias CAIXA em SAO PAULO, SP",
+  "dezenasOrdemSorteio": [
+    "3",
+    "2",
+    "6",
+    "7",
+    "4",
+    "1",
+    "5"
+  ],
+  "dezenas": [
+    "3",
+    "2",
+    "6",
+    "7",
+    "4",
+    "1",
+    "5"
+  ],
+  "trevos": [],
+  "timeCoracao": null,
+  "mesSorte": null,
+  "premiacoes": [
+    {
+      "descricao": "7 acertos",
+      "faixa": 1,
+      "ganhadores": 0,
+      "valorPremio": 0.0
+    },
+    {
+      "descricao": "6 acertos",
+      "faixa": 2,
+      "ganhadores": 3,
+      "valorPremio": 10515.31
+    },
+    {
+      "descricao": "5 acertos",
+      "faixa": 3,
+      "ganhadores": 69,
+      "valorPremio": 653.12
+    },
+    {
+      "descricao": "4 acertos",
+      "faixa": 4,
+      "ganhadores": 952,
+      "valorPremio": 47.33
+    },
+    {
+      "descricao": "3 acertos",
+      "faixa": 5,
+      "ganhadores": 7369,
+      "valorPremio": 5.0
+    }
+  ],
+  "estadosPremiados": [],
+  "observacao": "As Loterias CAIXA informam que o sorteio do concurso nº 93 do Super Sete previsto para às 15h de hoje (19/05) será realizado às 20h, com transmissão ao vivo nos perfis da CAIXA no YouTube e Facebook.",
+  "acumulou": true,
+  "proximoConcurso": 93,
+  "dataProximoConcurso": "19/05/2021",
+  "localGanhadores": [],
+  "valorArrecadado": 778045.0,
+  "valorAcumuladoConcurso_0_5": 0.0,
+  "valorAcumuladoConcursoEspecial": 0.0,
+  "valorAcumuladoProximoConcurso": 805644.17,
+  "valorEstimadoProximoConcurso": 900000.0
+}

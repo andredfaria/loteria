@@ -1,0 +1,96 @@
+{
+  "loteria": "lotofacil",
+  "concurso": 3649,
+  "data": "30/03/2026",
+  "local": "ESPAÇO DA SORTE em SÃO PAULO, SP",
+  "concursoEspecial": false,
+  "dezenasOrdemSorteio": [
+    "11",
+    "06",
+    "17",
+    "14",
+    "20",
+    "09",
+    "12",
+    "13",
+    "08",
+    "24",
+    "18",
+    "15",
+    "10",
+    "21",
+    "25"
+  ],
+  "dezenas": [
+    "06",
+    "08",
+    "09",
+    "10",
+    "11",
+    "12",
+    "13",
+    "14",
+    "15",
+    "17",
+    "18",
+    "20",
+    "21",
+    "24",
+    "25"
+  ],
+  "trevos": [],
+  "timeCoracao": null,
+  "mesSorte": null,
+  "premiacoes": [
+    {
+      "descricao": "15 acertos",
+      "faixa": 1,
+      "ganhadores": 1,
+      "valorPremio": 4646180.1
+    },
+    {
+      "descricao": "14 acertos",
+      "faixa": 2,
+      "ganhadores": 342,
+      "valorPremio": 1938.59
+    },
+    {
+      "descricao": "13 acertos",
+      "faixa": 3,
+      "ganhadores": 12337,
+      "valorPremio": 35.0
+    },
+    {
+      "descricao": "12 acertos",
+      "faixa": 4,
+      "ganhadores": 161664,
+      "valorPremio": 14.0
+    },
+    {
+      "descricao": "11 acertos",
+      "faixa": 5,
+      "ganhadores": 893596,
+      "valorPremio": 7.0
+    }
+  ],
+  "estadosPremiados": [],
+  "observacao": "",
+  "acumulou": false,
+  "proximoConcurso": 3650,
+  "dataProximoConcurso": "31/03/2026",
+  "localGanhadores": [
+    {
+      "ganhadores": 1,
+      "municipio": "ITAPEVI",
+      "nomeFatansiaUL": "",
+      "serie": "",
+      "posicao": 1,
+      "uf": "SP"
+    }
+  ],
+  "valorArrecadado": 37076879.0,
+  "valorAcumuladoConcurso_0_5": 2793772.86,
+  "valorAcumuladoConcursoEspecial": 86988765.02,
+  "valorAcumuladoProximoConcurso": 2793772.86,
+  "valorEstimadoProximoConcurso": 7000000.0
+}

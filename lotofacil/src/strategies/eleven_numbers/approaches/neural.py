@@ -1,0 +1,301 @@
+"""Neural approach for 11-numbers strategy.
+
+Architecture: LSTM (256→128→64) + Self-Attention + Focal Loss.
+Optimized for predicting 11 numbers with maximum hit rate.
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+from pathlib import Path
+from typing import List, Tuple
+
+import numpy as np
+
+from core.config import (
+    TOTAL_NUMBERS,
+    LSTM_WINDOW_SIZE,
+    LSTM_UNITS_1,
+    LSTM_UNITS_2,
+    LSTM_UNITS_3,
+    LSTM_DROPOUT,
+    LSTM_DROPOUT_INPUT,
+    LSTM_DROPOUT_DENSE,
+    LSTM_LR,
+    LSTM_LR_MIN,
+    LSTM_LR_FACTOR,
+    LSTM_LR_PATIENCE,
+    LSTM_EPOCHS,
+    LSTM_BATCH_SIZE,
+    LSTM_PATIENCE,
+    FOCAL_LOSS_GAMMA,
+    FOCAL_LOSS_ALPHA,
+    NEURAL_VAL_SPLIT,
+    ATTENTION_DIM,
+    ATTENTION_HEADS,
+    OUTPUT_MODELS,
+    RANDOM_SEED,
+)
+from core.models import Draw
+from data.preprocessor import LotofacilPreprocessor
+
+logger = logging.getLogger(__name__)
+
+
+class AttentionLayer:
+    """Self-attention layer for Keras functional API."""
+
+    def __init__(self, units: int, heads: int = 1):
+        self.units = units
+        self.heads = heads
+
+    def __call__(self, inputs):
+        try:
+            import tensorflow as tf
+            from tensorflow.keras import layers
+
+            x = layers.MultiHeadAttention(
+                num_heads=self.heads,
+                key_dim=self.units,
+                dropout=0.1,
+            )(inputs, inputs)
+            x = layers.LayerNormalization()(x + inputs)
+            return x
+        except Exception as e:
+            logger.warning("Attention layer failed: %s, using input directly", e)
+            return inputs
+
+
+def focal_loss(gamma: float = FOCAL_LOSS_GAMMA, alpha: float = FOCAL_LOSS_ALPHA):
+    """Focal loss for binary classification — helps handle class imbalance."""
+    def loss(y_true, y_pred):
+        import tensorflow.keras.backend as K
+        y_true = K.cast(y_true, dtype="float32")
+        y_pred = K.clip(y_pred, K.epsilon(), 1.0 - K.epsilon())
+        ce = -(y_true * K.log(y_pred) + (1 - y_true) * K.log(1 - y_pred))
+        focal = ce * K.pow(1 - y_pred, gamma) * y_true * alpha + \
+                ce * K.pow(y_pred, gamma) * (1 - y_true) * (1 - alpha)
+        return K.mean(focal, axis=-1)
+    return loss
+
+
+class NeuralApproach:
+    """Predicts using LSTM + Attention neural network optimized for 11 hits."""
+
+    def __init__(self):
+        self._model = None
+        self._probas: np.ndarray | None = None
+        self._fitted = False
+        self._history = {}
+
+    def fit(self, draws: List[Draw]) -> None:
+        """
+        Train LSTM + Attention model on historical draws.
+
+        Uses temporal split for validation (last NEURAL_VAL_SPLIT fraction).
+        """
+        try:
+            import tensorflow as tf
+            tf.random.set_seed(RANDOM_SEED)
+            from tensorflow.keras import layers, models, callbacks, Input
+        except ImportError:
+            raise RuntimeError("TensorFlow is required for neural approach")
+
+        preprocessor = LotofacilPreprocessor(draws)
+        X_bin, y_bin, X_freq, X_atraso = preprocessor.prepare_enriched_sequences(
+            window_size=LSTM_WINDOW_SIZE
+        )
+
+        if len(X_bin) < 20:
+            raise ValueError(f"Not enough data: got {len(X_bin)} sequences, need ≥20")
+
+        combined_input = self._combine_inputs(X_bin, X_freq, X_atraso)
+
+        n_samples = len(combined_input)
+        n_val = max(1, int(n_samples * NEURAL_VAL_SPLIT))
+        n_train = n_samples - n_val
+
+        X_train = combined_input[:n_train]
+        y_train = y_bin[:n_train]
+        X_val = combined_input[n_train:]
+        y_val = y_bin[n_train:]
+
+        logger.info("Data: train=%d, val=%d, features_per_draw=%d",
+                     n_train, n_val, combined_input.shape[2])
+
+        model = self._build_model()
+
+        callbacks_list = [
+            callbacks.EarlyStopping(
+                monitor="val_loss",
+                patience=LSTM_PATIENCE,
+                restore_best_weights=True,
+                min_delta=1e-5,
+            ),
+            callbacks.ReduceLROnPlateau(
+                monitor="val_loss",
+                factor=LSTM_LR_FACTOR,
+                patience=LSTM_LR_PATIENCE,
+                min_lr=LSTM_LR_MIN,
+                verbose=0,
+            ),
+        ]
+
+        model.compile(
+            optimizer=tf.keras.optimizers.Adam(learning_rate=LSTM_LR),
+            loss=focal_loss(gamma=FOCAL_LOSS_GAMMA, alpha=FOCAL_LOSS_ALPHA),
+            metrics=["binary_accuracy"],
+        )
+
+        history = model.fit(
+            X_train, y_train,
+            validation_data=(X_val, y_val),
+            epochs=LSTM_EPOCHS,
+            batch_size=LSTM_BATCH_SIZE,
+            callbacks=callbacks_list,
+            verbose=0,
+        )
+
+        self._model = model
+        self._history = {k: [float(v) for v in v_list] for k, v_list in history.history.items()}
+
+        best_epoch = np.argmin(history.history["val_loss"])
+        logger.info("Training complete. Best epoch: %d, best val_loss: %.4f",
+                     best_epoch + 1, history.history["val_loss"][best_epoch])
+
+        probas = self._predict_from_model(preprocessor)
+        self._probas = probas
+        self._fitted = True
+
+    def _combine_inputs(self, binary: np.ndarray, freq: np.ndarray, atraso: np.ndarray) -> np.ndarray:
+        """Combine binary, frequency and delay features into single input tensor."""
+        combined = np.concatenate([binary, freq, atraso[:, None, :].repeat(binary.shape[1], axis=1)], axis=-1)
+        return combined
+
+    def _build_model(self):
+        """Build LSTM + Attention model."""
+        try:
+            import tensorflow as tf
+            from tensorflow.keras import layers, models, Input
+        except ImportError:
+            raise RuntimeError("TensorFlow is required")
+
+        n_features = TOTAL_NUMBERS * 3
+
+        inputs = Input(shape=(LSTM_WINDOW_SIZE, n_features))
+
+        x = layers.Dropout(LSTM_DROPOUT_INPUT)(inputs)
+
+        x = layers.LSTM(LSTM_UNITS_1, return_sequences=True)(x)
+        x = AttentionLayer(ATTENTION_DIM, heads=ATTENTION_HEADS)(x)
+        x = layers.LayerNormalization()(x)
+
+        x = layers.LSTM(LSTM_UNITS_2, return_sequences=True)(x)
+        x = AttentionLayer(ATTENTION_DIM // 2, heads=1)(x)
+        x = layers.LayerNormalization()(x)
+
+        x = layers.LSTM(LSTM_UNITS_3, return_sequences=False)(x)
+        x = layers.Dropout(LSTM_DROPOUT)(x)
+
+        x = layers.Dense(64, activation="relu")(x)
+        x = layers.BatchNormalization()(x)
+        x = layers.Dropout(LSTM_DROPOUT_DENSE)(x)
+
+        outputs = layers.Dense(TOTAL_NUMBERS, activation="sigmoid")(x)
+
+        model = models.Model(inputs=inputs, outputs=outputs)
+        logger.info("Model built: %s total params", model.count_params())
+        return model
+
+    def _predict_from_model(self, preprocessor: LotofacilPreprocessor) -> np.ndarray:
+        """Get probability predictions for the next draw."""
+        X_bin = preprocessor.prepare_lstm_sequences(window_size=LSTM_WINDOW_SIZE)
+        _, _, X_freq, X_atraso = preprocessor.prepare_enriched_sequences(window_size=LSTM_WINDOW_SIZE)
+
+        last_bin = X_bin[-1:]
+        last_freq = X_freq[-1:]
+        last_atraso = X_atraso[-1:]
+        combined = self._combine_inputs(last_bin, last_freq, last_atraso)
+
+        pred = self._model.predict(combined, verbose=0)[0]
+        if pred.sum() > 0:
+            pred /= pred.sum()
+        return pred
+
+    def predict_proba(self, draws: List[Draw] | None = None) -> np.ndarray:
+        if not self._fitted:
+            raise RuntimeError("Approach not fitted. Call fit() first.")
+
+        if self._probas is not None:
+            return self._probas
+
+        if draws is None:
+            raise RuntimeError("Draws required for inference when model was loaded.")
+
+        from data.preprocessor import LotofacilPreprocessor
+        preprocessor = LotofacilPreprocessor(draws)
+        probas = self._predict_from_model(preprocessor)
+        self._probas = probas
+        return probas
+
+    def get_training_history(self) -> dict:
+        """Return training metrics history."""
+        return self._history
+
+    def save(self, path: Path | None = None) -> None:
+        if path is None:
+            path = OUTPUT_MODELS / "lstm_attention_11numbers.keras"
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        self._model.save(str(path))
+        if self._history:
+            meta = {"history": self._history, "config": {
+                "units": [LSTM_UNITS_1, LSTM_UNITS_2, LSTM_UNITS_3],
+                "window": LSTM_WINDOW_SIZE,
+                "epochs": LSTM_EPOCHS,
+                "focal_gamma": FOCAL_LOSS_GAMMA,
+            }}
+            with open(path.with_suffix(".meta.json"), "w") as f:
+                json.dump(meta, f, indent=2)
+
+    def load(self, path: Path | None = None) -> None:
+        try:
+            from tensorflow.keras.models import load_model
+        except ImportError:
+            raise RuntimeError("TensorFlow is required for neural approach")
+
+        if path is None:
+            path = OUTPUT_MODELS / "lstm_attention_11numbers.keras"
+        self._model = load_model(str(path), custom_objects={"loss": focal_loss()})
+        self._fitted = True
+
+        meta_path = path.with_suffix(".meta.json")
+        if meta_path.exists():
+            with open(meta_path) as f:
+                meta = json.load(f)
+            self._history = meta.get("history", {})
+
+    @property
+    def name(self) -> str:
+        return "neural"
+
+    @property
+    def is_fitted(self) -> bool:
+        return self._fitted
+
+    def predict_with_filters(self, draws: List[Draw]) -> List[int]:
+        """Predict 11 numbers combining neural probabilities with statistical filters."""
+        if not self._fitted:
+            raise RuntimeError("Approach not fitted. Call fit() first.")
+
+        from data.preprocessor import LotofacilPreprocessor
+        from strategies.eleven_numbers.post_processor import optimize
+
+        preprocessor = LotofacilPreprocessor(draws)
+        probas = self._predict_from_model(preprocessor)
+
+        last_draw = draws[-1].dezenas if draws else None
+        optimized = optimize(probas, last_draw=last_draw)
+
+        return optimized

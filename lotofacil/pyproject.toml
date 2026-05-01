@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lotofacil-prediction"
+version = "2.0.0"
+description = "Sistema de predicao para Lotofacil com ML, redes neurais e modelos estatisticos"
+requires-python = ">=3.11"
+dependencies = [
+    "requests>=2.31.0",
+    "tenacity>=8.2.0",
+    "numpy>=1.24.0",
+    "pandas>=2.0.0",
+    "scikit-learn>=1.3.0",
+    "xgboost>=1.7.0",
+    "lightgbm>=4.0.0",
+    "joblib>=1.3.0",
+    "tensorflow>=2.16.0",
+    "APScheduler>=3.10.0",
+    "rich>=13.0.0",
+    "typer>=0.9.0",
+    "matplotlib>=3.7.0",
+    "seaborn>=0.12.0",
+    "Jinja2>=3.1.0",
+    "pydantic>=2.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "responses>=0.23.0",
+]
+
+[project.scripts]
+lotofacil = "src.main:app"
+
+[tool.setuptools.packages.find]
+include = ["src*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

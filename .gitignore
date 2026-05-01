@@ -1,0 +1,82 @@
+# ── Ambientes virtuais ────────────────────────────────────────────────────────
+venv/
+.venv/
+env/
+
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+*.egg-info/
+dist/
+build/
+
+# ── Dados históricos completos (apenas amostras são versionadas) ──────────────
+lotofacil/dados/*.json
+!lotofacil/dados/sample/
+lotofacil/dados/numeros_sorteados.json
+super-sete/dados/*.json
+!super-sete/dados/sample/
+super-sete/dados/numeros_sorteados.json
+dia-de-sorte/dados/*.json
+!dia-de-sorte/dados/sample/
+
+# Novo sistema de dados centralizado
+lotofacil/data/raw/concursos/*.json
+lotofacil/data/lotofacil.db
+lotofacil/data/processed/all_draws.json
+
+# ── Modelos ML treinados (binários grandes) ───────────────────────────────────
+*.joblib
+*.keras
+*.h5
+*.pkl
+lotofacil/src/models_saved/
+lotofacil/ml/modelos/
+lotofacil/ml/models/
+lotofacil/ml/datasets/
+lotofacil/ml/plots/
+lotofacil/ml/features_avancadas.csv
+lotofacil/app/models_saved/
+lotofacil/output/models/
+
+# ── Banco de dados SQLite ─────────────────────────────────────────────────────
+*.db
+*.sqlite
+*.sqlite3
+
+# ── Saídas geradas ────────────────────────────────────────────────────────────
+lotofacil/saida/
+lotofacil/ml/relatorio_backtest.json
+lotofacil/ml/recomendacao_*.json
+lotofacil/ml/validacao/
+lotofacil/ml/analise_winners/
+lotofacil/portfolio/backtest_validacao.json
+lotofacil/src/lotofacil_ml/relatorio.txt
+lotofacil/output/predictions/
+lotofacil/output/reports/
+
+# ── Legado ────────────────────────────────────────────────────────────────────
+lotofacil/legado/
+
+# ── Ferramentas de AI (uso interno de desenvolvimento) ────────────────────────
+CLAUDE.md
+AGENTS.md
+docs/superpowers/
+.cursor/
+.claude/
+prompt*.md
+promtp*.md
+PROMPT*.md
+prompt-*.md
+promtp-*.md
+
+# ── IDE e sistema ─────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/

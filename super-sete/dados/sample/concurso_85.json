@@ -1,0 +1,79 @@
+{
+  "loteria": "supersete",
+  "concurso": 85,
+  "data": "30/04/2021",
+  "local": "Espaço Loterias CAIXA em SAO PAULO, SP",
+  "dezenasOrdemSorteio": [
+    "6",
+    "2",
+    "4",
+    "8",
+    "5",
+    "0",
+    "7"
+  ],
+  "dezenas": [
+    "6",
+    "2",
+    "4",
+    "8",
+    "5",
+    "0",
+    "7"
+  ],
+  "trevos": [],
+  "timeCoracao": null,
+  "mesSorte": null,
+  "premiacoes": [
+    {
+      "descricao": "7 acertos",
+      "faixa": 1,
+      "ganhadores": 1,
+      "valorPremio": 7786502.83
+    },
+    {
+      "descricao": "6 acertos",
+      "faixa": 2,
+      "ganhadores": 5,
+      "valorPremio": 17166.97
+    },
+    {
+      "descricao": "5 acertos",
+      "faixa": 3,
+      "ganhadores": 134,
+      "valorPremio": 915.08
+    },
+    {
+      "descricao": "4 acertos",
+      "faixa": 4,
+      "ganhadores": 2226,
+      "valorPremio": 55.08
+    },
+    {
+      "descricao": "3 acertos",
+      "faixa": 5,
+      "ganhadores": 20323,
+      "valorPremio": 5.0
+    }
+  ],
+  "estadosPremiados": [],
+  "observacao": "",
+  "acumulou": false,
+  "proximoConcurso": 86,
+  "dataProximoConcurso": "03/05/2021",
+  "localGanhadores": [
+    {
+      "ganhadores": 1,
+      "municipio": "CAUCAIA",
+      "nomeFatansiaUL": "",
+      "serie": "",
+      "posicao": 1,
+      "uf": "CE"
+    }
+  ],
+  "valorArrecadado": 2120160.0,
+  "valorAcumuladoConcurso_0_5": 0.0,
+  "valorAcumuladoConcursoEspecial": 0.0,
+  "valorAcumuladoProximoConcurso": 0.0,
+  "valorEstimadoProximoConcurso": 150000.0
+}

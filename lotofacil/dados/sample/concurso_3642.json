@@ -1,0 +1,96 @@
+{
+  "loteria": "lotofacil",
+  "concurso": 3642,
+  "data": "21/03/2026",
+  "local": "ESPAÇO DA SORTE em SÃO PAULO, SP",
+  "concursoEspecial": false,
+  "dezenasOrdemSorteio": [
+    "09",
+    "23",
+    "07",
+    "12",
+    "04",
+    "06",
+    "25",
+    "10",
+    "14",
+    "05",
+    "20",
+    "01",
+    "02",
+    "13",
+    "18"
+  ],
+  "dezenas": [
+    "01",
+    "02",
+    "04",
+    "05",
+    "06",
+    "07",
+    "09",
+    "10",
+    "12",
+    "13",
+    "14",
+    "18",
+    "20",
+    "23",
+    "25"
+  ],
+  "trevos": [],
+  "timeCoracao": null,
+  "mesSorte": null,
+  "premiacoes": [
+    {
+      "descricao": "15 acertos",
+      "faixa": 1,
+      "ganhadores": 1,
+      "valorPremio": 1474410.11
+    },
+    {
+      "descricao": "14 acertos",
+      "faixa": 2,
+      "ganhadores": 262,
+      "valorPremio": 1685.66
+    },
+    {
+      "descricao": "13 acertos",
+      "faixa": 3,
+      "ganhadores": 10507,
+      "valorPremio": 35.0
+    },
+    {
+      "descricao": "12 acertos",
+      "faixa": 4,
+      "ganhadores": 121200,
+      "valorPremio": 14.0
+    },
+    {
+      "descricao": "11 acertos",
+      "faixa": 5,
+      "ganhadores": 610305,
+      "valorPremio": 7.0
+    }
+  ],
+  "estadosPremiados": [],
+  "observacao": "",
+  "acumulou": false,
+  "proximoConcurso": 3643,
+  "dataProximoConcurso": "23/03/2026",
+  "localGanhadores": [
+    {
+      "ganhadores": 1,
+      "municipio": "HIDROLANDIA",
+      "nomeFatansiaUL": "",
+      "serie": "",
+      "posicao": 1,
+      "uf": "GO"
+    }
+  ],
+  "valorArrecadado": 22228678.5,
+  "valorAcumuladoConcurso_0_5": 957356.38,
+  "valorAcumuladoConcursoEspecial": 84234140.22,
+  "valorAcumuladoProximoConcurso": 0.0,
+  "valorEstimadoProximoConcurso": 2000000.0
+}

@@ -1,0 +1,79 @@
+{
+  "loteria": "supersete",
+  "concurso": 733,
+  "data": "15/08/2025",
+  "local": "Espaço da Sorte em SAO PAULO, SP",
+  "dezenasOrdemSorteio": [
+    "1",
+    "5",
+    "9",
+    "8",
+    "8",
+    "8",
+    "3"
+  ],
+  "dezenas": [
+    "1",
+    "5",
+    "9",
+    "8",
+    "8",
+    "8",
+    "3"
+  ],
+  "trevos": [],
+  "timeCoracao": null,
+  "mesSorte": null,
+  "premiacoes": [
+    {
+      "descricao": "7 acertos",
+      "faixa": 1,
+      "ganhadores": 1,
+      "valorPremio": 5528992.43
+    },
+    {
+      "descricao": "6 acertos",
+      "faixa": 2,
+      "ganhadores": 9,
+      "valorPremio": 5750.18
+    },
+    {
+      "descricao": "5 acertos",
+      "faixa": 3,
+      "ganhadores": 89,
+      "valorPremio": 830.68
+    },
+    {
+      "descricao": "4 acertos",
+      "faixa": 4,
+      "ganhadores": 1262,
+      "valorPremio": 58.58
+    },
+    {
+      "descricao": "3 acertos",
+      "faixa": 5,
+      "ganhadores": 10798,
+      "valorPremio": 5.0
+    }
+  ],
+  "estadosPremiados": [],
+  "observacao": "",
+  "acumulou": false,
+  "proximoConcurso": 734,
+  "dataProximoConcurso": "18/08/2025",
+  "localGanhadores": [
+    {
+      "ganhadores": 1,
+      "municipio": "JARAGUA DO SUL",
+      "nomeFatansiaUL": "",
+      "serie": "",
+      "posicao": 1,
+      "uf": "SC"
+    }
+  ],
+  "valorArrecadado": 1248830.0,
+  "valorAcumuladoConcurso_0_5": 0.0,
+  "valorAcumuladoConcursoEspecial": 0.0,
+  "valorAcumuladoProximoConcurso": 0.0,
+  "valorEstimadoProximoConcurso": 100000.0
+}

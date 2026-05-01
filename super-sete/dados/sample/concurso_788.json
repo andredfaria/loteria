@@ -1,0 +1,87 @@
+{
+  "loteria": "supersete",
+  "concurso": 788,
+  "data": "22/12/2025",
+  "local": "Espaço da Sorte em SAO PAULO, SP",
+  "dezenasOrdemSorteio": [
+    "1",
+    "7",
+    "1",
+    "2",
+    "2",
+    "4",
+    "0"
+  ],
+  "dezenas": [
+    "1",
+    "7",
+    "1",
+    "2",
+    "2",
+    "4",
+    "0"
+  ],
+  "trevos": [],
+  "timeCoracao": null,
+  "mesSorte": null,
+  "premiacoes": [
+    {
+      "descricao": "7 acertos",
+      "faixa": 1,
+      "ganhadores": 2,
+      "valorPremio": 363960.24
+    },
+    {
+      "descricao": "6 acertos",
+      "faixa": 2,
+      "ganhadores": 4,
+      "valorPremio": 5595.83
+    },
+    {
+      "descricao": "5 acertos",
+      "faixa": 3,
+      "ganhadores": 65,
+      "valorPremio": 491.94
+    },
+    {
+      "descricao": "4 acertos",
+      "faixa": 4,
+      "ganhadores": 588,
+      "valorPremio": 54.38
+    },
+    {
+      "descricao": "3 acertos",
+      "faixa": 5,
+      "ganhadores": 4911,
+      "valorPremio": 6.0
+    }
+  ],
+  "estadosPremiados": [],
+  "observacao": "",
+  "acumulou": false,
+  "proximoConcurso": 789,
+  "dataProximoConcurso": "24/12/2025",
+  "localGanhadores": [
+    {
+      "ganhadores": 1,
+      "municipio": "SANTA MARIA",
+      "nomeFatansiaUL": "",
+      "serie": "",
+      "posicao": 1,
+      "uf": "RS"
+    },
+    {
+      "ganhadores": 1,
+      "municipio": "FERNANDOPOLIS",
+      "nomeFatansiaUL": "",
+      "serie": "",
+      "posicao": 1,
+      "uf": "SP"
+    }
+  ],
+  "valorArrecadado": 554100.0,
+  "valorAcumuladoConcurso_0_5": 0.0,
+  "valorAcumuladoConcursoEspecial": 0.0,
+  "valorAcumuladoProximoConcurso": 0.0,
+  "valorEstimadoProximoConcurso": 100000.0
+}

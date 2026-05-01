@@ -1,0 +1,70 @@
+{
+  "loteria": "supersete",
+  "concurso": 774,
+  "data": "19/11/2025",
+  "local": "Espaço da Sorte em SAO PAULO, SP",
+  "dezenasOrdemSorteio": [
+    "7",
+    "9",
+    "9",
+    "8",
+    "6",
+    "2",
+    "6"
+  ],
+  "dezenas": [
+    "7",
+    "9",
+    "9",
+    "8",
+    "6",
+    "2",
+    "6"
+  ],
+  "trevos": [],
+  "timeCoracao": null,
+  "mesSorte": null,
+  "premiacoes": [
+    {
+      "descricao": "7 acertos",
+      "faixa": 1,
+      "ganhadores": 0,
+      "valorPremio": 0.0
+    },
+    {
+      "descricao": "6 acertos",
+      "faixa": 2,
+      "ganhadores": 2,
+      "valorPremio": 26949.07
+    },
+    {
+      "descricao": "5 acertos",
+      "faixa": 3,
+      "ganhadores": 76,
+      "valorPremio": 1013.12
+    },
+    {
+      "descricao": "4 acertos",
+      "faixa": 4,
+      "ganhadores": 994,
+      "valorPremio": 77.46
+    },
+    {
+      "descricao": "3 acertos",
+      "faixa": 5,
+      "ganhadores": 8833,
+      "valorPremio": 6.0
+    }
+  ],
+  "estadosPremiados": [],
+  "observacao": "",
+  "acumulou": true,
+  "proximoConcurso": 775,
+  "dataProximoConcurso": "21/11/2025",
+  "localGanhadores": [],
+  "valorArrecadado": 1293249.0,
+  "valorAcumuladoConcurso_0_5": 0.0,
+  "valorAcumuladoConcursoEspecial": 0.0,
+  "valorAcumuladoProximoConcurso": 4850199.18,
+  "valorEstimadoProximoConcurso": 5200000.0
+}

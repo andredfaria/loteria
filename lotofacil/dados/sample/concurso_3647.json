@@ -1,0 +1,104 @@
+{
+  "loteria": "lotofacil",
+  "concurso": 3647,
+  "data": "27/03/2026",
+  "local": "ESPAÇO DA SORTE em SÃO PAULO, SP",
+  "concursoEspecial": false,
+  "dezenasOrdemSorteio": [
+    "25",
+    "17",
+    "22",
+    "12",
+    "02",
+    "15",
+    "16",
+    "04",
+    "19",
+    "21",
+    "08",
+    "10",
+    "20",
+    "05",
+    "24"
+  ],
+  "dezenas": [
+    "02",
+    "04",
+    "05",
+    "08",
+    "10",
+    "12",
+    "15",
+    "16",
+    "17",
+    "19",
+    "20",
+    "21",
+    "22",
+    "24",
+    "25"
+  ],
+  "trevos": [],
+  "timeCoracao": null,
+  "mesSorte": null,
+  "premiacoes": [
+    {
+      "descricao": "15 acertos",
+      "faixa": 1,
+      "ganhadores": 3,
+      "valorPremio": 523457.4
+    },
+    {
+      "descricao": "14 acertos",
+      "faixa": 2,
+      "ganhadores": 351,
+      "valorPremio": 1340.13
+    },
+    {
+      "descricao": "13 acertos",
+      "faixa": 3,
+      "ganhadores": 9779,
+      "valorPremio": 35.0
+    },
+    {
+      "descricao": "12 acertos",
+      "faixa": 4,
+      "ganhadores": 107368,
+      "valorPremio": 14.0
+    },
+    {
+      "descricao": "11 acertos",
+      "faixa": 5,
+      "ganhadores": 525153,
+      "valorPremio": 7.0
+    }
+  ],
+  "estadosPremiados": [],
+  "observacao": "",
+  "acumulou": false,
+  "proximoConcurso": 3648,
+  "dataProximoConcurso": "28/03/2026",
+  "localGanhadores": [
+    {
+      "ganhadores": 2,
+      "municipio": "CANAL ELETRONICO",
+      "nomeFatansiaUL": "",
+      "serie": "",
+      "posicao": 1,
+      "uf": "--"
+    },
+    {
+      "ganhadores": 1,
+      "municipio": "SAO ROQUE",
+      "nomeFatansiaUL": "",
+      "serie": "",
+      "posicao": 1,
+      "uf": "SP"
+    }
+  ],
+  "valorArrecadado": 20872019.0,
+  "valorAcumuladoConcurso_0_5": 2044388.98,
+  "valorAcumuladoConcursoEspecial": 85864689.17,
+  "valorAcumuladoProximoConcurso": 0.0,
+  "valorEstimadoProximoConcurso": 2000000.0
+}

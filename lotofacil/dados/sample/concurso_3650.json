@@ -1,0 +1,104 @@
+{
+  "loteria": "lotofacil",
+  "concurso": 3650,
+  "data": "31/03/2026",
+  "local": "ESPAÇO DA SORTE em SÃO PAULO, SP",
+  "concursoEspecial": false,
+  "dezenasOrdemSorteio": [
+    "25",
+    "21",
+    "11",
+    "05",
+    "17",
+    "10",
+    "06",
+    "13",
+    "16",
+    "07",
+    "12",
+    "08",
+    "20",
+    "02",
+    "22"
+  ],
+  "dezenas": [
+    "02",
+    "05",
+    "06",
+    "07",
+    "08",
+    "10",
+    "11",
+    "12",
+    "13",
+    "16",
+    "17",
+    "20",
+    "21",
+    "22",
+    "25"
+  ],
+  "trevos": [],
+  "timeCoracao": null,
+  "mesSorte": null,
+  "premiacoes": [
+    {
+      "descricao": "15 acertos",
+      "faixa": 1,
+      "ganhadores": 2,
+      "valorPremio": 3522335.86
+    },
+    {
+      "descricao": "14 acertos",
+      "faixa": 2,
+      "ganhadores": 544,
+      "valorPremio": 2015.55
+    },
+    {
+      "descricao": "13 acertos",
+      "faixa": 3,
+      "ganhadores": 17363,
+      "valorPremio": 35.0
+    },
+    {
+      "descricao": "12 acertos",
+      "faixa": 4,
+      "ganhadores": 195159,
+      "valorPremio": 14.0
+    },
+    {
+      "descricao": "11 acertos",
+      "faixa": 5,
+      "ganhadores": 1067420,
+      "valorPremio": 7.0
+    }
+  ],
+  "estadosPremiados": [],
+  "observacao": "",
+  "acumulou": false,
+  "proximoConcurso": 3651,
+  "dataProximoConcurso": "01/04/2026",
+  "localGanhadores": [
+    {
+      "ganhadores": 1,
+      "municipio": "CANAL ELETRONICO",
+      "nomeFatansiaUL": "",
+      "serie": "",
+      "posicao": 1,
+      "uf": "--"
+    },
+    {
+      "ganhadores": 1,
+      "municipio": "MANAUS",
+      "nomeFatansiaUL": "",
+      "serie": "",
+      "posicao": 1,
+      "uf": "AM"
+    }
+  ],
+  "valorArrecadado": 43951117.0,
+  "valorAcumuladoConcurso_0_5": 0.0,
+  "valorAcumuladoConcursoEspecial": 87874368.96,
+  "valorAcumuladoProximoConcurso": 0.0,
+  "valorEstimadoProximoConcurso": 2000000.0
+}

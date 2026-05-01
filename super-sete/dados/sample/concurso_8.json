@@ -1,0 +1,70 @@
+{
+  "loteria": "supersete",
+  "concurso": 8,
+  "data": "21/10/2020",
+  "local": "Espaço Loterias CAIXA em SAO PAULO, SP",
+  "dezenasOrdemSorteio": [
+    "7",
+    "0",
+    "9",
+    "2",
+    "0",
+    "2",
+    "5"
+  ],
+  "dezenas": [
+    "7",
+    "0",
+    "9",
+    "2",
+    "0",
+    "2",
+    "5"
+  ],
+  "trevos": [],
+  "timeCoracao": null,
+  "mesSorte": null,
+  "premiacoes": [
+    {
+      "descricao": "7 acertos",
+      "faixa": 1,
+      "ganhadores": 0,
+      "valorPremio": 0.0
+    },
+    {
+      "descricao": "6 acertos",
+      "faixa": 2,
+      "ganhadores": 2,
+      "valorPremio": 45499.32
+    },
+    {
+      "descricao": "5 acertos",
+      "faixa": 3,
+      "ganhadores": 99,
+      "valorPremio": 1313.11
+    },
+    {
+      "descricao": "4 acertos",
+      "faixa": 4,
+      "ganhadores": 1661,
+      "valorPremio": 78.26
+    },
+    {
+      "descricao": "3 acertos",
+      "faixa": 5,
+      "ganhadores": 16179,
+      "valorPremio": 5.0
+    }
+  ],
+  "estadosPremiados": [],
+  "observacao": "",
+  "acumulou": true,
+  "proximoConcurso": 9,
+  "dataProximoConcurso": "23/10/2020",
+  "localGanhadores": [],
+  "valorArrecadado": 2185810.0,
+  "valorAcumuladoConcurso_0_5": 0.0,
+  "valorAcumuladoConcursoEspecial": 0.0,
+  "valorAcumuladoProximoConcurso": 1727322.94,
+  "valorEstimadoProximoConcurso": 2100000.0
+}

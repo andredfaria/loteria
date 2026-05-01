@@ -1,0 +1,70 @@
+{
+  "loteria": "supersete",
+  "concurso": 797,
+  "data": "12/01/2026",
+  "local": "Espaço da Sorte em SAO PAULO, SP",
+  "dezenasOrdemSorteio": [
+    "3",
+    "1",
+    "4",
+    "8",
+    "3",
+    "0",
+    "6"
+  ],
+  "dezenas": [
+    "3",
+    "1",
+    "4",
+    "8",
+    "3",
+    "0",
+    "6"
+  ],
+  "trevos": [],
+  "timeCoracao": null,
+  "mesSorte": null,
+  "premiacoes": [
+    {
+      "descricao": "7 acertos",
+      "faixa": 1,
+      "ganhadores": 0,
+      "valorPremio": 0.0
+    },
+    {
+      "descricao": "6 acertos",
+      "faixa": 2,
+      "ganhadores": 0,
+      "valorPremio": 0.0
+    },
+    {
+      "descricao": "5 acertos",
+      "faixa": 3,
+      "ganhadores": 30,
+      "valorPremio": 1119.06
+    },
+    {
+      "descricao": "4 acertos",
+      "faixa": 4,
+      "ganhadores": 426,
+      "valorPremio": 78.8
+    },
+    {
+      "descricao": "3 acertos",
+      "faixa": 5,
+      "ganhadores": 4529,
+      "valorPremio": 6.0
+    }
+  ],
+  "estadosPremiados": [],
+  "observacao": "",
+  "acumulou": true,
+  "proximoConcurso": 798,
+  "dataProximoConcurso": "14/01/2026",
+  "localGanhadores": [],
+  "valorArrecadado": 573159.0,
+  "valorAcumuladoConcurso_0_5": 0.0,
+  "valorAcumuladoConcursoEspecial": 0.0,
+  "valorAcumuladoProximoConcurso": 757345.4,
+  "valorEstimadoProximoConcurso": 850000.0
+}

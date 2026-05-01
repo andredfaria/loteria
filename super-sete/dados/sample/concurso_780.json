@@ -1,0 +1,79 @@
+{
+  "loteria": "supersete",
+  "concurso": 780,
+  "data": "03/12/2025",
+  "local": "Espaço da Sorte em SAO PAULO, SP",
+  "dezenasOrdemSorteio": [
+    "5",
+    "4",
+    "0",
+    "2",
+    "2",
+    "3",
+    "9"
+  ],
+  "dezenas": [
+    "5",
+    "4",
+    "0",
+    "2",
+    "2",
+    "3",
+    "9"
+  ],
+  "trevos": [],
+  "timeCoracao": null,
+  "mesSorte": null,
+  "premiacoes": [
+    {
+      "descricao": "7 acertos",
+      "faixa": 1,
+      "ganhadores": 1,
+      "valorPremio": 6340541.93
+    },
+    {
+      "descricao": "6 acertos",
+      "faixa": 2,
+      "ganhadores": 0,
+      "valorPremio": 0.0
+    },
+    {
+      "descricao": "5 acertos",
+      "faixa": 3,
+      "ganhadores": 73,
+      "valorPremio": 1398.74
+    },
+    {
+      "descricao": "4 acertos",
+      "faixa": 4,
+      "ganhadores": 1458,
+      "valorPremio": 70.03
+    },
+    {
+      "descricao": "3 acertos",
+      "faixa": 5,
+      "ganhadores": 13576,
+      "valorPremio": 6.0
+    }
+  ],
+  "estadosPremiados": [],
+  "observacao": "",
+  "acumulou": false,
+  "proximoConcurso": 781,
+  "dataProximoConcurso": "05/12/2025",
+  "localGanhadores": [
+    {
+      "ganhadores": 1,
+      "municipio": "MOCOCA",
+      "nomeFatansiaUL": "",
+      "serie": "",
+      "posicao": 1,
+      "uf": "SP"
+    }
+  ],
+  "valorArrecadado": 1740531.0,
+  "valorAcumuladoConcurso_0_5": 0.0,
+  "valorAcumuladoConcursoEspecial": 0.0,
+  "valorAcumuladoProximoConcurso": 71475.86,
+  "valorEstimadoProximoConcurso": 100000.0
+}

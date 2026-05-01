@@ -1,0 +1,112 @@
+{
+  "loteria": "lotofacil",
+  "concurso": 3653,
+  "data": "04/04/2026",
+  "local": "ESPAÇO DA SORTE em SÃO PAULO, SP",
+  "concursoEspecial": false,
+  "dezenasOrdemSorteio": [
+    "19",
+    "14",
+    "21",
+    "04",
+    "07",
+    "13",
+    "08",
+    "20",
+    "10",
+    "11",
+    "16",
+    "18",
+    "03",
+    "02",
+    "06"
+  ],
+  "dezenas": [
+    "02",
+    "03",
+    "04",
+    "06",
+    "07",
+    "08",
+    "10",
+    "11",
+    "13",
+    "14",
+    "16",
+    "18",
+    "19",
+    "20",
+    "21"
+  ],
+  "trevos": [],
+  "timeCoracao": null,
+  "mesSorte": null,
+  "premiacoes": [
+    {
+      "descricao": "15 acertos",
+      "faixa": 1,
+      "ganhadores": 3,
+      "valorPremio": 1615753.16
+    },
+    {
+      "descricao": "14 acertos",
+      "faixa": 2,
+      "ganhadores": 441,
+      "valorPremio": 2074.39
+    },
+    {
+      "descricao": "13 acertos",
+      "faixa": 3,
+      "ganhadores": 14358,
+      "valorPremio": 35.0
+    },
+    {
+      "descricao": "12 acertos",
+      "faixa": 4,
+      "ganhadores": 160632,
+      "valorPremio": 14.0
+    },
+    {
+      "descricao": "11 acertos",
+      "faixa": 5,
+      "ganhadores": 869699,
+      "valorPremio": 7.0
+    }
+  ],
+  "estadosPremiados": [],
+  "observacao": "",
+  "acumulou": false,
+  "proximoConcurso": 3654,
+  "dataProximoConcurso": "06/04/2026",
+  "localGanhadores": [
+    {
+      "ganhadores": 1,
+      "municipio": "CANAL ELETRONICO",
+      "nomeFatansiaUL": "",
+      "serie": "",
+      "posicao": 1,
+      "uf": "--"
+    },
+    {
+      "ganhadores": 1,
+      "municipio": "SOMBRIO",
+      "nomeFatansiaUL": "",
+      "serie": "",
+      "posicao": 1,
+      "uf": "SC"
+    },
+    {
+      "ganhadores": 1,
+      "municipio": "CAMPINAS",
+      "nomeFatansiaUL": "",
+      "serie": "",
+      "posicao": 1,
+      "uf": "SP"
+    }
+  ],
+  "valorArrecadado": 36255446.5,
+  "valorAcumuladoConcurso_0_5": 1031901.14,
+  "valorAcumuladoConcursoEspecial": 89422220.7,
+  "valorAcumuladoProximoConcurso": 0.0,
+  "valorEstimadoProximoConcurso": 2000000.0
+}

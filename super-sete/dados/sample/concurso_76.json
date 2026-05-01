@@ -1,0 +1,70 @@
+{
+  "loteria": "supersete",
+  "concurso": 76,
+  "data": "07/04/2021",
+  "local": "Espaço Loterias CAIXA em SAO PAULO, SP",
+  "dezenasOrdemSorteio": [
+    "1",
+    "2",
+    "3",
+    "7",
+    "1",
+    "9",
+    "7"
+  ],
+  "dezenas": [
+    "1",
+    "2",
+    "3",
+    "7",
+    "1",
+    "9",
+    "7"
+  ],
+  "trevos": [],
+  "timeCoracao": null,
+  "mesSorte": null,
+  "premiacoes": [
+    {
+      "descricao": "7 acertos",
+      "faixa": 1,
+      "ganhadores": 0,
+      "valorPremio": 0.0
+    },
+    {
+      "descricao": "6 acertos",
+      "faixa": 2,
+      "ganhadores": 3,
+      "valorPremio": 21186.66
+    },
+    {
+      "descricao": "5 acertos",
+      "faixa": 3,
+      "ganhadores": 151,
+      "valorPremio": 601.32
+    },
+    {
+      "descricao": "4 acertos",
+      "faixa": 4,
+      "ganhadores": 2890,
+      "valorPremio": 31.41
+    },
+    {
+      "descricao": "3 acertos",
+      "faixa": 5,
+      "ganhadores": 18065,
+      "valorPremio": 5.0
+    }
+  ],
+  "estadosPremiados": [],
+  "observacao": "",
+  "acumulou": true,
+  "proximoConcurso": 77,
+  "dataProximoConcurso": "09/04/2021",
+  "localGanhadores": [],
+  "valorArrecadado": 1604747.5,
+  "valorAcumuladoConcurso_0_5": 0.0,
+  "valorAcumuladoConcursoEspecial": 0.0,
+  "valorAcumuladoProximoConcurso": 5136367.01,
+  "valorEstimadoProximoConcurso": 5300000.0
+}
