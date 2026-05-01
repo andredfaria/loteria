@@ -369,7 +369,7 @@ def main() -> None:
     print("\n[3/4] Calculando probabilidades (ensemble estatístico + ML)...")
     probas = get_probabilities(draws)
 
-    ranked = list(np.argsort(probas)[::-1] + 1)   # numbers best → worst
+    ranked = [int(x) for x in np.argsort(probas)[::-1] + 1]  # numbers best → worst
     core = ranked[:11]
     print(f"  Core 11 números: {sorted(core)}")
     print(f"  Probabilidade média core: {np.mean([probas[n-1] for n in core]):.4f}")
