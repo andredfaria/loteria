@@ -14,7 +14,7 @@ from typing import Dict, Optional
 
 _ROOT = Path(__file__).resolve().parent.parent.parent
 
-CUSTO_POR_JOGO = 2.50  # BRL
+CUSTO_POR_JOGO = 3.50  # BRL
 
 ALOCACAO_PADRAO = {
     "conservadora": 3,   # Carteira A

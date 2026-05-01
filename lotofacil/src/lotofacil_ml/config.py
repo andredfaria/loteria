@@ -74,7 +74,7 @@ SCHEDULE_RETRAIN_HOUR = 2
 HIT_THRESHOLDS = [11, 12, 13, 14, 15]
 
 # ── Financial simulation ────────────────────────────────────────────────────────
-COST_PER_GAME: float = 3.00
+COST_PER_GAME: float = 3.50
 
 # Fixed prizes (11-13 pts) and representative averages (14-15 pts) in BRL.
 # Source: Caixa rules. Update periodically for accurate financial simulation.

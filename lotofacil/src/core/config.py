@@ -37,7 +37,7 @@ VALID_NUMBERS = set(range(1, TOTAL_NUMBERS + 1))
 HIT_THRESHOLDS = [11, 12, 13, 14, 15]
 
 # ── Cost / Prize ───────────────────────────────────────────────────────────────
-COST_PER_GAME: float = 3.00
+COST_PER_GAME: float = 3.50
 
 PRIZE_TABLE: dict[int, float] = {
     11: 7.00,
