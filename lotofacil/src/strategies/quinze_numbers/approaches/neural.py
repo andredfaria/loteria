@@ -98,14 +98,14 @@ class NeuralApproach:
             raise RuntimeError("TensorFlow is required for neural approach")
 
         preprocessor = LotofacilPreprocessor(draws)
-        X_bin, y_bin, X_freq, X_atraso = preprocessor.prepare_enriched_sequences(
+        X_bin, y_bin, X_freq, X_atraso, X_climate = preprocessor.prepare_enriched_sequences(
             window_size=NEURAL_WINDOW_SIZE
         )
 
         if len(X_bin) < 20:
             raise ValueError(f"Not enough data: got {len(X_bin)} sequences, need >=20")
 
-        combined_input = self._combine_inputs(X_bin, X_freq, X_atraso)
+        combined_input = self._combine_inputs(X_bin, X_freq, X_atraso, X_climate)
 
         n_samples = len(combined_input)
         n_val = max(1, int(n_samples * NEURAL_VAL_SPLIT))
@@ -163,9 +163,10 @@ class NeuralApproach:
         self._probas = probas
         self._fitted = True
 
-    def _combine_inputs(self, binary: np.ndarray, freq: np.ndarray, atraso: np.ndarray) -> np.ndarray:
-        """Combine binary, frequency and delay features into single input tensor."""
-        combined = np.concatenate([binary, freq, atraso[:, None, :].repeat(binary.shape[1], axis=1)], axis=-1)
+    def _combine_inputs(self, binary: np.ndarray, freq: np.ndarray, atraso: np.ndarray, climate: np.ndarray) -> np.ndarray:
+        """Combine binary, frequency, delay and climate features into single input tensor."""
+        atraso_expanded = atraso[:, None, :].repeat(binary.shape[1], axis=1)
+        combined = np.concatenate([binary, freq, atraso_expanded, climate], axis=-1)
         return combined
 
     def _build_model(self):
@@ -176,7 +177,7 @@ class NeuralApproach:
         except ImportError:
             raise RuntimeError("TensorFlow is required")
 
-        n_features = TOTAL_NUMBERS * 3
+        n_features = TOTAL_NUMBERS * 3 + 8
 
         inputs = Input(shape=(NEURAL_WINDOW_SIZE, n_features))
 
@@ -206,12 +207,13 @@ class NeuralApproach:
     def _predict_from_model(self, preprocessor: LotofacilPreprocessor) -> np.ndarray:
         """Get probability predictions for the next draw."""
         X_bin = preprocessor.prepare_lstm_sequences(window_size=NEURAL_WINDOW_SIZE)
-        _, _, X_freq, X_atraso = preprocessor.prepare_enriched_sequences(window_size=NEURAL_WINDOW_SIZE)
+        _, _, X_freq, X_atraso, X_climate = preprocessor.prepare_enriched_sequences(window_size=NEURAL_WINDOW_SIZE)
 
         last_bin = X_bin[-1:]
         last_freq = X_freq[-1:]
         last_atraso = X_atraso[-1:]
-        combined = self._combine_inputs(last_bin, last_freq, last_atraso)
+        last_climate = X_climate[-1:]
+        combined = self._combine_inputs(last_bin, last_freq, last_atraso, last_climate)
 
         pred = self._model.predict(combined, verbose=0)[0]
         if pred.sum() > 0:

@@ -29,6 +29,9 @@ seaborn>=0.12.0
 # Templates HTML
 Jinja2>=3.1.0
 
+# Astronomia (lunar features — offline, sem API)
+pylunar>=0.7.0
+
 # Testes
 responses>=0.23.0
 pytest>=7.4.0

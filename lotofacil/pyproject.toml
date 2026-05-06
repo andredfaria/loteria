@@ -39,4 +39,4 @@ lotofacil = "src.main:app"
 include = ["src*"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "src/lotofacil_lab/tests"]

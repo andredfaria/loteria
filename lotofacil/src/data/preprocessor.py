@@ -10,6 +10,7 @@ import numpy as np
 
 from core.config import TOTAL_NUMBERS, NUMBERS_PER_DRAW, FREQ_WINDOWS, LSTM_WINDOW_SIZE
 from core.models import Draw
+from data.climate_loader import load_all_climate, normalize_climate, get_or_fetch_climate
 
 logger = logging.getLogger(__name__)
 
@@ -21,12 +22,21 @@ def _parse_date(date_str: str) -> datetime:
         return datetime(2000, 1, 1)
 
 
+def _to_iso_date(date_str: str) -> str:
+    """Convert DD/MM/YYYY to YYYY-MM-DD, or return empty string on failure."""
+    try:
+        return datetime.strptime(date_str.strip(), "%d/%m/%Y").strftime("%Y-%m-%d")
+    except (ValueError, AttributeError):
+        return ""
+
+
 class LotofacilPreprocessor:
     """Transform a list of Draw objects into ML-ready feature arrays."""
 
     def __init__(self, draws: list[Draw]):
         self.draws = sorted(draws, key=lambda d: d.concurso)
         self.n = len(self.draws)
+        self._climate_map = load_all_climate()
 
     def _binary_matrix(self) -> np.ndarray:
         """Shape (n, 25): 1 if number appeared in draw i."""
@@ -85,6 +95,38 @@ class LotofacilPreprocessor:
             feats[i, 1] = np.cos(2 * np.pi * dow / 7)
             feats[i, 2] = np.sin(2 * np.pi * month / 12)
             feats[i, 3] = np.cos(2 * np.pi * month / 12)
+        return feats
+
+    def _climate_features(self) -> np.ndarray:
+        """Per-draw climate features, shape (n, 8).
+
+        Features per draw:
+            temp_min, temp_max, temp_media, temp_sorteio (normalized /40)
+            precip_media, precip_sorteio (normalized /100)
+            wcode_sorteio, wcode_dominant (normalized /99)
+
+        Missing climate data → fetches from Open-Meteo API and saves locally.
+        If API also fails → zeros (graceful degradation).
+        """
+        feats = np.zeros((self.n, 8), dtype=np.float32)
+        for i, draw in enumerate(self.draws):
+            if draw.concurso in self._climate_map:
+                resumo = self._climate_map[draw.concurso]
+                feats[i] = normalize_climate(resumo)
+                continue
+
+            date_iso = _to_iso_date(draw.data)
+            if not date_iso:
+                continue
+
+            resumo = get_or_fetch_climate(draw.concurso, date_iso)
+            if resumo:
+                self._climate_map[draw.concurso] = resumo
+                feats[i] = normalize_climate(resumo)
+            else:
+                logger.warning("No climate data for concurso %s (%s), using zeros",
+                               draw.concurso, date_iso)
+
         return feats
 
     def prepare_dataset(self) -> Tuple[np.ndarray, np.ndarray]:
@@ -157,27 +199,31 @@ class LotofacilPreprocessor:
             y: (n - window_size, 25) next draw binary
             freq: (n - window_size, window_size, 25) sliding frequency
             atraso: (n - window_size, 25) delay features
+            climate: (n - window_size, window_size, 8) climate features
         """
         binary = self._binary_matrix()
         freq = self._sliding_frequency(binary, 10)
         days_since = self._days_since_last(binary)
         atraso_norm = np.clip(days_since / 20.0, 0, 1)
+        climate = self._climate_features()
 
-        X_seq, y_seq, f_seq, a_seq = [], [], [], []
+        X_seq, y_seq, f_seq, a_seq, c_seq = [], [], [], [], []
         for i in range(window_size, self.n):
             X_seq.append(binary[i - window_size:i])
             y_seq.append(binary[i])
             f_seq.append(freq[i - window_size:i])
             a_seq.append(atraso_norm[i])
+            c_seq.append(climate[i - window_size:i])
 
         X_arr = np.array(X_seq, dtype=np.float32)
         y_arr = np.array(y_seq, dtype=np.float32)
         f_arr = np.array(f_seq, dtype=np.float32)
         a_arr = np.array(a_seq, dtype=np.float32)
+        c_arr = np.array(c_seq, dtype=np.float32)
 
-        logger.info("Enriched sequences: X=%s y=%s freq=%s atraso=%s",
-                     X_arr.shape, y_arr.shape, f_arr.shape, a_arr.shape)
-        return X_arr, y_arr, f_arr, a_arr
+        logger.info("Enriched sequences: X=%s y=%s freq=%s atraso=%s climate=%s",
+                     X_arr.shape, y_arr.shape, f_arr.shape, a_arr.shape, c_arr.shape)
+        return X_arr, y_arr, f_arr, a_arr, c_arr
 
     def prepare_advanced_sequences(self, window_size: int = LSTM_WINDOW_SIZE):
         """
