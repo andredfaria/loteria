@@ -9,6 +9,8 @@ Sistema modular de predição para a Lotofácil (15 números de 1–25) com Mach
 ## Instalação
 
 ```bash
+git clone https://github.com/andredfaria/loteria.git
+cd loteria/lotofacil
 python -m venv venv && source venv/bin/activate
 pip install -e .
 ```
@@ -20,31 +22,32 @@ pip install -e .
 ## Uso Rápido
 
 ```bash
-# Coletar sorteios
-python src/main.py collect --latest
-python src/main.py collect --sync
+# Dados
+lotofacil dados atualizar --all   # importa histórico completo de dados/
+lotofacil dados atualizar         # sincroniza novos sorteios da API
+lotofacil dados status            # último concurso, total de draws
 
-# Processar dados
-python src/main.py process
+# Modelos
+lotofacil modelo treinar          # treina ensemble (Frequency + ML + LSTM)
+lotofacil modelo backtest         # walk-forward → saida/relatorio.html
+lotofacil modelo historico        # histórico de predições
+lotofacil modelo validar          # valida predições contra resultados reais
 
-# Ver status
-python src/main.py status
+# Predição
+lotofacil prever                  # prediz 11 números (cascade: neural → ensemble)
+lotofacil prever --approach ml    # força abordagem específica
 
-# Predição de 11 números
-python src/main.py predict
-python src/main.py predict --approach ml
-python src/main.py predict --approach statistical
-python src/main.py predict --approach neural
+# Portfólio
+lotofacil portfolio               # gera portfólio para o próximo concurso
+lotofacil portfolio --jogos 8     # portfólio com 8 jogos
+lotofacil portfolio --concurso N  # concurso específico
+lotofacil portfolio validar N     # valida portfólio gerado para concurso N
 
-# Treinar modelo neural
-python src/main.py train-neural
-
-# Backtest
-python src/main.py backtest
-python src/main.py backtest --window 200
-
-# Comparar abordagens
-python src/main.py compare
+# Experimentos (clima + lua + ablação)
+lotofacil lab backfill-clima      # preenche histórico climático (Open-Meteo)
+lotofacil lab lunar-check --data YYYY-MM-DD
+lotofacil lab ablation            # ablation study completo
+lotofacil lab treinar --config base+clima+lua
 ```
 
 ---
@@ -59,21 +62,25 @@ lotofacil/
 │   ├── processed/     # Dados processados
 │   └── lotofacil.db   # SQLite
 ├── src/
+│   ├── cli/           # CLI unificada (entry point: lotofacil)
+│   │   ├── app.py     # root Typer app + comando prever
+│   │   ├── dados.py   # lotofacil dados atualizar / status
+│   │   ├── modelo.py  # lotofacil modelo treinar / backtest / historico / validar
+│   │   ├── portfolio.py # lotofacil portfolio [validar]
+│   │   └── lab.py     # lotofacil lab (experimentos)
 │   ├── core/          # Config, modelos, regras
 │   ├── data/          # Fetcher, database, loader
 │   ├── features/      # Feature engineering
 │   ├── strategies/    # Estratégias plugáveis
-│   │   ├── eleven_numbers/  # Predição de 11 números
-│   │   │   ├── approaches/  # statistical, ml, neural
-│   │   │   ├── predictor.py
-│   │   │   └── evaluator.py
-│   │   └── future/          # 12, 13, 14 números
+│   │   └── eleven_numbers/  # statistical, ml, neural
+│   ├── lotofacil_ml/  # Pipeline de produção (Frequency + ML + LSTM)
+│   ├── lotofacil_lab/ # Pipeline experimental (clima, lua, ablação)
 │   ├── models/        # Modelos ML reutilizáveis
-│   ├── evaluation/    # Métricas, backtest
-│   └── main.py        # CLI unificada
-├── scripts/           # collect.py, process.py
+│   └── evaluation/    # Métricas, backtest
+├── legacy/            # Código arquivado (scripts e módulos antigos)
+├── dados/sample/      # 100 sorteios mais recentes (committed)
 ├── tests/
-└── output/            # Predictions, reports, models
+└── docs/              # Arquitetura, relatórios técnicos, spec
 ```
 
 ---

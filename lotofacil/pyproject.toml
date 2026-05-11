@@ -33,7 +33,7 @@ dev = [
 ]
 
 [project.scripts]
-lotofacil = "src.main:app"
+lotofacil = "src.cli.app:app"
 
 [tool.setuptools.packages.find]
 include = ["src*"]
