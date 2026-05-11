@@ -48,3 +48,16 @@ def test_modelo_help():
     assert "backtest" in result.output
     assert "historico" in result.output
     assert "validar" in result.output
+
+
+def test_portfolio_help():
+    """Test that portfolio subcommand help works."""
+    try:
+        from cli.app import app
+    except ImportError:
+        import pytest
+        pytest.skip("Not all sub-apps created yet")
+    runner = CliRunner()
+    result = runner.invoke(app, ["portfolio", "--help"])
+    assert result.exit_code == 0, f"Exit code {result.exit_code}: {result.output}"
+    assert "validar" in result.output
