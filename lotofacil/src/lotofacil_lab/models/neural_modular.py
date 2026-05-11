@@ -48,19 +48,31 @@ class NeuralModular(BaseLabModel):
 
     The model shape (LSTM units, attention heads, n_features) is determined
     by the config at fit() time and stays frozen until the model is reset.
+
+    Args:
+        config: FeatureConfig controlling which feature blocks are active.
+        hp_overrides: Optional dict of hyperparameter overrides.
+            Keys match config.py constant names (e.g. 'LSTM_UNITS', 'LSTM_LR').
     """
 
-    def __init__(self, config: FeatureConfig):
+    def __init__(self, config: FeatureConfig, hp_overrides: dict | None = None):
         self.config = config
+        self._hp = hp_overrides or {}
         self._model = None
         self._history: dict = {}
         self._fitted = False
+
+    def _hp_val(self, name: str):
+        """Return hyperparameter value: override > config > None."""
+        if name in self._hp:
+            return self._hp[name]
+        return globals().get(name)
 
     def fit(self, draws: list) -> None:
         """Train on historical draws using the active feature config."""
         try:
             import tensorflow as tf
-            tf.random.set_seed(RANDOM_SEED)
+            tf.random.set_seed(self._hp_val("RANDOM_SEED"))
         except ImportError:
             raise RuntimeError("TensorFlow required. pip install tensorflow>=2.16")
 
@@ -70,7 +82,7 @@ class NeuralModular(BaseLabModel):
         if meta["n_samples"] < 20:
             raise ValueError(f"Too few sequences: {meta['n_samples']} < 20")
 
-        n_val = max(1, int(meta["n_samples"] * NEURAL_VAL_SPLIT))
+        n_val = max(1, int(meta["n_samples"] * self._hp_val("NEURAL_VAL_SPLIT")))
         n_train = meta["n_samples"] - n_val
         X_train, X_val = X[:n_train], X[n_train:]
         y_train, y_val = y[:n_train], y[n_train:]
@@ -79,27 +91,33 @@ class NeuralModular(BaseLabModel):
         model = self._build_model(n_features, self.config.window_size)
 
         model.compile(
-            optimizer=tf.keras.optimizers.Adam(learning_rate=LSTM_LR),
-            loss=focal_loss(),
+            optimizer=tf.keras.optimizers.Adam(
+                learning_rate=self._hp_val("LSTM_LR")
+            ),
+            loss=focal_loss(
+                gamma=self._hp_val("FOCAL_LOSS_GAMMA"),
+                alpha=self._hp_val("FOCAL_LOSS_ALPHA"),
+            ),
             metrics=["binary_accuracy"],
         )
 
         callbacks = [
             tf.keras.callbacks.EarlyStopping(
-                monitor="val_loss", patience=LSTM_PATIENCE,
+                monitor="val_loss", patience=self._hp_val("LSTM_PATIENCE"),
                 restore_best_weights=True, min_delta=1e-5,
             ),
             tf.keras.callbacks.ReduceLROnPlateau(
-                monitor="val_loss", factor=LSTM_LR_FACTOR,
-                patience=LSTM_LR_PATIENCE, min_lr=LSTM_LR_MIN, verbose=0,
+                monitor="val_loss", factor=self._hp_val("LSTM_LR_FACTOR"),
+                patience=self._hp_val("LSTM_LR_PATIENCE"),
+                min_lr=self._hp_val("LSTM_LR_MIN"), verbose=0,
             ),
         ]
 
         history = model.fit(
             X_train, y_train,
             validation_data=(X_val, y_val),
-            epochs=LSTM_EPOCHS,
-            batch_size=LSTM_BATCH_SIZE,
+            epochs=self._hp_val("LSTM_EPOCHS"),
+            batch_size=self._hp_val("LSTM_BATCH_SIZE"),
             callbacks=callbacks,
             verbose=0,
         )
@@ -140,27 +158,34 @@ class NeuralModular(BaseLabModel):
         import tensorflow as tf
         from tensorflow.keras import layers, models, Input
 
+        lstm_units = self._hp_val("LSTM_UNITS")
+        attn_heads = self._hp_val("ATTENTION_HEADS")
+        attn_dim = self._hp_val("ATTENTION_DIM")
+        dp_input = self._hp_val("LSTM_DROPOUT_INPUT")
+        dp = self._hp_val("LSTM_DROPOUT")
+        dp_dense = self._hp_val("LSTM_DROPOUT_DENSE")
+
         inputs = Input(shape=(window_size, n_features))
-        x = layers.Dropout(LSTM_DROPOUT_INPUT)(inputs)
+        x = layers.Dropout(dp_input)(inputs)
 
-        x = layers.LSTM(LSTM_UNITS[0], return_sequences=True)(x)
+        x = layers.LSTM(lstm_units[0], return_sequences=True)(x)
         x = layers.MultiHeadAttention(
-            num_heads=ATTENTION_HEADS, key_dim=ATTENTION_DIM, dropout=0.1
+            num_heads=attn_heads, key_dim=attn_dim, dropout=0.1
         )(x, x)
         x = layers.LayerNormalization()(x)
 
-        x = layers.LSTM(LSTM_UNITS[1], return_sequences=True)(x)
+        x = layers.LSTM(lstm_units[1], return_sequences=True)(x)
         x = layers.MultiHeadAttention(
-            num_heads=max(1, ATTENTION_HEADS // 2), key_dim=ATTENTION_DIM // 2, dropout=0.1
+            num_heads=max(1, attn_heads // 2), key_dim=attn_dim // 2, dropout=0.1
         )(x, x)
         x = layers.LayerNormalization()(x)
 
-        x = layers.LSTM(LSTM_UNITS[2], return_sequences=False)(x)
-        x = layers.Dropout(LSTM_DROPOUT)(x)
+        x = layers.LSTM(lstm_units[2], return_sequences=False)(x)
+        x = layers.Dropout(dp)(x)
 
         x = layers.Dense(64, activation="relu")(x)
         x = layers.BatchNormalization()(x)
-        x = layers.Dropout(LSTM_DROPOUT_DENSE)(x)
+        x = layers.Dropout(dp_dense)(x)
 
         outputs = layers.Dense(TOTAL_NUMBERS, activation="sigmoid")(x)
         model = models.Model(inputs=inputs, outputs=outputs)
@@ -175,7 +200,11 @@ class NeuralModular(BaseLabModel):
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         self._model.save(str(path))
-        meta = {"history": self._history, "config": self.config.to_dict()}
+        meta = {
+            "history": self._history,
+            "config": self.config.to_dict(),
+            "hp_overrides": self._hp,
+        }
         path.with_suffix(".meta.json").write_text(
             json.dumps(meta, indent=2), encoding="utf-8"
         )

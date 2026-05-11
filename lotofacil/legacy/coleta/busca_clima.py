@@ -110,8 +110,8 @@ def processar_resumo(hourly: Dict) -> Dict:
     precip = hourly.get("precipitation_probability", [])
     codes = hourly.get("weathercode", [])
 
-    # Horário do sorteio: ~20h BRT (índice 20)
-    hora_sorteio_idx = 20
+# Horário do sorteio: ~21h BRT (índice 21)
+hora_sorteio_idx = 21
     temp_sorteio = temps[hora_sorteio_idx] if len(temps) > hora_sorteio_idx else None
     precip_sorteio = precip[hora_sorteio_idx] if len(precip) > hora_sorteio_idx else None
     code_sorteio = codes[hora_sorteio_idx] if len(codes) > hora_sorteio_idx else None

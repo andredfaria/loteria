@@ -16,6 +16,7 @@ if str(SRC_DIR) not in sys.path:
 
 DATA_DIR = PROJECT_ROOT / "dados"
 CLIMATE_DIR = DATA_DIR / "clima"
+LUA_DIR = DATA_DIR / "lua"
 OUTPUT_DIR = _LAB_DIR / "output"
 MODELS_DIR = _LAB_DIR / "saved_models"
 
@@ -25,7 +26,7 @@ MODELS_DIR.mkdir(parents=True, exist_ok=True)
 # ── Lottery constants ───────────────────────────────────────────────────────────
 TOTAL_NUMBERS = 25
 NUMBERS_PER_DRAW = 15
-HORA_SORTEIO = 20          # 20h BRT (São Paulo)
+HORA_SORTEIO = 21          # 21h BRT (São Paulo)
 LATITUDE_SP = (-23, 33, 0)
 LONGITUDE_SP = (-46, 37, 0)
 

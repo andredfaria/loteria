@@ -34,17 +34,22 @@ _MOLDURA = {1, 2, 3, 4, 5, 21, 22, 23, 24, 25}
 # ── Game distribution across tiers ────────────────────────────────────────────
 
 _DIST_TABLE = {
-    1: (1, 0, 0), 2: (1, 1, 0), 3: (1, 1, 1),
-    4: (2, 1, 1), 5: (2, 2, 1), 6: (2, 2, 2),
+    1: (1, 0, 0), 2: (2, 0, 0), 3: (1, 1, 1),
+    4: (2, 1, 1), 5: (2, 3, 0), 6: (2, 2, 2),
     7: (3, 2, 2), 8: (3, 3, 2), 9: (3, 3, 3),
     10: (4, 3, 3),
 }
 
 
 def distribute_games(n: int) -> Tuple[int, int, int]:
-    """Return (conservador, equilibrado, agressivo) game counts summing to n."""
+    """Return (conservador, equilibrado, agressivo) game counts summing to n.
+    
+    For 2 games: 2 conservative only.
+    """
     if n in _DIST_TABLE:
         return _DIST_TABLE[n]
+    if n == 5:
+        return (2, 3, 0)  # 2 conservadores + 3 variados
     # For n > 10: ~40% conserv, ~35% equil, ~25% agress
     a = max(1, n // 4)
     c = max(1, round(n * 0.4))
@@ -162,34 +167,63 @@ def load_draws_from_files(dados_dir: Path, max_concurso: int):
 def get_probabilities(draws) -> np.ndarray:
     """Return probability array of shape (25,) summing to 1.
 
-    Tries ElevenNumbersStrategy ensemble (statistical + ML).
-    Falls back to pure statistical, then raw frequency, on failure.
+    Uses lotofacil_lab neural model (climate+moon) if available.
+    Falls back to ElevenNumbersStrategy ensemble, then statistical, then raw frequency.
     """
-    from strategies.eleven_numbers.predictor import ElevenNumbersStrategy
-
-    strategy = ElevenNumbersStrategy()
+    # Try neural model with climate+moon first (best for ROI)
     try:
+        from lotofacil_lab.data.feature_flags import FeatureConfig
+        from lotofacil_lab.models.neural_modular import NeuralModular
+        from lotofacil_lab.features.builder import ModularFeatureBuilder
+
+        cfg = FeatureConfig.from_signature('base+temp+priors+clima+lua')
+        model = NeuralModular(cfg)
+        model.load()  # Load pre-trained model
+
+        builder = ModularFeatureBuilder(draws, cfg)
+        x_latest = builder.build_for_prediction()
+        probas = model._model.predict(x_latest, verbose=0)[0]
+        probas = np.array(probas, dtype=np.float64)
+
+        if probas.sum() > 0:
+            probas = probas / probas.sum()
+        print("  Neural (clima+lua) ✓")
+        return probas
+    except Exception as e_neural:
+        print(f"  Neural falhou ({e_neural}), tentando ensemble...")
+
+    # Fallback to ElevenNumbersStrategy ensemble
+    try:
+        from strategies.eleven_numbers.predictor import ElevenNumbersStrategy
+        strategy = ElevenNumbersStrategy()
         pred = strategy.predict(draws, approach="all")
         probas = np.array(pred.probabilidades, dtype=np.float64)
         print("  Ensemble: estatístico + ML ✓")
+        if probas.sum() > 0:
+            probas = probas / probas.sum()
+        return probas
     except Exception as e_all:
         print(f"  Ensemble completo falhou ({e_all}), tentando apenas estatístico...")
-        try:
-            pred = strategy.predict(draws, approach="statistical")
-            probas = np.array(pred.probabilidades, dtype=np.float64)
-            print("  Estatístico ✓")
-        except Exception as e_stat:
-            print(f"  Estatístico também falhou ({e_stat}), usando frequência simples...")
-            counts = np.zeros(25, dtype=np.float64)
-            for draw in draws[-100:]:
-                for n in draw.dezenas:
-                    counts[n - 1] += 1
-            probas = counts / counts.sum() if counts.sum() > 0 else np.ones(25) / 25
 
-    if probas.sum() > 0:
-        probas = probas / probas.sum()
-    else:
-        probas = np.ones(25, dtype=np.float64) / 25
+    # Fallback to statistical only
+    try:
+        from strategies.eleven_numbers.predictor import ElevenNumbersStrategy
+        strategy = ElevenNumbersStrategy()
+        pred = strategy.predict(draws, approach="statistical")
+        probas = np.array(pred.probabilidades, dtype=np.float64)
+        print("  Estatístico ✓")
+        if probas.sum() > 0:
+            probas = probas / probas.sum()
+        return probas
+    except Exception as e_stat:
+        print(f"  Estatístico também falhou ({e_stat}), usando frequência simples...")
+
+    # Final fallback: raw frequency
+    counts = np.zeros(25, dtype=np.float64)
+    for draw in draws[-100:]:
+        for n in draw.dezenas:
+            counts[n - 1] += 1
+    probas = counts / counts.sum() if counts.sum() > 0 else np.ones(25) / 25
 
     return probas
 
@@ -345,8 +379,8 @@ def main() -> None:
     )
     parser.add_argument("--concurso", type=int, required=True,
                         help="Concurso alvo (ex: 3675)")
-    parser.add_argument("--jogos", type=int, default=8,
-                        help="Quantidade de jogos no portfólio (padrão: 8)")
+    parser.add_argument("--jogos", type=int, default=2,
+                        help="Quantidade de jogos no portfólio (padrão: 2 conservadores)")
     args = parser.parse_args()
 
     print(f"\n{'═'*58}")

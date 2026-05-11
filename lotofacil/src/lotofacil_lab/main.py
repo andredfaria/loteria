@@ -80,6 +80,45 @@ def lunar_check(
     console.print(table)
 
 
+# ── backfill-lua ───────────────────────────────────────────────────────────────
+
+@app.command("backfill-lua")
+def backfill_lua(
+    ultimos: int = typer.Option(None, help="Only last N draws."),
+    from_c: int = typer.Option(None, "--from", help="First concurso."),
+    to_c: int = typer.Option(None, "--to", help="Last concurso."),
+    debug: bool = typer.Option(False, "--debug"),
+) -> None:
+    """Backfill lunar cache for all/selected historical draws."""
+    _setup_logging(debug)
+    from lotofacil_lab.data.draws_loader import load_draws, load_draws_last_n
+    from lotofacil_lab.data.lunar_loader import compute_lunar_features, _parse_iso
+
+    draws = load_draws()
+    if ultimos:
+        draws = draws[-ultimos:]
+    if from_c:
+        draws = [d for d in draws if d.concurso >= from_c]
+    if to_c:
+        draws = [d for d in draws if d.concurso <= to_c]
+
+    cached = 0
+    computed = 0
+    errors = 0
+    with console.status("[bold green]Backfilling lunar data..."):
+        for draw in draws:
+            iso = _parse_iso(draw.data)
+            if not iso:
+                errors += 1
+                continue
+            arr = compute_lunar_features(iso)
+            if arr.sum() == 0 and not any(e in iso for e in ["1900", "error"]):
+                errors += 1
+            computed += 1
+
+    console.print(f"[green]Done:[/green] {computed} dates cached, {errors} errors.")
+
+
 # ── train ──────────────────────────────────────────────────────────────────────
 
 @app.command("train")

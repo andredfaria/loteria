@@ -42,7 +42,7 @@ _HOURLY_FIELDS = ",".join([
 ])
 
 _FILENAME_RE = re.compile(r"clima_concurso(\d+)-\d{4}-\d{2}-\d{2}\.json")
-_HORA_SORTEIO = 20
+_HORA_SORTEIO = 21
 
 
 def _already_fetched(concurso: int) -> bool:

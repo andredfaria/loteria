@@ -140,7 +140,7 @@ def _processar_resumo(hourly: Dict) -> Dict:
     if not temps and not precip and not codes:
         return {}
 
-    hora_sorteio_idx = 20
+    hora_sorteio_idx = 21
     all_temps = hourly.get("temperature_2m", [])
     all_precip = hourly.get("precipitation_probability", [])
     all_codes = hourly.get("weathercode", [])
