@@ -562,7 +562,15 @@ function listenStream(taskId, actionId, label) {
     addConsoleLine('', 'sep');
     addConsoleLine(`✅ ${label} concluído`, 'success');
     showToast(`${label} concluído com sucesso`, 'success');
-    loadGames();
+    if (STATE.activeTab === 'jogos' || STATE.activeTab === 'geracao' || STATE.activeTab === 'predicao') {
+      loadGames();
+    } else if (STATE.activeTab === 'predicoes') {
+      loadPredictions();
+    } else if (STATE.activeTab === 'modelos') {
+      loadModels();
+    } else {
+      loadGames();
+    }
     loadStatus();
   });
 
@@ -764,6 +772,11 @@ function closeModal() {
   document.getElementById('modalOverlay').classList.remove('open');
 }
 
+// ─── XSS helper ──────────────────────────────────────────
+function esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
 // ─── Predictions ─────────────────────────────────────────
 async function loadPredictions() {
   const grid = document.getElementById('gamesGrid');
@@ -796,7 +809,7 @@ function renderPredictions(groups) {
         ? `<span class="conf-badge">conf: ${ab.confianca}</span>`
         : '';
       html += `<div class="pred-row">
-        <span class="approach-label">${ab.abordagem || 'ensemble'}</span>
+        <span class="approach-label">${esc(ab.abordagem || 'ensemble')}</span>
         <div class="balls" style="flex:1;display:flex;flex-wrap:wrap;gap:0.2rem;">
           ${(ab.dezenas || []).map(n => {
             const num = parseInt(n);
@@ -835,11 +848,11 @@ function renderModels(models) {
     const trainedAt = m.trained_at ? new Date(m.trained_at).toLocaleDateString('pt-BR', {day:'2-digit',month:'2-digit',year:'numeric'}) : '—';
     const epochsStr = m.epochs_trained != null ? `Épocas: ${m.epochs_trained}` : '';
     const valLossStr = m.val_loss_final != null ? `Val Loss: ${m.val_loss_final}` : '';
-    const sizeStr = `${m.size_mb} MB`;
+    const sizeStr = m.size_mb != null ? `${m.size_mb} MB` : '';
     const metaStr = [epochsStr, valLossStr, sizeStr].filter(Boolean).join('   ');
     html += `<div class="model-card">
-      <span class="model-badge ${m.group}">${m.group}</span>
-      <div class="model-name">${m.name.replace('.keras','')}</div>
+      <span class="model-badge ${esc(m.group)}">${esc(m.group)}</span>
+      <div class="model-name">${esc(m.name.replace('.keras',''))}</div>
       <div class="model-meta">Treinado: ${trainedAt}${metaStr ? '   ' + metaStr : ''}</div>
     </div>`;
   }
