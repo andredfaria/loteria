@@ -73,11 +73,11 @@ def _list_game_files():
 
 
 def _infer_approach(stem: str) -> str:
-    """Infer approach from old-style filename like 'predicao_3682'."""
+    """Infer approach from filename like 'predicao_{approach}_{concurso}'."""
     parts = stem.split("_")
-    if len(parts) == 3:
-        return parts[1]  # predicao_{approach}_{concurso}
-    return "ensemble"  # fallback for old-style predicao_{concurso}
+    if len(parts) >= 3:
+        return "_".join(parts[1:-1])
+    return "ensemble"
 
 
 def _list_predictions():
@@ -90,10 +90,13 @@ def _list_predictions():
                     key=lambda p: p.stat().st_mtime, reverse=True):
         try:
             data = json.loads(f.read_text())
-            key = str(data.get("concurso", "?"))
+            concurso_val = data.get("concurso")
+            if concurso_val is None:
+                continue
+            key = str(concurso_val)
             if key not in by_concurso:
                 by_concurso[key] = {
-                    "concurso": data.get("concurso"),
+                    "concurso": concurso_val,
                     "mtime": datetime.fromtimestamp(f.stat().st_mtime).isoformat(),
                     "abordagens": [],
                 }
