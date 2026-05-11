@@ -44,3 +44,9 @@ Thumbs.db
 
 # Portfolio outputs
 portfolio_*.txt
+
+# Lua data cache
+dados/lua/
+
+# Root-level portfolio JSON outputs
+portfolio_*.json
