@@ -1,0 +1,30 @@
+# Python
+**/__pycache__/
+**/*.pyc
+**/*.egg-info/
+
+# Virtual environments
+**/venv/
+**/.venv/
+
+# Outros projetos do monorepo (não entram na imagem)
+super-sete/
+megasena/
+dia-de-sorte/
+
+# Dados e modelos gerados (montados como volumes)
+lotofacil/dados/clima/
+lotofacil/dados/lua/
+lotofacil/dados/processed/
+lotofacil/dados/*.csv
+lotofacil/src/models_saved/
+lotofacil/src/lotofacil_lab/saved_models/
+lotofacil/src/lotofacil.db
+lotofacil/saida/
+lotofacil/output/
+
+# IDE / OS
+.git/
+**/.cursor/
+**/.vscode/
+**/.DS_Store
