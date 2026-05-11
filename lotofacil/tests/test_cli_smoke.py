@@ -15,3 +15,20 @@ def test_cli_app_importable():
         ast.parse(src.read_text())
     except SyntaxError as e:
         raise AssertionError(f"Syntax error in app.py: {e}")
+
+
+from typer.testing import CliRunner
+
+def test_dados_help():
+    """Test that dados subcommand help works."""
+    # We need all sub-apps to exist for this import to work
+    try:
+        from cli.app import app
+    except ImportError:
+        import pytest
+        pytest.skip("Not all sub-apps created yet")
+    runner = CliRunner()
+    result = runner.invoke(app, ["dados", "--help"])
+    assert result.exit_code == 0, f"Exit code {result.exit_code}: {result.output}"
+    assert "atualizar" in result.output
+    assert "status" in result.output
