@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Database & models (generated artifacts)
+src/lotofacil.db
+src/models_saved/
+src/lotofacil_lab/saved_models/
+output/models/
+
+# Generated output
+saida/
+output/reports/
+output/predictions/
+
+# Data (except committed sample)
+dados/clima/
+dados/processed/
+dados/*.csv
+dados/all_draws.json
+ml/datasets/
+ml/modelos/
+ml/models/
+
+# IDE
+.cursor/
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Portfolio outputs
+portfolio_*.txt
