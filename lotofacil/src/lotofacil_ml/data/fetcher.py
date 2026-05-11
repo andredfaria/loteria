@@ -97,6 +97,12 @@ class LotofacilFetcher:
             logger.warning("API fetch_latest failed: %s", exc)
             return None
 
+    def _save_concurso_json(self, concurso: int, raw: dict) -> None:
+        """Salva a resposta raw da API em dados/concurso_{N}.json."""
+        path = self.data_dir / f"concurso_{concurso}.json"
+        if not path.exists():
+            path.write_text(json.dumps(raw, ensure_ascii=False, indent=2), encoding="utf-8")
+
     # ── Public interface ───────────────────────────────────────────────────────
 
     def fetch_all_results(self) -> List[dict]:
@@ -112,6 +118,7 @@ class LotofacilFetcher:
         if rec is None:
             return self.db.get_latest_concurso()
         self.db.upsert_concurso(rec["concurso"], rec["data"], rec["dezenas"], rec["raw"])
+        self._save_concurso_json(rec["concurso"], rec["raw"])
         return {"concurso": rec["concurso"], "data": rec["data"], "dezenas": rec["dezenas"]}
 
     def fetch_by_concurso(self, numero: int) -> Optional[dict]:
@@ -139,6 +146,7 @@ class LotofacilFetcher:
             rec = self._fetch_concurso_api(num)
             if rec:
                 self.db.upsert_concurso(rec["concurso"], rec["data"], rec["dezenas"], rec["raw"])
+                self._save_concurso_json(rec["concurso"], rec["raw"])
                 new_count += 1
         logger.info("Synced %d new draws (up to concurso %d)", new_count, end)
         return new_count

@@ -44,6 +44,51 @@ def atualizar(
         n = fetcher.sync_new_draws()
         console.print(f"[green]✓ {n} novos sorteios sincronizados[/green]")
 
+    _atualizar_complementos(db, console)
+
+
+def _atualizar_complementos(db, console) -> None:
+    """Atualiza dados de clima e lua para os sorteios recentes faltantes."""
+    _backfill_clima(console)
+    _backfill_lua(db, console)
+
+
+def _backfill_clima(console) -> None:
+    try:
+        from lotofacil_lab.coleta.backfill_clima_archive import backfill
+    except ImportError:
+        console.print("[yellow]⚠ Clima: módulo lotofacil_lab não disponível[/yellow]")
+        return
+    console.print("[cyan]Atualizando dados climáticos...[/cyan]")
+    try:
+        count = backfill(ultimos=100, force=False)
+        if count:
+            console.print(f"[green]✓ Clima: {count} concursos atualizados[/green]")
+        else:
+            console.print("[dim]Clima: já atualizado[/dim]")
+    except Exception as exc:
+        console.print(f"[yellow]⚠ Erro ao atualizar clima: {exc}[/yellow]")
+
+
+def _backfill_lua(db, console) -> None:
+    try:
+        from lotofacil_lab.data.lunar_loader import compute_lunar_features, _parse_iso
+    except ImportError:
+        console.print("[yellow]⚠ Lua: módulo lotofacil_lab não disponível[/yellow]")
+        return
+    console.print("[cyan]Atualizando dados lunares...[/cyan]")
+    draws = db.get_all_concursos()
+    if not draws:
+        return
+    recent = draws[-100:]
+    computed = 0
+    for draw in recent:
+        iso = _parse_iso(str(draw["data"]))
+        if iso:
+            compute_lunar_features(iso)
+            computed += 1
+    console.print(f"[green]✓ Lua: {computed} datas cacheadas[/green]")
+
 
 @app.command()
 def status() -> None:
