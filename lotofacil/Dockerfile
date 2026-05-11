@@ -20,7 +20,7 @@ COPY . .
 RUN pip install --no-cache-dir -e . --no-deps
 
 # Persistent data dirs — will be mounted as volumes in production
-RUN mkdir -p dados saida src/models_saved src/lotofacil_lab/saved_models
+RUN mkdir -p dados saida/jogos src/models_saved src/lotofacil_lab/saved_models
 
 EXPOSE 5000
 

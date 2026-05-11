@@ -9,6 +9,7 @@ _SRC = Path(__file__).resolve().parent.parent
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
+import json
 import typer
 from rich.console import Console
 from rich.panel import Panel
@@ -51,6 +52,15 @@ def prever(
         f"Confiança: [green]{pred.confianca_media:.4f}[/green]",
         box=box.DOUBLE_EDGE,
     ))
+
+    _saida = Path(__file__).resolve().parent.parent.parent / "saida" / "jogos"
+    _saida.mkdir(parents=True, exist_ok=True)
+    out = _saida / f"predicao_{pred.concurso_alvo}.json"
+    out.write_text(
+        json.dumps({"concurso": pred.concurso_alvo, "dezenas": sorted(pred.dezenas)}, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    console.print(f"  [dim]💾 Salvo em saida/jogos/predicao_{pred.concurso_alvo}.json[/dim]")
 
 
 def _register_subapps() -> None:

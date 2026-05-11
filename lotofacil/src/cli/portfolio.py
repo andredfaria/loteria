@@ -348,6 +348,15 @@ def portfolio_main(
     portfolio = build_portfolio(core, ranked, jogos, last_draw)
     print_portfolio(portfolio, jogos, concurso, last_draw)
 
+    _saida = Path(__file__).resolve().parent.parent.parent / "saida" / "jogos"
+    _saida.mkdir(parents=True, exist_ok=True)
+    out = _saida / f"portfolio_{concurso}.json"
+    out.write_text(
+        json.dumps({"concurso": concurso, "jogos": portfolio}, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    console.print(f"\n  [dim]💾 Salvo em saida/jogos/portfolio_{concurso}.json[/dim]")
+
 
 @app.command("validar")
 def portfolio_validar(
