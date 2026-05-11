@@ -248,6 +248,59 @@
     .games-grid { grid-template-columns: 1fr; }
     .navbar .status-items > span { display: none; }
   }
+
+  /* Timer badge on running buttons */
+  .action-btn .timer {
+    font-size: 0.68rem;
+    color: var(--yellow);
+    margin-left: 0.3rem;
+    font-variant-numeric: tabular-nums;
+    min-width: 3ch;
+    display: inline-block;
+  }
+
+  /* Prediction rows in Predições tab */
+  .pred-row {
+    display: flex; align-items: center; gap: 0.5rem;
+    padding: 0.3rem 0;
+    border-top: 1px solid rgba(255,255,255,0.04);
+  }
+  .pred-row .approach-label {
+    font-size: 0.68rem; color: var(--muted);
+    min-width: 80px; flex-shrink: 0;
+  }
+  .pred-row .conf-badge {
+    font-size: 0.65rem; color: var(--green);
+    margin-left: auto; white-space: nowrap;
+  }
+
+  /* Model cards grid */
+  .models-grid {
+    display: grid; gap: 0.5rem;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    width: 100%;
+  }
+  .model-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 0.75rem;
+    position: relative;
+  }
+  .model-card .model-name {
+    font-size: 0.78rem; font-weight: 600; color: var(--text);
+    margin-bottom: 0.25rem; padding-right: 3rem;
+    word-break: break-all;
+  }
+  .model-card .model-meta {
+    font-size: 0.7rem; color: var(--muted);
+  }
+  .model-badge {
+    position: absolute; top: 0.6rem; right: 0.6rem;
+    font-size: 0.62rem; padding: 2px 6px;
+    border-radius: 999px; border: 1px solid var(--border);
+    font-weight: 600;
+  }
+  .model-badge.core { color: var(--accent); border-color: rgba(56,189,248,0.3); }
+  .model-badge.lab  { color: var(--purple); border-color: rgba(167,139,250,0.3); }
 </style>
 </head>
 <body>
@@ -325,15 +378,33 @@ const STATE = {
   runningTasks: new Set(),
   consoleLines: [],
   games: [],
+  taskStartTime: {},   // actionId → timestamp
+  timerIntervals: {},  // actionId → intervalId
 };
+
+const CONSOLE_MAX = 150;
+const LS_KEY = 'lotofacil_console_v1';
 
 // ─── Init ─────────────────────────────────────────────────
 function init() {
   buildSidebar();
   fetchCommands();
   loadGames();
+  restoreConsole();   // restore persisted console from previous session
   loadStatus();
   setInterval(loadStatus, 30000);
+}
+
+function restoreConsole() {
+  try {
+    const saved = localStorage.getItem(LS_KEY);
+    if (!saved) return;
+    const lines = JSON.parse(saved);
+    if (lines.length > 0) {
+      addConsoleLine('— sessão anterior —', 'sep');
+      for (const item of lines) addConsoleLine(item.text, item.cls);
+    }
+  } catch (e) { /* ignore corrupt data */ }
 }
 
 // ─── Sidebar ──────────────────────────────────────────────
@@ -345,6 +416,8 @@ const CATEGORIES = [
   { id: 'geracao', icon: '🎲', label: 'Geração' },
   { id: 'lab', icon: '🔬', label: 'Lab' },
   { id: 'jogos', icon: '🏷️', label: 'Jogos' },
+  { id: 'predicoes', icon: '🎯', label: 'Predições' },
+  { id: 'modelos', icon: '🧠', label: 'Modelos' },
 ];
 
 function buildSidebar() {
@@ -391,6 +464,26 @@ function renderActions() {
     return;
   }
 
+  if (cat === 'predicoes') {
+    bar.innerHTML = `
+      <div class="section-title">🎯 Predições por Concurso</div>
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;width:100%;">
+        <button class="action-btn" onclick="loadPredictions()"><span class="icon">↻</span> Atualizar</button>
+      </div>`;
+    loadPredictions();
+    return;
+  }
+
+  if (cat === 'modelos') {
+    bar.innerHTML = `
+      <div class="section-title">🧠 Modelos Treinados</div>
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;width:100%;">
+        <button class="action-btn" onclick="loadModels()"><span class="icon">↻</span> Atualizar</button>
+      </div>`;
+    loadModels();
+    return;
+  }
+
   if (!COMMANDS_DATA || !COMMANDS_DATA[cat]) {
     bar.innerHTML = `<div class="section-title">Nenhum comando disponível</div>`;
     return;
@@ -401,8 +494,9 @@ function renderActions() {
   for (const item of data.items) {
     const isRunning = STATE.runningTasks.has(item.id);
     html += `<button class="action-btn${isRunning ? ' running' : ''}" id="btn_${item.id}"
-      onclick="runCommand('${item.id}')" ${isRunning ? 'disabled' : ''}>
-      <span class="icon">${item.icon}</span> ${item.label}
+      onclick="runCommand('${item.id}')" ${isRunning ? 'disabled' : ''}
+      data-label="${item.label}">
+      <span class="icon">${item.icon}</span> ${item.label}<span class="timer"></span>
     </button>`;
   }
   bar.innerHTML = html;
@@ -483,9 +577,26 @@ function listenStream(taskId, actionId, label) {
 
 function updateButtonState(actionId, running) {
   const btn = document.getElementById(`btn_${actionId}`);
-  if (btn) {
-    btn.disabled = running;
-    btn.className = 'action-btn' + (running ? ' running' : '');
+  if (!btn) return;
+  btn.disabled = running;
+  btn.className = 'action-btn' + (running ? ' running' : '');
+  if (running) {
+    STATE.taskStartTime[actionId] = Date.now();
+    STATE.timerIntervals[actionId] = setInterval(() => {
+      const b = document.getElementById(`btn_${actionId}`);
+      if (!b) return;
+      const secs = Math.floor((Date.now() - STATE.taskStartTime[actionId]) / 1000);
+      const mm = String(Math.floor(secs / 60)).padStart(2, '0');
+      const ss = String(secs % 60).padStart(2, '0');
+      const timerEl = b.querySelector('.timer');
+      if (timerEl) timerEl.textContent = ` ${mm}:${ss}`;
+    }, 1000);
+  } else {
+    if (STATE.timerIntervals[actionId]) {
+      clearInterval(STATE.timerIntervals[actionId]);
+      delete STATE.timerIntervals[actionId];
+      delete STATE.taskStartTime[actionId];
+    }
   }
 }
 
@@ -507,13 +618,22 @@ function addConsoleLine(text, cls = '') {
   line.textContent = text || ' ';
   el.appendChild(line);
   el.scrollTop = el.scrollHeight;
-  STATE.consoleLines.push({ text, cls });
+  STATE.consoleLines.push({ text, cls: resolvedCls });
+  saveConsoleState();
+}
+
+function saveConsoleState() {
+  try {
+    const recent = STATE.consoleLines.slice(-CONSOLE_MAX);
+    localStorage.setItem(LS_KEY, JSON.stringify(recent));
+  } catch (e) { /* ignore quota errors */ }
 }
 
 function clearConsole() {
   const el = document.getElementById('consoleOutput');
   el.innerHTML = `<div class="line dim">Console limpo.</div>`;
   STATE.consoleLines = [];
+  try { localStorage.removeItem(LS_KEY); } catch (e) {}
 }
 
 // ─── Status ──────────────────────────────────────────────
@@ -642,6 +762,88 @@ async function viewGame(filename) {
 
 function closeModal() {
   document.getElementById('modalOverlay').classList.remove('open');
+}
+
+// ─── Predictions ─────────────────────────────────────────
+async function loadPredictions() {
+  const grid = document.getElementById('gamesGrid');
+  try {
+    const r = await fetch('/api/predictions');
+    const data = await r.json();
+    renderPredictions(data);
+  } catch (e) {
+    grid.innerHTML = '<div class="empty-numbers">Erro ao carregar predições</div>';
+  }
+}
+
+function renderPredictions(groups) {
+  const grid = document.getElementById('gamesGrid');
+  if (!groups || groups.length === 0) {
+    grid.innerHTML = '<div class="empty-numbers">Nenhuma predição encontrada. Execute "Prever" em uma das abas.</div>';
+    return;
+  }
+  // Sort by concurso descending
+  groups.sort((a, b) => (b.concurso || 0) - (a.concurso || 0));
+  let html = '';
+  for (const group of groups) {
+    const dateStr = group.mtime ? new Date(group.mtime).toLocaleDateString('pt-BR') : '';
+    html += `<div class="game-card" style="grid-column:1/-1; cursor:default;">
+      <div class="game-label" style="font-size:0.75rem;font-weight:600;color:var(--text);margin-bottom:0.5rem;">
+        Concurso ${group.concurso || '?'} <span style="color:var(--dim);font-weight:400;font-size:0.68rem;">${dateStr}</span>
+      </div>`;
+    for (const ab of (group.abordagens || [])) {
+      const confBadge = ab.confianca != null
+        ? `<span class="conf-badge">conf: ${ab.confianca}</span>`
+        : '';
+      html += `<div class="pred-row">
+        <span class="approach-label">${ab.abordagem || 'ensemble'}</span>
+        <div class="balls" style="flex:1;display:flex;flex-wrap:wrap;gap:0.2rem;">
+          ${(ab.dezenas || []).map(n => {
+            const num = parseInt(n);
+            const high = num > 12;
+            return `<span class="ball${high ? ' high' : ''}">${String(num).padStart(2,'0')}</span>`;
+          }).join('')}
+        </div>
+        ${confBadge}
+      </div>`;
+    }
+    html += '</div>';
+  }
+  grid.innerHTML = html;
+}
+
+// ─── Models ──────────────────────────────────────────────
+async function loadModels() {
+  const grid = document.getElementById('gamesGrid');
+  try {
+    const r = await fetch('/api/models/status');
+    const data = await r.json();
+    renderModels(data);
+  } catch (e) {
+    grid.innerHTML = '<div class="empty-numbers">Erro ao carregar modelos</div>';
+  }
+}
+
+function renderModels(models) {
+  const grid = document.getElementById('gamesGrid');
+  if (!models || models.length === 0) {
+    grid.innerHTML = '<div class="empty-numbers">Nenhum modelo encontrado em output/models/ ou lotofacil_lab/saved_models/</div>';
+    return;
+  }
+  let html = '';
+  for (const m of models) {
+    const trainedAt = m.trained_at ? new Date(m.trained_at).toLocaleDateString('pt-BR', {day:'2-digit',month:'2-digit',year:'numeric'}) : '—';
+    const epochsStr = m.epochs_trained != null ? `Épocas: ${m.epochs_trained}` : '';
+    const valLossStr = m.val_loss_final != null ? `Val Loss: ${m.val_loss_final}` : '';
+    const sizeStr = `${m.size_mb} MB`;
+    const metaStr = [epochsStr, valLossStr, sizeStr].filter(Boolean).join('   ');
+    html += `<div class="model-card">
+      <span class="model-badge ${m.group}">${m.group}</span>
+      <div class="model-name">${m.name.replace('.keras','')}</div>
+      <div class="model-meta">Treinado: ${trainedAt}${metaStr ? '   ' + metaStr : ''}</div>
+    </div>`;
+  }
+  grid.innerHTML = `<div class="models-grid">${html}</div>`;
 }
 
 // ─── Toast ────────────────────────────────────────────────
