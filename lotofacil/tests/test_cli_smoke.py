@@ -6,15 +6,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 
 def test_cli_app_importable():
-    """Just verify the file exists and has valid Python syntax."""
-    import ast
-    import pathlib
-    src = pathlib.Path(__file__).resolve().parent.parent / "src" / "cli" / "app.py"
-    assert src.exists(), f"src/cli/app.py not found"
-    try:
-        ast.parse(src.read_text())
-    except SyntaxError as e:
-        raise AssertionError(f"Syntax error in app.py: {e}")
+    from cli.app import app
+    assert app is not None
 
 
 from typer.testing import CliRunner
@@ -61,3 +54,13 @@ def test_portfolio_help():
     result = runner.invoke(app, ["portfolio", "--help"])
     assert result.exit_code == 0, f"Exit code {result.exit_code}: {result.output}"
     assert "validar" in result.output
+
+
+def test_lab_help():
+    """Test that lab subcommand help works."""
+    from cli.app import app
+    runner = CliRunner()
+    result = runner.invoke(app, ["lab", "--help"])
+    assert result.exit_code == 0, f"Exit code {result.exit_code}: {result.output}"
+    assert "backfill-clima" in result.output
+    assert "lunar-check" in result.output
