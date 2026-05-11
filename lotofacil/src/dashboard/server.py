@@ -30,6 +30,8 @@ BASE_DIR = BASE
 DADOS_DIR = BASE / "dados"
 SAIDA_DIR = BASE / "saida"
 DATA_DIR = BASE / "data"
+MODELS_CORE_DIR = BASE / "output" / "models"
+MODELS_LAB_DIR = BASE / "src" / "lotofacil_lab" / "saved_models"
 
 
 # ─── Helper ────────────────────────────────────────────────────
@@ -70,6 +72,76 @@ def _list_game_files():
     return result
 
 
+def _infer_approach(stem: str) -> str:
+    """Infer approach from old-style filename like 'predicao_3682'."""
+    parts = stem.split("_")
+    if len(parts) == 3:
+        return parts[1]  # predicao_{approach}_{concurso}
+    return "ensemble"  # fallback for old-style predicao_{concurso}
+
+
+def _list_predictions():
+    """Read saida/jogos/predicao_*.json and group by concurso."""
+    games_dir = SAIDA_DIR / "jogos"
+    if not games_dir.exists():
+        return []
+    by_concurso: dict = {}
+    for f in sorted(games_dir.glob("predicao_*.json"),
+                    key=lambda p: p.stat().st_mtime, reverse=True):
+        try:
+            data = json.loads(f.read_text())
+            key = str(data.get("concurso", "?"))
+            if key not in by_concurso:
+                by_concurso[key] = {
+                    "concurso": data.get("concurso"),
+                    "mtime": datetime.fromtimestamp(f.stat().st_mtime).isoformat(),
+                    "abordagens": [],
+                }
+            by_concurso[key]["abordagens"].append({
+                "abordagem": data.get("abordagem", _infer_approach(f.stem)),
+                "dezenas": data.get("dezenas", []),
+                "confianca": data.get("confianca"),
+            })
+        except Exception:
+            pass
+    return list(by_concurso.values())
+
+
+def _scan_models():
+    """Scan model directories for .keras files and read their metadata."""
+    models = []
+    scan_dirs = [
+        (MODELS_CORE_DIR, "core"),
+        (MODELS_LAB_DIR, "lab"),
+    ]
+    for d, group in scan_dirs:
+        if not d.exists():
+            continue
+        for f in sorted(d.glob("*.keras"), key=lambda p: p.stat().st_mtime, reverse=True):
+            meta: dict = {}
+            meta_file = f.with_suffix(".meta.json")
+            if meta_file.exists():
+                try:
+                    raw = json.loads(meta_file.read_text())
+                    hist = raw.get("history", {})
+                    val_loss = hist.get("val_loss", [])
+                    meta = {
+                        "epochs_trained": len(hist.get("loss", [])),
+                        "val_loss_final": round(val_loss[-1], 5) if val_loss else None,
+                        "config": raw.get("config", raw.get("hp_overrides", {})),
+                    }
+                except Exception:
+                    pass
+            models.append({
+                "name": f.name,
+                "group": group,
+                "size_mb": round(f.stat().st_size / 1_048_576, 1),
+                "trained_at": datetime.fromtimestamp(f.stat().st_mtime).isoformat(),
+                **meta,
+            })
+    return models
+
+
 # ─── API Endpoints ─────────────────────────────────────────────
 
 @app.route("/")
@@ -98,6 +170,16 @@ def api_status():
 @app.route("/api/games")
 def api_games():
     return jsonify(_list_game_files())
+
+
+@app.route("/api/predictions")
+def api_predictions():
+    return jsonify(_list_predictions())
+
+
+@app.route("/api/models/status")
+def api_models_status():
+    return jsonify(_scan_models())
 
 
 @app.route("/api/games/<path:filename>")
