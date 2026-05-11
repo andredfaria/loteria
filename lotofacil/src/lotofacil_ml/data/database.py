@@ -72,6 +72,11 @@ class DatabaseManager:
                 (concurso, data, dezenas_json, raw_json),
             )
 
+    def count_concursos(self) -> int:
+        with self._connect() as conn:
+            row = conn.execute("SELECT COUNT(*) FROM concursos").fetchone()
+        return row[0] if row else 0
+
     def get_all_concursos(self) -> List[dict]:
         with self._connect() as conn:
             rows = conn.execute(
