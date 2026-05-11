@@ -7,6 +7,7 @@ import queue
 import threading
 import subprocess
 import time
+import re
 from pathlib import Path
 from datetime import datetime
 
@@ -14,6 +15,13 @@ from flask import Flask, jsonify, Response, request, send_from_directory
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from dashboard.commands import COMMANDS, BASE  # noqa: E402
+
+_ANSI_RE = re.compile(r'\x1b(?:\[[0-9;]*[mGKHFABCDEFsuJKH]|[()][AB012])')
+
+
+def _strip_ansi(text: str) -> str:
+    return _ANSI_RE.sub('', text)
+
 
 app = Flask(__name__, static_folder=None)
 
@@ -172,7 +180,7 @@ def _run_command(task_id: str, q: queue.Queue, cmd: list[str], cwd: str):
             env=env,
         )
         for line in iter(proc.stdout.readline, ""):
-            emit(line.rstrip("\n"))
+            emit(_strip_ansi(line.rstrip("\n")))
         proc.stdout.close()
         ret = proc.wait()
         if ret == 0:

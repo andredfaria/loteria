@@ -115,6 +115,72 @@ COMMANDS = {
             },
         ],
     },
+    "analise": {
+        "label": "📊 Análise",
+        "items": [
+            {
+                "id": "analise_historico",
+                "label": "Histórico de Predições",
+                "description": "Últimas 20 predições registradas",
+                "cmd": ["lotofacil", "modelo", "historico"],
+                "cwd": str(BASE),
+                "icon": "📜",
+            },
+            {
+                "id": "analise_validar",
+                "label": "Validar Predições",
+                "description": "Confere predições pendentes contra resultados reais",
+                "cmd": ["lotofacil", "modelo", "validar"],
+                "cwd": str(BASE),
+                "icon": "✅",
+            },
+            {
+                "id": "analise_status",
+                "label": "Status do Banco",
+                "description": "Total de sorteios e concurso mais recente",
+                "cmd": ["lotofacil", "dados", "status"],
+                "cwd": str(BASE),
+                "icon": "📋",
+            },
+            {
+                "id": "analise_backtest",
+                "label": "Backtest",
+                "description": "Walk-forward backtest → relatório HTML",
+                "cmd": ["lotofacil", "modelo", "backtest"],
+                "cwd": str(BASE),
+                "icon": "📈",
+            },
+        ],
+    },
+    "geracao": {
+        "label": "🎲 Geração de Jogos",
+        "items": [
+            {
+                "id": "geracao_portfolio",
+                "label": "Gerar Portfólio",
+                "description": "Portfólio tiered para o próximo concurso",
+                "cmd": ["lotofacil", "portfolio"],
+                "cwd": str(BASE),
+                "icon": "📊",
+            },
+            {
+                "id": "geracao_portfolio_8",
+                "label": "Gerar Portfólio (8 jogos)",
+                "description": "Portfólio com 8 jogos distribuídos por tier",
+                "cmd": ["lotofacil", "portfolio", "--jogos", "8"],
+                "cwd": str(BASE),
+                "icon": "🎯",
+            },
+            {
+                "id": "geracao_prever",
+                "label": "Prever (ensemble)",
+                "description": "Predição ensemble — todas as abordagens",
+                "cmd": ["lotofacil", "prever"],
+                "cwd": str(BASE),
+                "icon": "🔮",
+            },
+        ],
+    },
     "lab": {
         "label": "🔬 Experimentos (Lab)",
         "items": [
