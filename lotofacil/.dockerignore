@@ -1,0 +1,31 @@
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+.git/
+.cursor/
+.vscode/
+
+# Large generated data (mounted as volumes in production)
+dados/clima/
+dados/lua/
+dados/processed/
+dados/*.csv
+
+# Trained models (mounted as volumes)
+src/models_saved/
+src/lotofacil_lab/saved_models/
+src/lotofacil.db
+
+# Generated outputs
+saida/
+output/
+
+# Test artifacts
+.pytest_cache/
+ml/datasets/
+ml/modelos/
+
+# Docs
+docs/superpowers/

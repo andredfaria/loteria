@@ -1,0 +1,148 @@
+from pathlib import Path
+import datetime
+
+BASE = Path(__file__).resolve().parent.parent.parent
+
+COMMANDS = {
+    "coleta": {
+        "label": "📥 Coleta de Dados",
+        "items": [
+            {
+                "id": "collect_sync",
+                "label": "Atualizar Base",
+                "description": "Sincroniza novos sorteios da API Caixa",
+                "cmd": ["lotofacil", "dados", "atualizar"],
+                "cwd": str(BASE),
+                "icon": "🔄",
+            },
+            {
+                "id": "collect_all",
+                "label": "Importar Tudo",
+                "description": "Carrega todos os JSONs locais para o banco",
+                "cmd": ["lotofacil", "dados", "atualizar", "--all"],
+                "cwd": str(BASE),
+                "icon": "📥",
+            },
+            {
+                "id": "collect_latest",
+                "label": "Buscar Último",
+                "description": "Busca apenas o sorteio mais recente da API",
+                "cmd": ["lotofacil", "dados", "atualizar", "--latest"],
+                "cwd": str(BASE),
+                "icon": "📡",
+            },
+            {
+                "id": "status",
+                "label": "Status do DB",
+                "description": "Mostra total de sorteios e último concurso",
+                "cmd": ["lotofacil", "dados", "status"],
+                "cwd": str(BASE),
+                "icon": "📋",
+            },
+            {
+                "id": "historico",
+                "label": "Histórico de Predições",
+                "description": "Últimas 20 predições registradas",
+                "cmd": ["lotofacil", "modelo", "historico"],
+                "cwd": str(BASE),
+                "icon": "📜",
+            },
+        ],
+    },
+    "predicao": {
+        "label": "🤖 Predição",
+        "items": [
+            {
+                "id": "predict_all",
+                "label": "Prever (ensemble)",
+                "description": "Predição 11 números — todas as abordagens",
+                "cmd": ["lotofacil", "prever"],
+                "cwd": str(BASE),
+                "icon": "🔮",
+            },
+            {
+                "id": "predict_ml",
+                "label": "Prever (só ML)",
+                "description": "Predição usando apenas o ensemble ML",
+                "cmd": ["lotofacil", "prever", "--approach", "ml"],
+                "cwd": str(BASE),
+                "icon": "🧠",
+            },
+            {
+                "id": "predict_portfolio",
+                "label": "Gerar Portfólio",
+                "description": "Portfólio tiered para o próximo concurso",
+                "cmd": ["lotofacil", "portfolio"],
+                "cwd": str(BASE),
+                "icon": "📊",
+            },
+            {
+                "id": "predict_portfolio_8",
+                "label": "Gerar Portfólio (8 jogos)",
+                "description": "Portfólio com 8 jogos distribuídos por tier",
+                "cmd": ["lotofacil", "portfolio", "--jogos", "8"],
+                "cwd": str(BASE),
+                "icon": "🎯",
+            },
+        ],
+    },
+    "treinamento": {
+        "label": "🎯 Treinamento & Validação",
+        "items": [
+            {
+                "id": "ml_train",
+                "label": "Treinar Modelos",
+                "description": "Treina todos os modelos (Frequency + ML + LSTM)",
+                "cmd": ["lotofacil", "modelo", "treinar"],
+                "cwd": str(BASE),
+                "icon": "🏋️",
+            },
+            {
+                "id": "ml_backtest",
+                "label": "Backtest",
+                "description": "Walk-forward backtest → relatório HTML",
+                "cmd": ["lotofacil", "modelo", "backtest"],
+                "cwd": str(BASE),
+                "icon": "📈",
+            },
+            {
+                "id": "ml_validar",
+                "label": "Validar Predições",
+                "description": "Confere predições pendentes contra resultados reais",
+                "cmd": ["lotofacil", "modelo", "validar"],
+                "cwd": str(BASE),
+                "icon": "✅",
+            },
+        ],
+    },
+    "lab": {
+        "label": "🔬 Experimentos (Lab)",
+        "items": [
+            {
+                "id": "lab_backfill_clima",
+                "label": "Backfill Clima",
+                "description": "Preenche histórico climático via Open-Meteo",
+                "cmd": ["lotofacil", "lab", "backfill-clima"],
+                "cwd": str(BASE),
+                "icon": "🌤️",
+            },
+            {
+                "id": "lab_lunar_check",
+                "label": "Lunar Check (hoje)",
+                "description": "Mostra features lunares para a data de hoje",
+                "cmd": ["lotofacil", "lab", "lunar-check",
+                        "--data", datetime.date.today().isoformat()],
+                "cwd": str(BASE),
+                "icon": "🌙",
+            },
+            {
+                "id": "lab_ablation",
+                "label": "Ablation Study",
+                "description": "Compara configs de features (clima, lua, base)",
+                "cmd": ["lotofacil", "lab", "ablation", "--n-test", "50"],
+                "cwd": str(BASE),
+                "icon": "🧪",
+            },
+        ],
+    },
+}

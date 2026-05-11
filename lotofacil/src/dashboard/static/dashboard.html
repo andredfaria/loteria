@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lotofácil Dashboard</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0f172a; --surface: #1e293b; --border: #334155;
+    --text: #e2e8f0; --muted: #94a3b8; --dim: #64748b;
+    --accent: #38bdf8; --accent-dim: #0f2942;
+    --green: #4ade80; --red: #f87171; --yellow: #fbbf24;
+    --orange: #fb923c; --purple: #a78bfa;
+    --sidebar-w: 160px; --nav-h: 56px;
+    --radius: 0.5rem; --radius-lg: 0.75rem;
+  }
+  html, body { height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg); color: var(--text); display: flex; flex-direction: column;
+  }
+
+  /* Navbar */
+  .navbar {
+    height: var(--nav-h); display: flex; align-items: center;
+    padding: 0 1.25rem; background: var(--surface);
+    border-bottom: 1px solid var(--border); flex-shrink: 0;
+    gap: 0.75rem;
+  }
+  .navbar .logo { font-size: 1.25rem; font-weight: 700; color: var(--accent); }
+  .navbar .logo span { color: var(--green); }
+  .navbar .spacer { flex: 1; }
+  .navbar .status-items { display: flex; gap: 1.25rem; font-size: 0.8rem; color: var(--muted); }
+  .navbar .status-items .val { color: var(--text); font-weight: 600; }
+  .navbar .status-items .online { display: inline-block; width: 8px; height: 8px;
+    border-radius: 50%; background: var(--green); margin-right: 4px; }
+
+  /* Layout */
+  .layout { display: flex; flex: 1; overflow: hidden; }
+
+  /* Sidebar */
+  .sidebar {
+    width: var(--sidebar-w); background: var(--surface);
+    border-right: 1px solid var(--border); flex-shrink: 0;
+    display: flex; flex-direction: column; padding: 0.5rem; gap: 0.25rem;
+    overflow-y: auto;
+  }
+  .sidebar .tab {
+    display: flex; align-items: center; gap: 0.5rem;
+    padding: 0.6rem 0.75rem; border-radius: var(--radius);
+    font-size: 0.8rem; cursor: pointer; transition: all 0.15s;
+    color: var(--muted); border: none; background: none; text-align: left;
+    white-space: nowrap;
+  }
+  .sidebar .tab:hover { background: rgba(255,255,255,0.05); color: var(--text); }
+  .sidebar .tab.active { background: var(--accent-dim); color: var(--accent); font-weight: 600; }
+  .sidebar .tab .icon { font-size: 1rem; width: 1.25rem; text-align: center; flex-shrink: 0; }
+
+  /* Main */
+  .main {
+    flex: 1; display: flex; flex-direction: column; overflow: hidden;
+  }
+
+  /* Action buttons area */
+  .actions-bar {
+    padding: 1rem 1.25rem; border-bottom: 1px solid var(--border);
+    display: flex; flex-wrap: wrap; gap: 0.5rem; flex-shrink: 0;
+    min-height: 64px;
+  }
+  .actions-bar .section-title {
+    width: 100%; font-size: 0.7rem; text-transform: uppercase;
+    letter-spacing: 0.05em; color: var(--dim); margin-bottom: 0.25rem;
+  }
+  .action-btn {
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    padding: 0.45rem 0.9rem; border-radius: var(--radius);
+    border: 1px solid var(--border); background: var(--surface);
+    color: var(--text); font-size: 0.8rem; cursor: pointer;
+    transition: all 0.15s; white-space: nowrap;
+  }
+  .action-btn:hover { border-color: var(--accent); background: var(--accent-dim); color: var(--accent); }
+  .action-btn:disabled { opacity: 0.4; cursor: not-allowed; border-color: var(--border); color: var(--dim); }
+  .action-btn .icon { font-size: 0.9rem; }
+  .action-btn.running { border-color: var(--yellow); color: var(--yellow); animation: pulse-border 1s infinite; }
+  @keyframes pulse-border {
+    0%, 100% { border-color: var(--yellow); }
+    50% { border-color: var(--orange); }
+  }
+
+  /* Content split (numbers + console) */
+  .content-split {
+    flex: 1; display: flex; flex-direction: column; overflow: hidden;
+  }
+
+  /* Numbers section */
+  .numbers-section {
+    padding: 0.75rem 1.25rem; border-bottom: 1px solid var(--border);
+    flex-shrink: 0; max-height: 50%; overflow-y: auto;
+  }
+  .numbers-section .section-header {
+    display: flex; align-items: center; gap: 0.75rem;
+    margin-bottom: 0.5rem;
+  }
+  .numbers-section .section-header h3 {
+    font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--dim); font-weight: 600;
+  }
+  .numbers-section .section-header .refresh-btn {
+    font-size: 0.7rem; color: var(--accent); cursor: pointer;
+    background: none; border: none; padding: 2px 6px;
+    border-radius: 4px; transition: background 0.15s;
+  }
+  .numbers-section .section-header .refresh-btn:hover { background: var(--accent-dim); }
+  .numbers-section .section-header .badge {
+    margin-left: auto; font-size: 0.7rem; color: var(--dim);
+    background: var(--surface); padding: 2px 8px; border-radius: 999px;
+    border: 1px solid var(--border);
+  }
+  .games-grid {
+    display: grid; gap: 0.5rem;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  }
+  .game-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 0.6rem 0.75rem;
+    cursor: pointer; transition: border-color 0.15s;
+  }
+  .game-card:hover { border-color: var(--accent); }
+  .game-card .game-label { font-size: 0.65rem; color: var(--dim); margin-bottom: 0.3rem; }
+  .game-card .balls {
+    display: flex; flex-wrap: wrap; gap: 0.25rem;
+  }
+  .game-card .ball {
+    width: 26px; height: 26px; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 0.7rem; font-weight: 700;
+    background: #1e3a5f; color: var(--accent);
+    border: 1px solid rgba(56,189,248,0.2);
+  }
+  .game-card .ball.high { background: #2d1f00; color: var(--yellow); border-color: rgba(251,191,36,0.2); }
+  .empty-numbers {
+    padding: 1.5rem; text-align: center; color: var(--dim); font-size: 0.85rem;
+  }
+
+  /* Console */
+  .console-section {
+    flex: 1; display: flex; flex-direction: column; overflow: hidden;
+    position: relative;
+  }
+  .console-section .section-header {
+    display: flex; align-items: center; gap: 0.5rem;
+    padding: 0.4rem 1.25rem; border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .console-section .section-header h3 {
+    font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--dim); font-weight: 600;
+  }
+  .console-section .section-header .clear-btn {
+    margin-left: auto; font-size: 0.7rem; color: var(--dim);
+    cursor: pointer; background: none; border: none; padding: 2px 6px;
+    border-radius: 4px; transition: color 0.15s;
+  }
+  .console-section .section-header .clear-btn:hover { color: var(--text); }
+  .console-output {
+    flex: 1; overflow-y: auto; padding: 0.75rem 1.25rem;
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    font-size: 0.78rem; line-height: 1.5;
+    background: #0b1120;
+  }
+  .console-output .line { white-space: pre-wrap; word-break: break-all; color: var(--muted); }
+  .console-output .line.cmd { color: var(--green); }
+  .console-output .line.dim { color: var(--dim); }
+  .console-output .line.success { color: var(--green); font-weight: 600; }
+  .console-output .line.warn { color: var(--yellow); }
+  .console-output .line.error { color: var(--red); }
+  .console-output .line.sep { border-top: 1px solid var(--border); margin: 0.5rem 0; padding-top: 0.5rem; }
+
+  /* Modal */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; z-index: 100;
+    background: rgba(0,0,0,0.6); align-items: center; justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); width: 90%; max-width: 600px;
+    max-height: 80vh; display: flex; flex-direction: column;
+  }
+  .modal-header {
+    display: flex; align-items: center; padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .modal-header h3 { font-size: 1rem; font-weight: 600; flex: 1; }
+  .modal-header .close-btn {
+    background: none; border: none; color: var(--dim); font-size: 1.25rem;
+    cursor: pointer; padding: 0 0.25rem; line-height: 1;
+  }
+  .modal-header .close-btn:hover { color: var(--text); }
+  .modal-body { padding: 1.25rem; overflow-y: auto; flex: 1; }
+  .modal-body pre {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.8rem; color: var(--text); white-space: pre-wrap;
+    background: var(--bg); padding: 1rem; border-radius: var(--radius);
+  }
+  .modal-body .game-balls {
+    display: flex; flex-wrap: wrap; gap: 0.4rem;
+    margin-bottom: 1rem;
+  }
+  .modal-body .game-balls .ball {
+    width: 32px; height: 32px; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 0.8rem; font-weight: 700;
+    background: #1e3a5f; color: var(--accent);
+    border: 1px solid rgba(56,189,248,0.25);
+  }
+
+  /* Toast */
+  .toast-container { position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 200;
+    display: flex; flex-direction: column; gap: 0.5rem; }
+  .toast {
+    padding: 0.6rem 1rem; border-radius: var(--radius);
+    background: var(--surface); border: 1px solid var(--border);
+    font-size: 0.8rem; color: var(--text); box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    animation: slide-in 0.2s ease; max-width: 320px;
+  }
+  .toast.success { border-left: 3px solid var(--green); }
+  .toast.error { border-left: 3px solid var(--red); }
+  .toast.info { border-left: 3px solid var(--accent); }
+  @keyframes slide-in { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--dim); }
+
+  /* Empty state */
+  .empty-state { padding: 2rem; text-align: center; color: var(--dim); }
+  .empty-state .big-icon { font-size: 2rem; margin-bottom: 0.5rem; display: block; }
+  .empty-state p { font-size: 0.85rem; }
+
+  @media (max-width: 768px) {
+    :root { --sidebar-w: 48px; }
+    .sidebar .tab .label { display: none; }
+    .sidebar .tab { justify-content: center; padding: 0.6rem; }
+    .games-grid { grid-template-columns: 1fr; }
+    .navbar .status-items > span { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="navbar">
+  <div class="logo">🎰 <span>Lotofácil</span> Dashboard</div>
+  <div class="spacer"></div>
+  <div class="status-items">
+    <span id="statusTime">⏱ —</span>
+    <span id="statusDraws">🎯 Sorteios: <span class="val">—</span></span>
+    <span id="statusLatest">📌 Último: <span class="val">—</span></span>
+    <span id="statusGames">🎲 Jogos: <span class="val">—</span></span>
+    <span><span class="online"></span>Online</span>
+  </div>
+</nav>
+
+<!-- Layout -->
+<div class="layout">
+
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar"></aside>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="actions-bar" id="actionsBar">
+      <div class="section-title">Selecione uma categoria ao lado</div>
+    </div>
+
+    <div class="content-split">
+      <!-- Numbers Section -->
+      <div class="numbers-section" id="numbersSection">
+        <div class="section-header">
+          <h3>🎲 Números Gerados</h3>
+          <button class="refresh-btn" onclick="loadGames()">↻ atualizar</button>
+          <span class="badge" id="gamesBadge">0 jogos</span>
+        </div>
+        <div class="games-grid" id="gamesGrid">
+          <div class="empty-numbers">Execute uma geração para ver os números aqui</div>
+        </div>
+      </div>
+
+      <!-- Console Section -->
+      <div class="console-section">
+        <div class="section-header">
+          <h3>📜 Console</h3>
+          <button class="clear-btn" onclick="clearConsole()">✕ limpar</button>
+        </div>
+        <div class="console-output" id="consoleOutput">
+          <div class="line dim">Bem-vindo ao Lotofácil Dashboard. Selecione uma ação para começar.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modalTitle">Jogo</h3>
+      <button class="close-btn" onclick="closeModal()">&times;</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+// ─── State ────────────────────────────────────────────────
+const STATE = {
+  activeTab: 'coleta',
+  runningTasks: new Set(),
+  consoleLines: [],
+  games: [],
+};
+
+// ─── Init ─────────────────────────────────────────────────
+function init() {
+  buildSidebar();
+  fetchCommands();
+  loadGames();
+  loadStatus();
+  setInterval(loadStatus, 30000);
+}
+
+// ─── Sidebar ──────────────────────────────────────────────
+const CATEGORIES = [
+  { id: 'coleta', icon: '📥', label: 'Coleta' },
+  { id: 'predicao', icon: '🤖', label: 'Predição' },
+  { id: 'treinamento', icon: '🎯', label: 'Treinamento' },
+  { id: 'analise', icon: '📊', label: 'Análise' },
+  { id: 'geracao', icon: '🎲', label: 'Geração' },
+  { id: 'jogos', icon: '🏷️', label: 'Jogos' },
+];
+
+function buildSidebar() {
+  const el = document.getElementById('sidebar');
+  el.innerHTML = '';
+  for (const cat of CATEGORIES) {
+    const btn = document.createElement('button');
+    btn.className = 'tab' + (cat.id === STATE.activeTab ? ' active' : '');
+    btn.innerHTML = `<span class="icon">${cat.icon}</span><span class="label">${cat.label}</span>`;
+    btn.onclick = () => switchTab(cat.id);
+    el.appendChild(btn);
+  }
+}
+
+function switchTab(id) {
+  STATE.activeTab = id;
+  document.querySelectorAll('.sidebar .tab').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.sidebar .tab')[CATEGORIES.findIndex(c => c.id === id)]?.classList.add('active');
+  renderActions();
+  if (id === 'jogos') loadGames();
+}
+
+// ─── Commands / Actions ──────────────────────────────────
+let COMMANDS_DATA = null;
+
+async function fetchCommands() {
+  try {
+    const r = await fetch('/api/commands');
+    COMMANDS_DATA = await r.json();
+    renderActions();
+  } catch (e) { console.error('Failed to fetch commands', e); }
+}
+
+function renderActions() {
+  const bar = document.getElementById('actionsBar');
+  const cat = STATE.activeTab;
+
+  if (cat === 'jogos') {
+    bar.innerHTML = `
+      <div class="section-title">📂 Arquivos de Jogos Gerados</div>
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;width:100%;">
+        <button class="action-btn" onclick="loadGames()"><span class="icon">↻</span> Atualizar Lista</button>
+      </div>`;
+    return;
+  }
+
+  if (!COMMANDS_DATA || !COMMANDS_DATA[cat]) {
+    bar.innerHTML = `<div class="section-title">Nenhum comando disponível</div>`;
+    return;
+  }
+
+  const data = COMMANDS_DATA[cat];
+  let html = `<div class="section-title">${data.label}</div>`;
+  for (const item of data.items) {
+    const isRunning = STATE.runningTasks.has(item.id);
+    html += `<button class="action-btn${isRunning ? ' running' : ''}" id="btn_${item.id}"
+      onclick="runCommand('${item.id}')" ${isRunning ? 'disabled' : ''}>
+      <span class="icon">${item.icon}</span> ${item.label}
+    </button>`;
+  }
+  bar.innerHTML = html;
+}
+
+// ─── Run Command ─────────────────────────────────────────
+async function runCommand(actionId) {
+  if (STATE.runningTasks.has(actionId)) return;
+
+  // find command label
+  let label = actionId;
+  for (const cat of Object.values(COMMANDS_DATA || {})) {
+    for (const item of cat.items || []) {
+      if (item.id === actionId) { label = item.label; break; }
+    }
+  }
+
+  STATE.runningTasks.add(actionId);
+  updateButtonState(actionId, true);
+  addConsoleLine(`▶ Executando: ${label}`, 'cmd');
+  addConsoleLine('', 'sep');
+
+  try {
+    const r = await fetch('/api/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: actionId }),
+    });
+    const data = await r.json();
+    if (data.error) {
+      addConsoleLine(`❌ ${data.error}`, 'error');
+      STATE.runningTasks.delete(actionId);
+      updateButtonState(actionId, false);
+      return;
+    }
+    listenStream(data.task_id, actionId, label);
+  } catch (e) {
+    addConsoleLine(`❌ Erro de conexão: ${e.message}`, 'error');
+    STATE.runningTasks.delete(actionId);
+    updateButtonState(actionId, false);
+    showToast('Erro ao conectar ao servidor', 'error');
+  }
+}
+
+function listenStream(taskId, actionId, label) {
+  const evtSource = new EventSource(`/api/stream/${taskId}`);
+
+  evtSource.onmessage = (event) => {
+    try {
+      const data = JSON.parse(event.data);
+      if (data.type === 'stdout') {
+        addConsoleLine(data.text);
+      } else if (data.type === 'heartbeat') {
+        // keep-alive
+      }
+    } catch (e) { /* ignore */ }
+  };
+
+  evtSource.addEventListener('done', () => {
+    evtSource.close();
+    STATE.runningTasks.delete(actionId);
+    updateButtonState(actionId, false);
+    addConsoleLine('', 'sep');
+    addConsoleLine(`✅ ${label} concluído`, 'success');
+    showToast(`${label} concluído com sucesso`, 'success');
+    loadGames();
+    loadStatus();
+  });
+
+  evtSource.onerror = () => {
+    evtSource.close();
+    STATE.runningTasks.delete(actionId);
+    updateButtonState(actionId, false);
+    addConsoleLine('⚠️ Conexão perdida com o servidor', 'warn');
+    showToast('Conexão perdida', 'error');
+  };
+}
+
+function updateButtonState(actionId, running) {
+  const btn = document.getElementById(`btn_${actionId}`);
+  if (btn) {
+    btn.disabled = running;
+    btn.className = 'action-btn' + (running ? ' running' : '');
+  }
+}
+
+// ─── Console ─────────────────────────────────────────────
+function addConsoleLine(text, cls = '') {
+  const el = document.getElementById('consoleOutput');
+  const line = document.createElement('div');
+  line.className = 'line' + (cls ? ' ' + cls : '');
+  line.textContent = text;
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
+  STATE.consoleLines.push({ text, cls });
+}
+
+function clearConsole() {
+  const el = document.getElementById('consoleOutput');
+  el.innerHTML = `<div class="line dim">Console limpo.</div>`;
+  STATE.consoleLines = [];
+}
+
+// ─── Status ──────────────────────────────────────────────
+async function loadStatus() {
+  try {
+    const r = await fetch('/api/status');
+    const data = await r.json();
+    document.getElementById('statusTime').textContent = `⏱ ${data.timestamp ? new Date(data.timestamp).toLocaleTimeString() : '—'}`;
+    document.querySelector('#statusDraws .val').textContent = data.total_draws || '0';
+    if (data.last_concurso) {
+      const txt = data.last_concurso.concurso + (data.last_concurso.data ? ` (${data.last_concurso.data})` : '');
+      document.querySelector('#statusLatest .val').textContent = txt;
+    }
+    document.querySelector('#statusGames .val').textContent = data.games_count || '0';
+    document.getElementById('gamesBadge').textContent = `${data.games_count || 0} jogos`;
+  } catch (e) { /* ignore */ }
+}
+
+// ─── Games ───────────────────────────────────────────────
+async function loadGames() {
+  try {
+    const r = await fetch('/api/games');
+    STATE.games = await r.json();
+    renderGames();
+  } catch (e) { /* ignore */ }
+}
+
+function renderGames() {
+  const grid = document.getElementById('gamesGrid');
+  if (STATE.games.length === 0) {
+    grid.innerHTML = `<div class="empty-numbers">Nenhum jogo encontrado em saida/jogos/</div>`;
+    return;
+  }
+  let html = '';
+  for (const g of STATE.games.slice(0, 12)) {
+    html += `<div class="game-card" onclick="viewGame('${g.filename}')">
+      <div class="game-label">${g.filename}</div>
+      <div class="balls" id="balls_${g.filename.replace(/[^a-zA-Z0-9]/g,'_')}">
+        <span style="color:var(--dim);font-size:0.7rem">carregando...</span>
+      </div>
+    </div>`;
+  }
+  grid.innerHTML = html;
+  // Load ball content
+  for (const g of STATE.games.slice(0, 12)) {
+    loadGamePreview(g.filename);
+  }
+}
+
+async function loadGamePreview(filename) {
+  try {
+    const r = await fetch(`/api/games/${encodeURIComponent(filename)}`);
+    const data = await r.json();
+    const containerId = `balls_${filename.replace(/[^a-zA-Z0-9]/g,'_')}`;
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    const games = Array.isArray(data) ? data : (data.content ? JSON.parse(data.content) : [data]);
+    const firstGame = Array.isArray(games[0]) ? games[0] : [];
+    if (firstGame.length === 0) {
+      container.innerHTML = '<span style="color:var(--dim);font-size:0.7rem">vazio</span>';
+      return;
+    }
+    container.innerHTML = firstGame.map(n => {
+      const num = parseInt(n);
+      const high = num > 12;
+      return `<span class="ball${high ? ' high' : ''}">${String(num).padStart(2,'0')}</span>`;
+    }).join('');
+  } catch (e) { /* ignore */ }
+}
+
+async function viewGame(filename) {
+  try {
+    const r = await fetch(`/api/games/${encodeURIComponent(filename)}`);
+    const data = await r.json();
+    document.getElementById('modalTitle').textContent = `📄 ${filename}`;
+
+    let html = '';
+    const games = Array.isArray(data) ? data : (data.content ? JSON.parse(data.content) : [data]);
+
+    for (let i = 0; i < games.length; i++) {
+      const game = Array.isArray(games[i]) ? games[i] : [];
+      html += `<div style="margin-bottom:0.75rem">
+        <div style="font-size:0.7rem;color:var(--dim);margin-bottom:0.25rem">Jogo ${i + 1}</div>
+        <div class="game-balls">`;
+      for (const n of game) {
+        const num = parseInt(n);
+        const high = num > 12;
+        html += `<span class="ball${high ? ' high' : ''}">${String(num).padStart(2,'0')}</span>`;
+      }
+      html += `</div></div>`;
+    }
+    html += `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+    document.getElementById('modalBody').innerHTML = html;
+    document.getElementById('modalOverlay').classList.add('open');
+  } catch (e) {
+    showToast('Erro ao carregar jogo', 'error');
+  }
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('open');
+}
+
+// ─── Toast ────────────────────────────────────────────────
+function showToast(msg, type = 'info') {
+  const container = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.textContent = msg;
+  container.appendChild(toast);
+  setTimeout(() => { toast.remove(); }, 3000);
+}
+
+// ─── Start ────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

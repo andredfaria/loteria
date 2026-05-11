@@ -1,0 +1,19 @@
+services:
+  dashboard:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - DASHBOARD_HOST=0.0.0.0
+      - DASHBOARD_PORT=5000
+    volumes:
+      # Persistent data — survives container restarts
+      - lotofacil_dados:/app/dados
+      - lotofacil_saida:/app/saida
+      - lotofacil_db:/app/src
+    restart: unless-stopped
+
+volumes:
+  lotofacil_dados:
+  lotofacil_saida:
+  lotofacil_db:
