@@ -32,13 +32,28 @@ def prever(
     concurso: Optional[int] = typer.Option(None, "--concurso", "-c", help="Concurso alvo"),
 ) -> None:
     """Prediz 11 números para o próximo concurso."""
-    from data.loader import load_draws
+    from data.loader import load_draws, load_draws_from_json
     from strategies.eleven_numbers.predictor import ElevenNumbersStrategy
 
     draws = load_draws(source="db")
+
+    if not draws:
+        # Fallback 1: data/raw/concursos/ (core system JSON files)
+        _core_raw = Path(__file__).resolve().parent.parent.parent / "data" / "raw" / "concursos"
+        if _core_raw.exists():
+            draws = load_draws_from_json(_core_raw)
+
+    if not draws:
+        # Fallback 2: dados/ (legacy JSON files, present in git as sample)
+        _dados = Path(__file__).resolve().parent.parent.parent / "dados"
+        if _dados.exists():
+            draws = load_draws_from_json(_dados)
+
     if not draws:
         console.print("[red]Sem dados. Execute: lotofacil dados atualizar --all[/red]")
         raise typer.Exit(1)
+
+    console.print(f"  [dim]{len(draws)} concursos carregados[/dim]")
 
     strategy = ElevenNumbersStrategy()
     pred = strategy.predict(draws, approach=approach)
