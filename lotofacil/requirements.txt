@@ -29,6 +29,10 @@ seaborn>=0.12.0
 # Templates HTML
 Jinja2>=3.1.0
 
+# Dashboard web server
+Flask>=3.0.0
+flask-cors>=4.0.0
+
 # Astronomia (lunar features — offline, sem API)
 pylunar>=0.7.0
 
