@@ -68,14 +68,21 @@ def prever(
         box=box.DOUBLE_EDGE,
     ))
 
+    approach_tag = approach.replace("all", "ensemble")
+
     _saida = Path(__file__).resolve().parent.parent.parent / "saida" / "jogos"
     _saida.mkdir(parents=True, exist_ok=True)
-    out = _saida / f"predicao_{pred.concurso_alvo}.json"
+    out = _saida / f"predicao_{approach_tag}_{pred.concurso_alvo}.json"
     out.write_text(
-        json.dumps({"concurso": pred.concurso_alvo, "dezenas": sorted(pred.dezenas)}, ensure_ascii=False, indent=2),
+        json.dumps({
+            "concurso": pred.concurso_alvo,
+            "abordagem": approach_tag,
+            "dezenas": sorted(pred.dezenas),
+            "confianca": round(pred.confianca_media, 4),
+        }, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
-    console.print(f"  [dim]💾 Salvo em saida/jogos/predicao_{pred.concurso_alvo}.json[/dim]")
+    console.print(f"  [dim]💾 Salvo em saida/jogos/predicao_{approach_tag}_{pred.concurso_alvo}.json[/dim]")
 
 
 def _register_subapps() -> None:
