@@ -301,6 +301,12 @@
   }
   .model-badge.core { color: var(--accent); border-color: rgba(56,189,248,0.3); }
   .model-badge.lab  { color: var(--purple); border-color: rgba(167,139,250,0.3); }
+  .health-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.75rem; margin-bottom: 0.75rem; }
+  .health-title { font-size: 0.8rem; font-weight: 600; margin-bottom: 0.5rem; }
+  .sparkline { font-family: monospace; color: var(--accent); font-size: 0.82rem; letter-spacing: 1px; margin-bottom: 0.5rem; }
+  .drift-ok { color: var(--green); }
+  .drift-alert { color: var(--red); font-weight: 600; }
+  .health-meta { font-size: 0.72rem; color: var(--muted); margin-top: 0.35rem; }
 </style>
 </head>
 <body>
@@ -831,19 +837,42 @@ async function loadModels() {
   try {
     const r = await fetch('/api/models/status');
     const data = await r.json();
-    renderModels(data);
+    const trendResp = await fetch('/api/models/trend');
+    const trendData = await trendResp.json();
+    renderModels(data, trendData);
   } catch (e) {
     grid.innerHTML = '<div class="empty-numbers">Erro ao carregar modelos</div>';
   }
 }
 
-function renderModels(models) {
+function renderModels(models, trendData = null) {
   const grid = document.getElementById('gamesGrid');
   if (!models || models.length === 0) {
     grid.innerHTML = '<div class="empty-numbers">Nenhum modelo encontrado em output/models/ ou lotofacil_lab/saved_models/</div>';
     return;
   }
   let html = '';
+  if (trendData && trendData.summary) {
+    const series = trendData.series || [];
+    const tail = series.slice(-20).map(r => r.hits);
+    const chars = '▁▂▃▄▅▆▇█';
+    const min = Math.min(...tail, 0);
+    const max = Math.max(...tail, 1);
+    const spark = tail.map(v => {
+      const idx = max === min ? 0 : Math.round(((v - min) / (max - min)) * (chars.length - 1));
+      return chars[idx];
+    }).join('');
+    const drift = trendData.summary.drift || {};
+    const driftCls = drift.alert ? 'drift-alert' : 'drift-ok';
+    html += `<div class="health-card" style="grid-column:1/-1;">
+      <div class="health-title">🩺 Saúde do Modelo</div>
+      <div class="sparkline" title="Tendência dos últimos concursos">${spark || '—'}</div>
+      <div class="health-meta">Média móvel (20/50): ${series.at(-1)?.rolling_mean_20 ?? '—'} / ${series.at(-1)?.rolling_mean_50 ?? '—'}</div>
+      <div class="health-meta">Taxa >=11 acertos (20/50): ${(trendData.summary.hit_rate_ge_11_w20 * 100).toFixed(1)}% / ${(trendData.summary.hit_rate_ge_11_w50 * 100).toFixed(1)}%</div>
+      <div class="health-meta ${driftCls}">Drift: sequência de queda = ${drift.decline_streak ?? 0} concursos ${drift.alert ? '(ALERTA)' : '(estável)'}</div>
+    </div>`;
+  }
+
   for (const m of models) {
     const trainedAt = m.trained_at ? new Date(m.trained_at).toLocaleDateString('pt-BR', {day:'2-digit',month:'2-digit',year:'numeric'}) : '—';
     const epochsStr = m.epochs_trained != null ? `Épocas: ${m.epochs_trained}` : '';

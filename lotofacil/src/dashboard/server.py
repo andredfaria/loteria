@@ -145,6 +145,114 @@ def _scan_models():
     return models
 
 
+
+def _load_draws_by_concurso() -> dict[int, list[int]]:
+    draws: dict[int, list[int]] = {}
+    for f in DADOS_DIR.glob("concurso_*.json"):
+        try:
+            payload = json.loads(f.read_text())
+            concurso = int(payload.get("concurso"))
+            dezenas = payload.get("dezenas") or payload.get("numeros")
+            if isinstance(dezenas, list):
+                draws[concurso] = [int(n) for n in dezenas]
+        except Exception:
+            continue
+    return draws
+
+
+def _calc_calibration_bins(points: list[tuple[float, float]], n_bins: int = 5) -> list[dict]:
+    if not points:
+        return []
+    bins = [{"count": 0, "conf_sum": 0.0, "acc_sum": 0.0} for _ in range(n_bins)]
+    for conf, acc in points:
+        c = min(max(float(conf), 0.0), 1.0)
+        idx = min(int(c * n_bins), n_bins - 1)
+        b = bins[idx]
+        b["count"] += 1
+        b["conf_sum"] += c
+        b["acc_sum"] += float(acc)
+
+    out = []
+    for i, b in enumerate(bins):
+        if b["count"] == 0:
+            continue
+        lo = i / n_bins
+        hi = (i + 1) / n_bins
+        out.append({
+            "bin": f"{lo:.1f}-{hi:.1f}",
+            "count": b["count"],
+            "avg_confidence": round(b["conf_sum"] / b["count"], 4),
+            "avg_real_accuracy": round(b["acc_sum"] / b["count"], 4),
+            "gap": round((b["conf_sum"] - b["acc_sum"]) / b["count"], 4),
+        })
+    return out
+
+
+def _build_model_trend(window_short: int = 20, window_long: int = 50) -> dict:
+    draws = _load_draws_by_concurso()
+    series = []
+    calibration_points: list[tuple[float, float]] = []
+
+    games_dir = SAIDA_DIR / "jogos"
+    for f in sorted(games_dir.glob("predicao_*.json"), key=lambda p: p.stat().st_mtime):
+        try:
+            data = json.loads(f.read_text())
+            concurso = int(data.get("concurso"))
+            predicted = data.get("dezenas", [])
+            if not isinstance(predicted, list) or concurso not in draws:
+                continue
+            actual = draws[concurso]
+            hits = len(set(int(n) for n in predicted) & set(actual))
+            conf_raw = data.get("confianca")
+            confidence = None
+            if conf_raw is not None:
+                confidence = float(conf_raw)
+                if confidence > 1:
+                    confidence = confidence / 100.0
+                confidence = min(max(confidence, 0.0), 1.0)
+                calibration_points.append((confidence, hits / 15.0))
+            series.append({"concurso": concurso, "hits": hits, "confidence": confidence})
+        except Exception:
+            continue
+
+    if not series:
+        return {"series": [], "rolling": {}, "calibration": [], "summary": {}}
+
+    series.sort(key=lambda r: r["concurso"])
+    hits_values = [r["hits"] for r in series]
+
+    for i, row in enumerate(series):
+        short_slice = hits_values[max(0, i - window_short + 1):i + 1]
+        long_slice = hits_values[max(0, i - window_long + 1):i + 1]
+        row["rolling_mean_20"] = round(float(sum(short_slice) / len(short_slice)), 4)
+        row["rolling_mean_50"] = round(float(sum(long_slice) / len(long_slice)), 4)
+
+    tail_short = series[-window_short:]
+    hit_rate_11_short = sum(1 for r in tail_short if r["hits"] >= 11) / len(tail_short)
+    tail_long = series[-window_long:]
+    hit_rate_11_long = sum(1 for r in tail_long if r["hits"] >= 11) / len(tail_long)
+
+    recent = [r["hits"] for r in series[-6:]]
+    drift_streak = 0
+    for i in range(1, len(recent)):
+        if recent[i] < recent[i - 1]:
+            drift_streak += 1
+        else:
+            drift_streak = 0
+    drift_alert = drift_streak >= 3
+
+    return {
+        "series": series,
+        "calibration": _calc_calibration_bins(calibration_points, n_bins=5),
+        "summary": {
+            "n_evaluated": len(series),
+            "mean_hits": round(float(sum(hits_values) / len(hits_values)), 4),
+            "hit_rate_ge_11_w20": round(hit_rate_11_short, 4),
+            "hit_rate_ge_11_w50": round(hit_rate_11_long, 4),
+            "drift": {"decline_streak": drift_streak, "alert": drift_alert, "window": len(recent)},
+        },
+    }
+
 # ─── API Endpoints ─────────────────────────────────────────────
 
 @app.route("/")
@@ -184,6 +292,12 @@ def api_predictions():
 def api_models_status():
     return jsonify(_scan_models())
 
+
+
+
+@app.route("/api/models/trend")
+def api_models_trend():
+    return jsonify(_build_model_trend())
 
 @app.route("/api/games/<path:filename>")
 def api_game_file(filename):
