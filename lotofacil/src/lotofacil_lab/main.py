@@ -160,20 +160,46 @@ def predict(
     n_draws: int = typer.Option(500, "--n-draws", help="Historical draws for inference context."),
     debug: bool = typer.Option(False, "--debug"),
 ) -> None:
-    """Predict the next draw's 15 dezenas using a trained model."""
+    """Predict the next draw's 15 dezenas using a trained model and save to saida/jogos/."""
     _setup_logging(debug)
+    import json
+    from lotofacil_lab.config import PROJECT_ROOT
     from lotofacil_lab.data.feature_flags import FeatureConfig
     from lotofacil_lab.data.draws_loader import load_draws_last_n
     from lotofacil_lab.models.neural_modular import NeuralModular
 
     cfg = FeatureConfig.from_signature(config_sig)
     draws = load_draws_last_n(n_draws)
+    if not draws:
+        console.print("[red]Sem dados. Execute: lotofacil dados atualizar --all[/red]")
+        raise typer.Exit(1)
+
     model = NeuralModular(cfg)
     model.load()
     dezenas = model.predict(draws)
-    console.print(f"[bold]Predicted dezenas[/bold] (config={cfg.signature()}):")
+
+    next_concurso = draws[-1].concurso + 1
+    config_slug = cfg.signature().replace("+", "-")
+    abordagem = f"lab_{config_slug}"
+
+    console.print(f"[bold]Predição — Concurso {next_concurso}[/bold] (config={cfg.signature()}):")
     console.print(" ".join(f"{d:02d}" for d in dezenas))
-    console.print(f"Sum: {sum(dezenas)} | Pares: {sum(1 for d in dezenas if d % 2 == 0)}")
+    console.print(f"Soma: {sum(dezenas)} | Pares: {sum(1 for d in dezenas if d % 2 == 0)}")
+
+    saida = PROJECT_ROOT / "saida" / "jogos"
+    saida.mkdir(parents=True, exist_ok=True)
+    out = saida / f"predicao_{abordagem}_{next_concurso}.json"
+    out.write_text(
+        json.dumps({
+            "concurso": next_concurso,
+            "abordagem": abordagem,
+            "dezenas": dezenas,
+            "confianca": None,
+            "config": cfg.signature(),
+        }, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    console.print(f"  [dim]💾 Salvo em saida/jogos/{out.name}[/dim]")
 
 
 # ── ablation ───────────────────────────────────────────────────────────────────
