@@ -978,34 +978,29 @@ function renderPredictions(groups) {
 async function loadModels() {
   const grid = document.getElementById('gamesGrid');
   try {
-    const [statusResp, qualityResp] = await Promise.all([
+    const [statusResp, qualityResp, trendResp] = await Promise.all([
       fetch('/api/models/status'),
       fetch('/api/models/quality?last_n=120'),
+      fetch('/api/models/trend'),
     ]);
     const models = await statusResp.json();
     const quality = await qualityResp.json();
-    renderModels(models, quality);
-    const r = await fetch('/api/models/status');
-    const data = await r.json();
-    const trendResp = await fetch('/api/models/trend');
-    const trendData = await trendResp.json();
-    renderModels(data, trendData);
+    const trend = await trendResp.json();
+    renderModels(models, quality, trend);
   } catch (e) {
     grid.innerHTML = '<div class="empty-numbers">Erro ao carregar modelos</div>';
   }
 }
 
-function renderModels(models, qualityPayload) {
-function renderModels(models, trendData = null) {
+function renderModels(models, qualityPayload, trendData) {
   const grid = document.getElementById('gamesGrid');
   if ((!models || models.length === 0) && (!qualityPayload?.models || qualityPayload.models.length === 0)) {
     grid.innerHTML = '<div class="empty-numbers">Nenhum modelo encontrado em output/models/ ou lotofacil_lab/saved_models/</div>';
     return;
   }
 
-  let modelHtml = '';
-  for (const m of (models || [])) {
   let html = '';
+
   if (trendData && trendData.summary) {
     const series = trendData.series || [];
     const tail = series.slice(-20).map(r => r.hits);
@@ -1024,19 +1019,6 @@ function renderModels(models, trendData = null) {
       <div class="health-meta">Média móvel (20/50): ${series.at(-1)?.rolling_mean_20 ?? '—'} / ${series.at(-1)?.rolling_mean_50 ?? '—'}</div>
       <div class="health-meta">Taxa >=11 acertos (20/50): ${(trendData.summary.hit_rate_ge_11_w20 * 100).toFixed(1)}% / ${(trendData.summary.hit_rate_ge_11_w50 * 100).toFixed(1)}%</div>
       <div class="health-meta ${driftCls}">Drift: sequência de queda = ${drift.decline_streak ?? 0} concursos ${drift.alert ? '(ALERTA)' : '(estável)'}</div>
-    </div>`;
-  }
-
-  for (const m of models) {
-    const trainedAt = m.trained_at ? new Date(m.trained_at).toLocaleDateString('pt-BR', {day:'2-digit',month:'2-digit',year:'numeric'}) : '—';
-    const epochsStr = m.epochs_trained != null ? `Épocas: ${m.epochs_trained}` : '';
-    const valLossStr = m.val_loss_final != null ? `Val Loss: ${m.val_loss_final}` : '';
-    const sizeStr = m.size_mb != null ? `${m.size_mb} MB` : '';
-    const metaStr = [epochsStr, valLossStr, sizeStr].filter(Boolean).join('   ');
-    modelHtml += `<div class="model-card">
-      <span class="model-badge ${esc(m.group)}">${esc(m.group)}</span>
-      <div class="model-name">${esc(m.name.replace('.keras',''))}</div>
-      <div class="model-meta">Treinado: ${trainedAt}${metaStr ? '   ' + metaStr : ''}</div>
     </div>`;
   }
 
@@ -1062,7 +1044,22 @@ function renderModels(models, trendData = null) {
     ? `<div class="game-label" style="margin-bottom:0.5rem;">Base temporal da qualidade: últimos ${qualityPayload.window.requested_last_n} concursos (com ${qualityPayload.window.used_draws} predições válidas).</div>`
     : '';
 
+  let modelHtml = '';
+  for (const m of (models || [])) {
+    const trainedAt = m.trained_at ? new Date(m.trained_at).toLocaleDateString('pt-BR', {day:'2-digit',month:'2-digit',year:'numeric'}) : '—';
+    const epochsStr = m.epochs_trained != null ? `Épocas: ${m.epochs_trained}` : '';
+    const valLossStr = m.val_loss_final != null ? `Val Loss: ${m.val_loss_final}` : '';
+    const sizeStr = m.size_mb != null ? `${m.size_mb} MB` : '';
+    const metaStr = [epochsStr, valLossStr, sizeStr].filter(Boolean).join('   ');
+    modelHtml += `<div class="model-card">
+      <span class="model-badge ${esc(m.group)}">${esc(m.group)}</span>
+      <div class="model-name">${esc(m.name.replace('.keras',''))}</div>
+      <div class="model-meta">Treinado: ${trainedAt}${metaStr ? '   ' + metaStr : ''}</div>
+    </div>`;
+  }
+
   grid.innerHTML = `
+    ${html}
     ${qualityHtml ? `<div style="width:100%;">${sharedWindow}<div class="models-grid">${qualityHtml}</div></div>` : ''}
     ${modelHtml ? `<div style="width:100%;margin-top:0.75rem;"><div class="game-label" style="margin-bottom:0.5rem;">Arquivos de modelos treinados</div><div class="models-grid">${modelHtml}</div></div>` : ''}
   `;
