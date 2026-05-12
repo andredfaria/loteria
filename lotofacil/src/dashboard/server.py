@@ -115,6 +115,89 @@ def _list_predictions():
     return list(by_concurso.values())
 
 
+
+
+def _load_kpi_report():
+    path = BASE / "output" / "kpi_report.json"
+    if not path.exists():
+        return {}
+    try:
+        return json.loads(path.read_text())
+    except Exception:
+        return {}
+
+
+def _extract_model_metrics(report: dict):
+    baseline = (report.get("random_baseline") or {}).get("mean_hits")
+    models = []
+    for key, value in report.items():
+        if not isinstance(value, dict):
+            continue
+        if "mean_hits" not in value or key == "random_baseline":
+            continue
+        mean_hits = value.get("mean_hits")
+        improvement = None
+        if baseline not in (None, 0) and mean_hits is not None:
+            improvement = ((mean_hits - baseline) / baseline) * 100
+        models.append({
+            "id": key,
+            "label": value.get("label", key),
+            "mean_hits": mean_hits,
+            "improvement_pct": improvement,
+            "p_value": value.get("t_pvalue_mean", value.get("binomial_p_value")),
+            "std_hits": value.get("std_hits"),
+            "hits_distribution": value.get("hits_distribution", {}),
+        })
+    return models
+
+
+def _alert_history_path():
+    out = BASE / "output"
+    out.mkdir(parents=True, exist_ok=True)
+    return out / "alert_history.json"
+
+
+def _load_alert_history():
+    path = _alert_history_path()
+    if not path.exists():
+        return []
+    try:
+        return json.loads(path.read_text())
+    except Exception:
+        return []
+
+
+def _save_alert_history(items):
+    _alert_history_path().write_text(json.dumps(items, indent=2, ensure_ascii=False))
+
+
+def _evaluate_alerts(models, pvalue_threshold=0.05, moving_avg_drop_limit=0.15):
+    alerts = []
+    history = _load_alert_history()
+    previous = {h.get("model_id"): h for h in history if h.get("type") == "snapshot"}
+    snapshots = []
+    now = datetime.utcnow().isoformat()
+
+    for m in models:
+        if m.get("improvement_pct") is not None and m["improvement_pct"] < 0:
+            alerts.append({"type": "negative_improvement", "severity": "error", "model_id": m["id"], "message": f"{m['label']}: improvement_pct negativo ({m['improvement_pct']:.2f}%)", "timestamp": now})
+        if m.get("p_value") is not None and m["p_value"] > pvalue_threshold:
+            alerts.append({"type": "pvalue_above_threshold", "severity": "warn", "model_id": m["id"], "message": f"{m['label']}: p_value {m['p_value']:.4f} > {pvalue_threshold:.4f}", "timestamp": now})
+        prev = previous.get(m["id"], {})
+        prev_ma = prev.get("moving_avg_mean_hits", m.get("mean_hits") or 0)
+        curr = m.get("mean_hits") or 0
+        ma = ((prev_ma * 2) + curr) / 3
+        snapshots.append({"type": "snapshot", "model_id": m["id"], "moving_avg_mean_hits": ma, "timestamp": now})
+        if prev_ma and (prev_ma - ma) / prev_ma > moving_avg_drop_limit:
+            alerts.append({"type": "moving_avg_drop", "severity": "error", "model_id": m["id"], "message": f"{m['label']}: queda da média móvel acima do limite", "timestamp": now})
+
+    fingerprints = {(h.get("type"), h.get("model_id"), h.get("message")) for h in history if h.get("type") != "snapshot"}
+    new_alerts = [a for a in alerts if (a.get("type"), a.get("model_id"), a.get("message")) not in fingerprints]
+    kept = [h for h in history if h.get("type") != "snapshot"]
+    merged = kept + new_alerts + snapshots
+    _save_alert_history(merged)
+    return alerts
+
 def _scan_models():
     """Scan model directories for .keras files and read their metadata."""
     models = []
@@ -242,6 +325,63 @@ def _build_quality_payload(window_size: int = 120) -> dict:
         })
 
     return {"models": models, "window": {"requested_last_n": configured_window, "used_draws": len(rows)}}
+def _extract_numbers(raw):
+    """Extract game arrays from multiple known payload structures."""
+    if raw is None:
+        return []
+    if isinstance(raw, list):
+        if raw and isinstance(raw[0], (int, float)):
+            return [raw]
+        if raw and isinstance(raw[0], list):
+            return [g for g in raw if isinstance(g, list) and len(g) > 0]
+        if raw and isinstance(raw[0], dict):
+            return [g.get("dezenas") for g in raw if isinstance(g.get("dezenas"), list) and len(g.get("dezenas")) > 0]
+    if isinstance(raw, dict):
+        dezenas = raw.get("dezenas")
+        if isinstance(dezenas, list):
+            return [dezenas]
+        jogos = raw.get("jogos")
+        if isinstance(jogos, dict):
+            games = []
+            for tier in jogos.values():
+                if isinstance(tier, list):
+                    for g in tier:
+                        if isinstance(g, list) and len(g) > 0:
+                            games.append(g)
+                        elif isinstance(g, dict) and isinstance(g.get("dezenas"), list) and len(g.get("dezenas")) > 0:
+                            games.append(g["dezenas"])
+            return games
+    return []
+
+
+def _normalize_game_preview(filename: str):
+    safe = Path(filename).name
+    path = SAIDA_DIR / "jogos" / safe
+    if not path.exists():
+        return None
+    try:
+        data = json.loads(path.read_text())
+    except Exception:
+        return {
+            "filename": safe,
+            "preview_dezenas": [],
+            "games_count": 0,
+            "preview_status": "corrupted",
+        }
+    all_games = _extract_numbers(data)
+    first_game = all_games[0] if all_games else []
+    normalized = []
+    for n in first_game:
+        try:
+            normalized.append(int(n))
+        except Exception:
+            continue
+    return {
+        "filename": safe,
+        "preview_dezenas": normalized,
+        "games_count": len(all_games),
+        "preview_status": "ok" if normalized else "empty",
+    }
 
 
 # ─── API Endpoints ─────────────────────────────────────────────
@@ -274,6 +414,20 @@ def api_games():
     return jsonify(_list_game_files())
 
 
+@app.route("/api/games/previews")
+def api_games_previews():
+    previews = []
+    for game in _list_game_files()[:12]:
+        item = _normalize_game_preview(game["filename"])
+        if item is None:
+            continue
+        previews.append({
+            **game,
+            **item,
+        })
+    return jsonify(previews)
+
+
 @app.route("/api/predictions")
 def api_predictions():
     return jsonify(_list_predictions())
@@ -299,9 +453,53 @@ def api_game_file(filename):
         return jsonify({"error": "not found"}), 404
     try:
         data = json.loads(path.read_text())
-        return jsonify(data)
+        return jsonify({
+            "filename": safe,
+            "games": _extract_numbers(data),
+            "raw": data,
+        })
     except Exception as e:
         return jsonify({"error": str(e), "content": path.read_text()}), 200
+
+
+
+
+@app.route("/api/leaderboard")
+def api_leaderboard():
+    report = _load_kpi_report()
+    models = _extract_model_metrics(report)
+    rank = sorted(models, key=lambda m: ((m.get("mean_hits") or 0), (m.get("improvement_pct") or -999), -(m.get("p_value") or 1), -(m.get("std_hits") or 999)), reverse=True)
+    return jsonify(rank)
+
+
+@app.route("/api/compare")
+def api_compare():
+    a = request.args.get("model_a")
+    b = request.args.get("model_b")
+    models = {m["id"]: m for m in _extract_model_metrics(_load_kpi_report())}
+    if a not in models or b not in models:
+        return jsonify({"error": "model_a/model_b inválidos"}), 400
+    ma, mb = models[a], models[b]
+    delta = {
+        "mean_hits": (ma.get("mean_hits") or 0) - (mb.get("mean_hits") or 0),
+        "improvement_pct": (ma.get("improvement_pct") or 0) - (mb.get("improvement_pct") or 0),
+        "p_value": (ma.get("p_value") or 0) - (mb.get("p_value") or 0),
+        "std_hits": (ma.get("std_hits") or 0) - (mb.get("std_hits") or 0),
+    }
+    return jsonify({"model_a": ma, "model_b": mb, "delta": delta, "distribution": {"a": ma.get("hits_distribution", {}), "b": mb.get("hits_distribution", {})}})
+
+
+@app.route("/api/alerts")
+def api_alerts():
+    pvalue_threshold = float(request.args.get("pvalue_threshold", 0.05))
+    moving_avg_drop_limit = float(request.args.get("moving_avg_drop_limit", 0.15))
+    alerts = _evaluate_alerts(_extract_model_metrics(_load_kpi_report()), pvalue_threshold, moving_avg_drop_limit)
+    return jsonify({"active": alerts, "count": len(alerts)})
+
+
+@app.route("/api/alerts/history")
+def api_alerts_history():
+    return jsonify([h for h in _load_alert_history() if h.get("type") != "snapshot"])
 
 
 @app.route("/api/generate", methods=["POST"])
