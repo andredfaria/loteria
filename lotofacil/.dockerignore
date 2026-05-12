@@ -7,11 +7,10 @@ __pycache__/
 .cursor/
 .vscode/
 
-# Large generated data (mounted as volumes in production)
-dados/clima/
-dados/lua/
-dados/processed/
-dados/*.csv
+# dados/ é symlink local (~/lotofacil-dados/) — não copiado para o container.
+# Em produção usar volume: -v /seu/dados:/app/dados
+# O Dockerfile cria dados/ vazio; populado via `lotofacil dados atualizar`.
+dados
 
 # Trained models (mounted as volumes)
 src/models_saved/
