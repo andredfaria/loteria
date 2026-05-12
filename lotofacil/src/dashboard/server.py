@@ -464,6 +464,101 @@ def _build_model_trend(window_short: int = 20, window_long: int = 50) -> dict:
         },
     }
 
+
+def _concurso_num(p: Path) -> int:
+    try:
+        return int(p.stem.split("_")[1])
+    except Exception:
+        return 0
+
+
+def _phase_label(phase: float) -> str:
+    if phase < 0.125 or phase >= 0.875:
+        return "Nova"
+    if phase < 0.375:
+        return "Crescente"
+    if phase < 0.625:
+        return "Cheia"
+    return "Minguante"
+
+
+def _build_dados_page(page: int, per_page: int) -> dict:
+    all_files = sorted(DADOS_DIR.glob("concurso_*.json"), key=_concurso_num, reverse=True)
+    total = len(all_files)
+    start = (page - 1) * per_page
+    page_files = all_files[start: start + per_page]
+
+    clima_dir = DADOS_DIR / "clima"
+    lua_dir = DADOS_DIR / "lua"
+
+    items = []
+    for f in page_files:
+        try:
+            data = json.loads(f.read_text())
+            concurso = data.get("concurso")
+            data_str = data.get("data", "")
+            dezenas = data.get("dezenas", [])
+
+            # Climate
+            clima = None
+            if clima_dir.exists():
+                matches = list(clima_dir.glob(f"clima_concurso{concurso}-*.json"))
+                if matches:
+                    try:
+                        c = json.loads(matches[0].read_text())
+                        hourly = c.get("hourly", {})
+                        temps = hourly.get("temperature_2m", [])
+                        precips = hourly.get("precipitation", [])
+                        temp_21 = temps[21] if len(temps) > 21 else None
+                        precip_21 = precips[21] if len(precips) > 21 else None
+                        clima = {
+                            "temp_c": round(temp_21, 1) if temp_21 is not None else None,
+                            "precip_mm": round(precip_21, 1) if precip_21 is not None else None,
+                        }
+                    except Exception:
+                        pass
+
+            # Lunar
+            lua = None
+            if data_str and lua_dir.exists():
+                try:
+                    parts = data_str.split("/")
+                    if len(parts) == 3:
+                        date_iso = f"{parts[2]}-{parts[1]}-{parts[0]}"
+                        lua_file = lua_dir / f"{date_iso}.json"
+                        if lua_file.exists():
+                            lua_data = json.loads(lua_file.read_text())
+                            feats = lua_data.get("features", {})
+                            phase = float(feats.get("phase", 0))
+                            lua = {
+                                "fase": _phase_label(phase),
+                                "phase": round(phase, 3),
+                            }
+                except Exception:
+                    pass
+
+            items.append({
+                "concurso": concurso,
+                "data": data_str,
+                "dezenas": dezenas,
+                "clima": clima,
+                "lua": lua,
+            })
+        except Exception:
+            continue
+
+    clima_total = len(list(clima_dir.glob("clima_concurso*.json"))) if clima_dir.exists() else 0
+    lua_total = len(list(lua_dir.glob("*.json"))) if lua_dir.exists() else 0
+
+    return {
+        "total": total,
+        "page": page,
+        "per_page": per_page,
+        "clima_total": clima_total,
+        "lua_total": lua_total,
+        "items": items,
+    }
+
 def _extract_numbers(raw):
     """Extract game arrays from multiple known payload structures."""
     if raw is None:
@@ -668,6 +763,13 @@ def api_alerts():
 @app.route("/api/alerts/history")
 def api_alerts_history():
     return jsonify([h for h in _load_alert_history() if h.get("type") != "snapshot"])
+
+
+@app.route("/api/dados")
+def api_dados():
+    page = max(1, request.args.get("page", default=1, type=int))
+    per_page = min(max(1, request.args.get("per_page", default=50, type=int)), 100)
+    return jsonify(_build_dados_page(page, per_page))
 
 
 @app.route("/api/generate", methods=["POST"])
