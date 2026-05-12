@@ -663,7 +663,7 @@ async function loadStatus() {
 // ─── Games ───────────────────────────────────────────────
 async function loadGames() {
   try {
-    const r = await fetch('/api/games');
+    const r = await fetch('/api/games/previews');
     STATE.games = await r.json();
     renderGames();
   } catch (e) { /* ignore */ }
@@ -677,66 +677,22 @@ function renderGames() {
   }
   let html = '';
   for (const g of STATE.games.slice(0, 12)) {
+    const dezenas = Array.isArray(g.preview_dezenas) ? g.preview_dezenas : [];
+    const isValidPreview = dezenas.length > 0;
+    const fallbackText = g.preview_status === 'corrupted' ? 'corrompido' : 'vazio';
+    const ballsHtml = isValidPreview
+      ? dezenas.map(n => {
+        const num = parseInt(n);
+        const high = num > 12;
+        return `<span class="ball${high ? ' high' : ''}">${String(num).padStart(2,'0')}</span>`;
+      }).join('')
+      : `<span style="color:var(--dim);font-size:0.7rem">${fallbackText}</span>`;
     html += `<div class="game-card" onclick="viewGame('${g.filename}')">
       <div class="game-label">${g.filename}</div>
-      <div class="balls" id="balls_${g.filename.replace(/[^a-zA-Z0-9]/g,'_')}">
-        <span style="color:var(--dim);font-size:0.7rem">carregando...</span>
-      </div>
+      <div class="balls">${ballsHtml}</div>
     </div>`;
   }
   grid.innerHTML = html;
-  // Load ball content
-  for (const g of STATE.games.slice(0, 12)) {
-    loadGamePreview(g.filename);
-  }
-}
-
-function extractNumbers(raw) {
-  if (!raw) return [];
-  // flat array of numbers: [1,2,...,15]
-  if (Array.isArray(raw) && raw.length > 0 && typeof raw[0] === 'number') return [raw];
-  // array of arrays: [[1,...,15], [2,...,16]]
-  if (Array.isArray(raw) && Array.isArray(raw[0])) return raw.filter(g => g.length > 0);
-  // array of objects with dezenas: [{dezenas:[...]}, ...]
-  if (Array.isArray(raw) && raw[0] && Array.isArray(raw[0].dezenas)) return raw.map(g => g.dezenas).filter(d => d.length > 0);
-  // {dezenas: [...]}
-  if (raw.dezenas && Array.isArray(raw.dezenas)) return [raw.dezenas];
-  // tiered portfolio: {jogos: {conservador: [...], ...}}
-  if (raw.jogos && typeof raw.jogos === 'object') {
-    const games = [];
-    for (const tier of Object.values(raw.jogos)) {
-      if (Array.isArray(tier)) {
-        for (const g of tier) {
-          const nums = Array.isArray(g) ? g : (g && Array.isArray(g.dezenas) ? g.dezenas : null);
-          if (nums && nums.length > 0) games.push(nums);
-        }
-      }
-    }
-    return games;
-  }
-  return [];
-}
-
-async function loadGamePreview(filename) {
-  try {
-    const r = await fetch(`/api/games/${encodeURIComponent(filename)}`);
-    const data = await r.json();
-    const containerId = `balls_${filename.replace(/[^a-zA-Z0-9]/g,'_')}`;
-    const container = document.getElementById(containerId);
-    if (!container) return;
-
-    const allGames = extractNumbers(data);
-    const firstGame = allGames[0] || [];
-    if (firstGame.length === 0) {
-      container.innerHTML = '<span style="color:var(--dim);font-size:0.7rem">vazio</span>';
-      return;
-    }
-    container.innerHTML = firstGame.map(n => {
-      const num = parseInt(n);
-      const high = num > 12;
-      return `<span class="ball${high ? ' high' : ''}">${String(num).padStart(2,'0')}</span>`;
-    }).join('');
-  } catch (e) { /* ignore */ }
 }
 
 async function viewGame(filename) {
@@ -746,7 +702,7 @@ async function viewGame(filename) {
     document.getElementById('modalTitle').textContent = `📄 ${filename}`;
 
     let html = '';
-    const allGames = extractNumbers(data);
+    const allGames = Array.isArray(data.games) ? data.games : [];
 
     for (let i = 0; i < allGames.length; i++) {
       const game = allGames[i];

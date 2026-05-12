@@ -145,6 +145,65 @@ def _scan_models():
     return models
 
 
+def _extract_numbers(raw):
+    """Extract game arrays from multiple known payload structures."""
+    if raw is None:
+        return []
+    if isinstance(raw, list):
+        if raw and isinstance(raw[0], (int, float)):
+            return [raw]
+        if raw and isinstance(raw[0], list):
+            return [g for g in raw if isinstance(g, list) and len(g) > 0]
+        if raw and isinstance(raw[0], dict):
+            return [g.get("dezenas") for g in raw if isinstance(g.get("dezenas"), list) and len(g.get("dezenas")) > 0]
+    if isinstance(raw, dict):
+        dezenas = raw.get("dezenas")
+        if isinstance(dezenas, list):
+            return [dezenas]
+        jogos = raw.get("jogos")
+        if isinstance(jogos, dict):
+            games = []
+            for tier in jogos.values():
+                if isinstance(tier, list):
+                    for g in tier:
+                        if isinstance(g, list) and len(g) > 0:
+                            games.append(g)
+                        elif isinstance(g, dict) and isinstance(g.get("dezenas"), list) and len(g.get("dezenas")) > 0:
+                            games.append(g["dezenas"])
+            return games
+    return []
+
+
+def _normalize_game_preview(filename: str):
+    safe = Path(filename).name
+    path = SAIDA_DIR / "jogos" / safe
+    if not path.exists():
+        return None
+    try:
+        data = json.loads(path.read_text())
+    except Exception:
+        return {
+            "filename": safe,
+            "preview_dezenas": [],
+            "games_count": 0,
+            "preview_status": "corrupted",
+        }
+    all_games = _extract_numbers(data)
+    first_game = all_games[0] if all_games else []
+    normalized = []
+    for n in first_game:
+        try:
+            normalized.append(int(n))
+        except Exception:
+            continue
+    return {
+        "filename": safe,
+        "preview_dezenas": normalized,
+        "games_count": len(all_games),
+        "preview_status": "ok" if normalized else "empty",
+    }
+
+
 # ─── API Endpoints ─────────────────────────────────────────────
 
 @app.route("/")
@@ -175,6 +234,20 @@ def api_games():
     return jsonify(_list_game_files())
 
 
+@app.route("/api/games/previews")
+def api_games_previews():
+    previews = []
+    for game in _list_game_files()[:12]:
+        item = _normalize_game_preview(game["filename"])
+        if item is None:
+            continue
+        previews.append({
+            **game,
+            **item,
+        })
+    return jsonify(previews)
+
+
 @app.route("/api/predictions")
 def api_predictions():
     return jsonify(_list_predictions())
@@ -193,7 +266,11 @@ def api_game_file(filename):
         return jsonify({"error": "not found"}), 404
     try:
         data = json.loads(path.read_text())
-        return jsonify(data)
+        return jsonify({
+            "filename": safe,
+            "games": _extract_numbers(data),
+            "raw": data,
+        })
     except Exception as e:
         return jsonify({"error": str(e), "content": path.read_text()}), 200
 
