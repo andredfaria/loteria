@@ -542,6 +542,9 @@ def _log_response(response):
 
 @app.errorhandler(Exception)
 def _handle_uncaught_exception(exc):
+    from werkzeug.exceptions import HTTPException
+    if isinstance(exc, HTTPException):
+        return exc
     LOGGER.exception("Unhandled server error on %s %s", request.method, request.path)
     return jsonify({"error": "Erro interno no servidor", "details": str(exc)}), 500
 
