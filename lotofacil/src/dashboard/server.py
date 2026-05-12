@@ -275,8 +275,9 @@ def _load_draw_by_concurso() -> dict[int, list[int]]:
             if len(dezenas) == NUMBERS_PER_DRAW:
                 draws[concurso] = dezenas
         except Exception:
-            continue
+            pass
     return draws
+
 
 def _load_draws_by_concurso() -> dict[int, list[int]]:
     draws: dict[int, list[int]] = {}
