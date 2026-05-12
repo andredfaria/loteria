@@ -235,17 +235,51 @@
   @keyframes slide-in { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 
   /* Tabela de dados */
-  .data-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
-  .data-table th { text-align: left; padding: 0.4rem 0.6rem; color: var(--dim); font-weight: 600;
-    border-bottom: 1px solid var(--border); font-size: 0.7rem; text-transform: uppercase;
-    letter-spacing: 0.04em; white-space: nowrap; }
-  .data-table td { padding: 0.3rem 0.6rem; border-bottom: 1px solid rgba(255,255,255,0.04);
-    vertical-align: middle; font-size: 0.75rem; }
-  .data-table tr:hover { background: rgba(255,255,255,0.02); }
-  .dezenas-cell { display: flex; flex-wrap: wrap; gap: 0.2rem; }
-  .dados-summary { display: flex; gap: 1.5rem; flex-wrap: wrap; padding: 0.5rem 0;
-    margin-bottom: 0.5rem; font-size: 0.8rem; color: var(--muted); }
-  .dados-summary .val { color: var(--text); font-weight: 600; }
+  .data-table { width: 100%; border-collapse: collapse; }
+  .data-table th { text-align: left; padding: 0.5rem 0.75rem; color: var(--dim); font-weight: 600;
+    border-bottom: 2px solid var(--border); font-size: 0.68rem; text-transform: uppercase;
+    letter-spacing: 0.06em; white-space: nowrap; }
+  .data-table td { padding: 0.5rem 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.04);
+    vertical-align: middle; font-size: 0.82rem; }
+  .data-table tbody tr:nth-child(even) { background: rgba(255,255,255,0.018); }
+  .data-table tbody tr:hover { background: rgba(56,189,248,0.06); transition: background 0.1s; }
+  .data-table .ball {
+    width: 28px; height: 28px; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 0.72rem; font-weight: 700;
+    background: #1e3a5f; color: var(--accent);
+    border: 1px solid rgba(56,189,248,0.2); }
+  .data-table .ball.high { background: #2d1f00; color: var(--yellow); border-color: rgba(251,191,36,0.2); }
+  .dezenas-cell { display: flex; flex-wrap: wrap; gap: 0.25rem; }
+
+  /* Stat cards */
+  .dados-stats { display: flex; gap: 1rem; flex-wrap: wrap; padding: 0.75rem 0 1rem; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 0.75rem 1.25rem;
+    display: flex; flex-direction: column; gap: 0.15rem; min-width: 140px; }
+  .stat-card .stat-label { font-size: 0.65rem; text-transform: uppercase;
+    letter-spacing: 0.06em; color: var(--dim); font-weight: 600; }
+  .stat-card .stat-value { font-size: 1.6rem; font-weight: 700; color: var(--text);
+    font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .stat-card .stat-sub { font-size: 0.7rem; color: var(--muted); }
+
+  /* Moon phase badges */
+  .lua-badge { display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.72rem;
+    padding: 0.18rem 0.55rem; border-radius: 999px; font-weight: 600; white-space: nowrap; }
+  .lua-badge.nova      { background: rgba(100,116,139,0.2);  color: #94a3b8; }
+  .lua-badge.crescente { background: rgba(56,189,248,0.15);  color: #38bdf8; }
+  .lua-badge.cheia     { background: rgba(251,191,36,0.18);  color: #fbbf24; }
+  .lua-badge.minguante { background: rgba(167,139,250,0.15); color: #a78bfa; }
+
+  /* Climate cell */
+  .clima-cell { font-size: 0.78rem; white-space: nowrap; }
+  .clima-temp   { color: var(--text); font-weight: 500; }
+  .clima-precip { color: #38bdf8; }
+
+  /* Dados full-height mode */
+  .content-split.dados-mode .numbers-section { max-height: none; flex: 1; border-bottom: none; }
+  .content-split.dados-mode .console-section { display: none; }
+  .content-split.dados-mode .numbers-section .section-header { display: none; }
 
   /* Scrollbar */
   ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -554,6 +588,7 @@ function switchTab(id) {
   document.querySelectorAll('.sidebar .tab').forEach((el, i) => {
     el.classList.toggle('active', CATEGORIES[i].id === id);
   });
+  document.querySelector('.content-split').classList.toggle('dados-mode', id === 'dados');
 
   const numSec = document.getElementById('numbersSection');
   const bar = document.getElementById('actionsBar');
@@ -922,43 +957,70 @@ async function renderDados() {
 
     document.getElementById('actionsBar').innerHTML = `
       <div class="section-title">🗃️ Dados de Treinamento</div>
-      <button class="action-btn" onclick="renderDados()"><span class="icon">↻</span> Atualizar</button>
-      <span style="font-size:0.8rem;color:var(--muted);align-self:center;">
-        Página ${d.page} de ${totalPages}
-      </span>
+      <button class="action-btn" onclick="renderDados()" title="Atualizar">↻</button>
       <button class="action-btn" onclick="dadosChangePage(-1)" ${d.page <= 1 ? 'disabled' : ''}>‹ Anterior</button>
+      <span style="font-size:0.82rem;color:var(--muted);align-self:center;padding:0 0.25rem">${d.page} / ${totalPages}</span>
       <button class="action-btn" onclick="dadosChangePage(1)" ${d.page >= totalPages ? 'disabled' : ''}>Próxima ›</button>`;
 
-    let html = `<div class="dados-summary">
-      <span>Total: <span class="val">${d.total} concursos</span></span>
-      <span>Clima: <span class="val">${d.clima_total} registros</span></span>
-      <span>Lua: <span class="val">${d.lua_total} registros</span></span>
+    const fmt = n => n.toLocaleString('pt-BR');
+    let html = `<div class="dados-stats">
+      <div class="stat-card">
+        <span class="stat-label">Concursos</span>
+        <span class="stat-value">${fmt(d.total)}</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Com Clima</span>
+        <span class="stat-value">${fmt(d.clima_total)}</span>
+        <span class="stat-sub">registros disponíveis</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Com Lua</span>
+        <span class="stat-value">${fmt(d.lua_total)}</span>
+        <span class="stat-sub">registros disponíveis</span>
+      </div>
     </div>
     <div style="overflow-x:auto;">
       <table class="data-table">
         <thead>
           <tr>
-            <th>Concurso</th><th>Data</th><th>Dezenas</th><th>Clima</th><th>Lua</th>
+            <th style="width:4.5rem">#</th>
+            <th style="width:7.5rem">Data</th>
+            <th>Dezenas</th>
+            <th style="width:9rem">Clima</th>
+            <th style="width:8.5rem">Lua</th>
           </tr>
         </thead>
         <tbody>`;
 
+    const LUA_ICONS = { nova: '🌑', crescente: '🌒', cheia: '🌕', minguante: '🌘' };
+
     for (const item of d.items) {
-      const climaStr = item.clima
-        ? `${item.clima.temp_c != null ? item.clima.temp_c + '°C' : '—'} / ${item.clima.precip_mm != null ? item.clima.precip_mm + 'mm' : '—'}`
-        : '—';
-      const luaStr = item.lua ? esc(item.lua.fase) : '—';
+      let climaHtml = '<span style="color:var(--dim)">—</span>';
+      if (item.clima) {
+        const t = item.clima.temp_c != null
+          ? `<span class="clima-temp">${item.clima.temp_c}°C</span>` : '';
+        const p = item.clima.precip_mm != null && item.clima.precip_mm > 0
+          ? `<span class="clima-precip"> ${item.clima.precip_mm}mm</span>` : '';
+        climaHtml = `<div class="clima-cell">${t || '—'}${p}</div>`;
+      }
+
+      let luaHtml = '<span style="color:var(--dim)">—</span>';
+      if (item.lua) {
+        const key = item.lua.fase.toLowerCase();
+        luaHtml = `<span class="lua-badge ${key}">${LUA_ICONS[key] || ''} ${esc(item.lua.fase)}</span>`;
+      }
+
       const dezStr = (item.dezenas || []).map(n => {
         const num = parseInt(n);
-        return `<span class="ball${num > 12 ? ' high' : ''}" style="width:22px;height:22px;font-size:0.65rem;">${String(num).padStart(2, '0')}</span>`;
+        return `<span class="ball${num > 12 ? ' high' : ''}">${String(num).padStart(2,'0')}</span>`;
       }).join('');
 
       html += `<tr>
-        <td>${item.concurso}</td>
-        <td style="white-space:nowrap">${esc(item.data || '—')}</td>
+        <td style="color:var(--muted);font-variant-numeric:tabular-nums">${item.concurso}</td>
+        <td style="color:var(--muted)">${esc(item.data || '—')}</td>
         <td><div class="dezenas-cell">${dezStr}</div></td>
-        <td style="white-space:nowrap">${climaStr}</td>
-        <td>${luaStr}</td>
+        <td>${climaHtml}</td>
+        <td>${luaHtml}</td>
       </tr>`;
     }
 
