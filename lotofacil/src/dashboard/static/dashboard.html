@@ -163,6 +163,10 @@
     border-radius: 4px; transition: color 0.15s;
   }
   .console-section .section-header .clear-btn:hover { color: var(--text); }
+  .console-controls { margin-left: auto; display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+  .console-filter-btn { font-size: 0.67rem; border: 1px solid var(--border); background: var(--surface); color: var(--muted); border-radius: 999px; padding: 0.15rem 0.5rem; cursor: pointer; }
+  .console-filter-btn.active { color: var(--text); border-color: var(--accent); background: var(--accent-dim); }
+  .console-filter-btn:hover { color: var(--text); }
   .console-output {
     flex: 1; overflow-y: auto; padding: 0.75rem 1.25rem;
     font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
@@ -347,7 +351,17 @@
       <div class="console-section">
         <div class="section-header">
           <h3>📜 Console</h3>
-          <button class="clear-btn" onclick="clearConsole()">✕ limpar</button>
+          <div class="console-controls" id="consoleControls">
+            <button class="console-filter-btn active" data-level="info" onclick="toggleLevelFilter('info')">info</button>
+            <button class="console-filter-btn active" data-level="success" onclick="toggleLevelFilter('success')">success</button>
+            <button class="console-filter-btn active" data-level="warn" onclick="toggleLevelFilter('warn')">warn</button>
+            <button class="console-filter-btn active" data-level="error" onclick="toggleLevelFilter('error')">error</button>
+            <button class="console-filter-btn active" data-level="cmd" onclick="toggleLevelFilter('cmd')">cmd</button>
+            <button class="clear-btn" onclick="toggleAutoscroll()" id="autoscrollBtn">⏸ autoscroll</button>
+            <button class="clear-btn" onclick="exportConsole('json')">⬇ json</button>
+            <button class="clear-btn" onclick="exportConsole('txt')">⬇ txt</button>
+            <button class="clear-btn" onclick="clearConsole()">✕ limpar</button>
+          </div>
         </div>
         <div class="console-output" id="consoleOutput">
           <div class="line dim">Bem-vindo ao Lotofácil Dashboard. Selecione uma ação para começar.</div>
@@ -380,10 +394,16 @@ const STATE = {
   games: [],
   taskStartTime: {},   // actionId → timestamp
   timerIntervals: {},  // actionId → intervalId
+  consoleFilters: new Set(CONSOLE_LEVELS),
+  autoScrollEnabled: true,
 };
 
 const CONSOLE_MAX = 150;
-const LS_KEY = 'lotofacil_console_v1';
+const CONSOLE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+const LS_KEY = 'lotofacil_console_v2';
+const LS_KEY_LEGACY = 'lotofacil_console_v1';
+const CONSOLE_SCHEMA_VERSION = 2;
+const CONSOLE_LEVELS = ['info', 'success', 'warn', 'error', 'cmd'];
 
 // ─── Init ─────────────────────────────────────────────────
 function init() {
@@ -391,20 +411,62 @@ function init() {
   fetchCommands();
   loadGames();
   restoreConsole();   // restore persisted console from previous session
+  applyConsoleFilters();
   loadStatus();
   setInterval(loadStatus, 30000);
 }
 
 function restoreConsole() {
+  let payload = null;
   try {
-    const saved = localStorage.getItem(LS_KEY);
-    if (!saved) return;
-    const lines = JSON.parse(saved);
-    if (lines.length > 0) {
-      addConsoleLine('— sessão anterior —', 'sep');
-      for (const item of lines) addConsoleLine(item.text, item.cls);
+    const raw = localStorage.getItem(LS_KEY);
+    if (raw) payload = JSON.parse(raw);
+  } catch (e) { payload = null; }
+
+  if (!payload) {
+    payload = migrateLegacyConsoleSchema();
+  }
+
+  if (!payload || !Array.isArray(payload.lines)) return;
+
+  const now = Date.now();
+  const restored = payload.lines.filter((item) => {
+    if (!item || typeof item !== 'object') return false;
+    if (typeof item.text !== 'string') return false;
+    if (!CONSOLE_LEVELS.includes(item.level)) return false;
+    if (typeof item.ts !== 'number' || !Number.isFinite(item.ts)) return false;
+    return now - item.ts <= CONSOLE_MAX_AGE_MS;
+  }).slice(-CONSOLE_MAX);
+
+  if (restored.length > 0) {
+    addConsoleLine('— sessão anterior —', 'sep');
+    for (const item of restored) {
+      addConsoleLine(item.text, item.cls || '', item.ts);
     }
-  } catch (e) { /* ignore corrupt data */ }
+  }
+}
+
+function migrateLegacyConsoleSchema() {
+  try {
+    const legacyRaw = localStorage.getItem(LS_KEY_LEGACY);
+    if (!legacyRaw) return null;
+    const legacyLines = JSON.parse(legacyRaw);
+    if (!Array.isArray(legacyLines)) return null;
+    const migrated = {
+      version: CONSOLE_SCHEMA_VERSION,
+      lines: legacyLines.map((item) => ({
+        text: typeof item?.text === 'string' ? item.text : '',
+        cls: typeof item?.cls === 'string' ? item.cls : '',
+        level: normalizeLevel(item?.cls || ''),
+        ts: Date.now(),
+      })).filter((item) => item.text !== ''),
+    };
+    localStorage.setItem(LS_KEY, JSON.stringify(migrated));
+    localStorage.removeItem(LS_KEY_LEGACY);
+    return migrated;
+  } catch (e) {
+    return null;
+  }
 }
 
 // ─── Sidebar ──────────────────────────────────────────────
@@ -644,30 +706,86 @@ function classifyLine(text) {
   return '';
 }
 
-function addConsoleLine(text, cls = '') {
+function normalizeLevel(cls) {
+  if (CONSOLE_LEVELS.includes(cls)) return cls;
+  return 'info';
+}
+
+function toggleLevelFilter(level) {
+  if (!CONSOLE_LEVELS.includes(level)) return;
+  if (STATE.consoleFilters.has(level)) STATE.consoleFilters.delete(level);
+  else STATE.consoleFilters.add(level);
+  applyConsoleFilters();
+}
+
+function applyConsoleFilters() {
+  document.querySelectorAll('.console-filter-btn').forEach((btn) => {
+    const level = btn.dataset.level;
+    const active = STATE.consoleFilters.has(level);
+    btn.classList.toggle('active', active);
+  });
+  document.querySelectorAll('#consoleOutput .line[data-level]').forEach((line) => {
+    line.style.display = STATE.consoleFilters.has(line.dataset.level) ? '' : 'none';
+  });
+}
+
+function addConsoleLine(text, cls = '', ts = Date.now()) {
   const el = document.getElementById('consoleOutput');
   const line = document.createElement('div');
   const resolvedCls = cls || classifyLine(text);
+  const level = normalizeLevel(resolvedCls);
   line.className = 'line' + (resolvedCls ? ' ' + resolvedCls : '');
+  line.dataset.level = level;
+  line.dataset.ts = String(ts);
   line.textContent = text || ' ';
+  line.style.display = STATE.consoleFilters.has(level) ? '' : 'none';
   el.appendChild(line);
-  el.scrollTop = el.scrollHeight;
-  STATE.consoleLines.push({ text, cls: resolvedCls });
+  if (STATE.autoScrollEnabled) el.scrollTop = el.scrollHeight;
+  STATE.consoleLines.push({ text, cls: resolvedCls, level, ts });
+  enforceConsoleRetention();
   saveConsoleState();
+}
+
+function enforceConsoleRetention() {
+  const minTs = Date.now() - CONSOLE_MAX_AGE_MS;
+  STATE.consoleLines = STATE.consoleLines.filter((entry) => entry.ts >= minTs).slice(-CONSOLE_MAX);
 }
 
 function saveConsoleState() {
   try {
-    const recent = STATE.consoleLines.slice(-CONSOLE_MAX);
-    localStorage.setItem(LS_KEY, JSON.stringify(recent));
+    const payload = { version: CONSOLE_SCHEMA_VERSION, lines: STATE.consoleLines };
+    localStorage.setItem(LS_KEY, JSON.stringify(payload));
   } catch (e) { /* ignore quota errors */ }
+}
+
+function exportConsole(format) {
+  const lines = STATE.consoleLines;
+  const content = format === 'json'
+    ? JSON.stringify({ version: CONSOLE_SCHEMA_VERSION, lines }, null, 2)
+    : lines.map((l) => `[${new Date(l.ts).toISOString()}] [${l.level}] ${l.text}`).join('\n');
+  const blob = new Blob([content], { type: format === 'json' ? 'application/json' : 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `lotofacil-console-${new Date().toISOString().replace(/[:.]/g, '-')}.${format}`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function toggleAutoscroll() {
+  STATE.autoScrollEnabled = !STATE.autoScrollEnabled;
+  const btn = document.getElementById('autoscrollBtn');
+  if (btn) btn.textContent = STATE.autoScrollEnabled ? '⏸ autoscroll' : '▶ autoscroll';
 }
 
 function clearConsole() {
   const el = document.getElementById('consoleOutput');
-  el.innerHTML = `<div class="line dim">Console limpo.</div>`;
+  el.innerHTML = `<div class="line dim" data-level="info">Console limpo.</div>`;
   STATE.consoleLines = [];
-  try { localStorage.removeItem(LS_KEY); } catch (e) {}
+  try {
+    localStorage.removeItem(LS_KEY);
+    localStorage.removeItem(LS_KEY_LEGACY);
+  } catch (e) {}
 }
 
 // ─── Status ──────────────────────────────────────────────
