@@ -15,6 +15,11 @@ from flask import Flask, jsonify, Response, request, send_from_directory
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from dashboard.commands import COMMANDS, BASE  # noqa: E402
+from lotofacil_ml.evaluation.metrics import LotofacilMetrics
+from lotofacil_ml.evaluation.significance import compare_vs_baseline
+from lotofacil_ml.config import NUMBERS_PER_DRAW, RANDOM_SEED, TOTAL_NUMBERS
+import random
+import statistics
 
 _ANSI_RE = re.compile(r'\x1b(?:\[[0-9;]*[mGKHFABCDEFsuJKH]|[()][AB012])')
 
@@ -228,6 +233,15 @@ def _scan_models():
     return models
 
 
+def _load_draw_by_concurso() -> dict[int, list[int]]:
+    draws: dict[int, list[int]] = {}
+    for f in sorted(DADOS_DIR.glob("concurso_*.json")):
+        try:
+            data = json.loads(f.read_text())
+            concurso = int(data.get("concurso"))
+            dezenas = [int(n) for n in data.get("dezenas", [])]
+            if len(dezenas) == NUMBERS_PER_DRAW:
+                draws[concurso] = dezenas
 
 def _load_draws_by_concurso() -> dict[int, list[int]]:
     draws: dict[int, list[int]] = {}
@@ -243,6 +257,84 @@ def _load_draws_by_concurso() -> dict[int, list[int]]:
     return draws
 
 
+def _predict_rows_with_hits(window_size: int = 120) -> tuple[list[dict], int]:
+    draws = _load_draw_by_concurso()
+    rows = []
+    for f in sorted((SAIDA_DIR / "jogos").glob("predicao_*.json"), key=lambda p: p.stat().st_mtime, reverse=True):
+        try:
+            data = json.loads(f.read_text())
+            concurso = int(data.get("concurso"))
+            dezenas = [int(n) for n in data.get("dezenas", [])]
+            actual = draws.get(concurso)
+            if actual and len(dezenas) == NUMBERS_PER_DRAW:
+                hits = len(set(dezenas) & set(actual))
+                rows.append({
+                    "concurso": concurso,
+                    "abordagem": data.get("abordagem", _infer_approach(f.stem)),
+                    "predicted": dezenas,
+                    "actual": actual,
+                    "hits": hits,
+                })
+        except Exception:
+            continue
+
+    # keep latest per abordagem+concurso and then clip temporal window
+    dedup: dict[tuple[str, int], dict] = {}
+    for r in rows:
+        dedup[(r["abordagem"], r["concurso"])] = r
+    filtered = sorted(dedup.values(), key=lambda x: x["concurso"], reverse=True)[:window_size]
+    return filtered, window_size
+
+
+def _classify_quality(improvement_pct: float, p_value: float) -> tuple[str, str]:
+    if improvement_pct > 0 and p_value < 0.05:
+        return "Bom", "good"
+    if improvement_pct > 0 and p_value >= 0.05:
+        return "Atenção", "warning"
+    return "Ruim", "bad"
+
+
+def _build_quality_payload(window_size: int = 120) -> dict:
+    rows, configured_window = _predict_rows_with_hits(window_size=window_size)
+    by_approach: dict[str, list[dict]] = {}
+    for r in rows:
+        by_approach.setdefault(r["abordagem"], []).append(r)
+
+    rng = random.Random(RANDOM_SEED)
+    all_numbers = list(range(1, TOTAL_NUMBERS + 1))
+
+    models = []
+    for approach, grp in sorted(by_approach.items()):
+        grp_sorted = sorted(grp, key=lambda x: x["concurso"])
+        results = [{"predicted": g["predicted"], "actual": g["actual"], "hits": g["hits"]} for g in grp_sorted]
+        baseline = LotofacilMetrics.vs_random_baseline(results, n_simulations=200)
+
+        model_hits = [g["hits"] for g in grp_sorted]
+        baseline_hits = [len(set(rng.sample(all_numbers, NUMBERS_PER_DRAW)) & set(g["actual"])) for g in grp_sorted]
+        sig = compare_vs_baseline(model_hits, baseline_hits)
+
+        std_hits = float(statistics.pstdev(model_hits)) if len(model_hits) > 1 else 0.0
+        var_hits = float(statistics.pvariance(model_hits)) if len(model_hits) > 1 else 0.0
+        label, level = _classify_quality(baseline["improvement_pct"], sig.p_value)
+
+        models.append({
+            "model": approach,
+            "mean_hits": round(baseline["model_mean"], 3),
+            "improvement_pct": round(baseline["improvement_pct"], 2),
+            "p_value": round(sig.p_value, 4),
+            "stability": {"std_hits": round(std_hits, 3), "var_hits": round(var_hits, 3)},
+            "sample_size": len(grp_sorted),
+            "window": {
+                "requested_last_n": configured_window,
+                "used_draws": len(rows),
+                "from_concurso": grp_sorted[0]["concurso"],
+                "to_concurso": grp_sorted[-1]["concurso"],
+            },
+            "classification": {"label": label, "level": level},
+            "interpretation": sig.interpretation,
+        })
+
+    return {"models": models, "window": {"requested_last_n": configured_window, "used_draws": len(rows)}}
 def _calc_calibration_bins(points: list[tuple[float, float]], n_bins: int = 5) -> list[dict]:
     if not points:
         return []
@@ -447,6 +539,13 @@ def api_predictions():
 @app.route("/api/models/status")
 def api_models_status():
     return jsonify(_scan_models())
+
+
+@app.route("/api/models/quality")
+def api_models_quality():
+    last_n = request.args.get("last_n", default=120, type=int)
+    last_n = max(10, min(last_n or 120, 500))
+    return jsonify(_build_quality_payload(window_size=last_n))
 
 
 

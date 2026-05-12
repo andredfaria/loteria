@@ -305,6 +305,12 @@
   }
   .model-badge.core { color: var(--accent); border-color: rgba(56,189,248,0.3); }
   .model-badge.lab  { color: var(--purple); border-color: rgba(167,139,250,0.3); }
+  .quality-card { border-left: 4px solid var(--border); }
+  .quality-card.good { border-left-color: var(--green); }
+  .quality-card.warning { border-left-color: var(--yellow); }
+  .quality-card.bad { border-left-color: var(--red); }
+  .quality-status { font-size: 0.66rem; font-weight: 700; margin-bottom: 0.35rem; }
+  .quality-window { font-size: 0.66rem; color: var(--dim); margin-top: 0.35rem; }
   .health-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.75rem; margin-bottom: 0.75rem; }
   .health-title { font-size: 0.8rem; font-weight: 600; margin-bottom: 0.5rem; }
   .sparkline { font-family: monospace; color: var(--accent); font-size: 0.82rem; letter-spacing: 1px; margin-bottom: 0.5rem; }
@@ -935,6 +941,13 @@ function renderPredictions(groups) {
 async function loadModels() {
   const grid = document.getElementById('gamesGrid');
   try {
+    const [statusResp, qualityResp] = await Promise.all([
+      fetch('/api/models/status'),
+      fetch('/api/models/quality?last_n=120'),
+    ]);
+    const models = await statusResp.json();
+    const quality = await qualityResp.json();
+    renderModels(models, quality);
     const r = await fetch('/api/models/status');
     const data = await r.json();
     const trendResp = await fetch('/api/models/trend');
@@ -945,12 +958,16 @@ async function loadModels() {
   }
 }
 
+function renderModels(models, qualityPayload) {
 function renderModels(models, trendData = null) {
   const grid = document.getElementById('gamesGrid');
-  if (!models || models.length === 0) {
+  if ((!models || models.length === 0) && (!qualityPayload?.models || qualityPayload.models.length === 0)) {
     grid.innerHTML = '<div class="empty-numbers">Nenhum modelo encontrado em output/models/ ou lotofacil_lab/saved_models/</div>';
     return;
   }
+
+  let modelHtml = '';
+  for (const m of (models || [])) {
   let html = '';
   if (trendData && trendData.summary) {
     const series = trendData.series || [];
@@ -979,13 +996,39 @@ function renderModels(models, trendData = null) {
     const valLossStr = m.val_loss_final != null ? `Val Loss: ${m.val_loss_final}` : '';
     const sizeStr = m.size_mb != null ? `${m.size_mb} MB` : '';
     const metaStr = [epochsStr, valLossStr, sizeStr].filter(Boolean).join('   ');
-    html += `<div class="model-card">
+    modelHtml += `<div class="model-card">
       <span class="model-badge ${esc(m.group)}">${esc(m.group)}</span>
       <div class="model-name">${esc(m.name.replace('.keras',''))}</div>
       <div class="model-meta">Treinado: ${trainedAt}${metaStr ? '   ' + metaStr : ''}</div>
     </div>`;
   }
-  grid.innerHTML = `<div class="models-grid">${html}</div>`;
+
+  let qualityHtml = '';
+  for (const q of (qualityPayload?.models || [])) {
+    const statusColor = q.classification?.level || 'warning';
+    const interpretation = q.classification?.label === 'Bom'
+      ? 'Melhor que aleatório com significância estatística.'
+      : (q.classification?.label === 'Atenção'
+          ? 'Melhoria aparente, porém sem significância robusta.'
+          : 'Não supera o aleatório na janela avaliada.');
+    qualityHtml += `<div class="model-card quality-card ${statusColor}">
+      <div class="quality-status">${esc(q.classification?.label || 'Atenção')}</div>
+      <div class="model-name">Qualidade: ${esc(q.model)}</div>
+      <div class="model-meta">Média acertos: ${q.mean_hits} · Melhoria: ${q.improvement_pct}% · p-value: ${q.p_value}</div>
+      <div class="model-meta">Estabilidade: desvio=${q.stability?.std_hits} · variância=${q.stability?.var_hits}</div>
+      <div class="quality-window">Janela: últimos ${q.window?.requested_last_n} concursos (usados ${q.window?.used_draws}, concursos ${q.window?.from_concurso}→${q.window?.to_concurso}).</div>
+      <div class="model-meta" style="margin-top:0.35rem;">${interpretation}</div>
+    </div>`;
+  }
+
+  const sharedWindow = qualityPayload?.window
+    ? `<div class="game-label" style="margin-bottom:0.5rem;">Base temporal da qualidade: últimos ${qualityPayload.window.requested_last_n} concursos (com ${qualityPayload.window.used_draws} predições válidas).</div>`
+    : '';
+
+  grid.innerHTML = `
+    ${qualityHtml ? `<div style="width:100%;">${sharedWindow}<div class="models-grid">${qualityHtml}</div></div>` : ''}
+    ${modelHtml ? `<div style="width:100%;margin-top:0.75rem;"><div class="game-label" style="margin-bottom:0.5rem;">Arquivos de modelos treinados</div><div class="models-grid">${modelHtml}</div></div>` : ''}
+  `;
 }
 
 
