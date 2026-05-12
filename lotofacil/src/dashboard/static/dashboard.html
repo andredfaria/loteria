@@ -399,6 +399,8 @@
 
 <script>
 // ─── State ────────────────────────────────────────────────
+const CONSOLE_LEVELS = ['info', 'success', 'warn', 'error', 'cmd'];
+
 const STATE = {
   activeTab: 'coleta',
   runningTasks: new Set(),
@@ -415,7 +417,6 @@ const CONSOLE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const LS_KEY = 'lotofacil_console_v2';
 const LS_KEY_LEGACY = 'lotofacil_console_v1';
 const CONSOLE_SCHEMA_VERSION = 2;
-const CONSOLE_LEVELS = ['info', 'success', 'warn', 'error', 'cmd'];
 
 // ─── Init ─────────────────────────────────────────────────
 function init() {
