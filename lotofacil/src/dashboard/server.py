@@ -465,6 +465,9 @@ def _build_model_trend(window_short: int = 20, window_long: int = 50) -> dict:
     }
 
 
+_DRAW_HOUR = 21  # sorteio ocorre às 21h (índice no array horário do Open-Meteo)
+
+
 def _concurso_num(p: Path) -> int:
     try:
         return int(p.stem.split("_")[1])
@@ -473,6 +476,10 @@ def _concurso_num(p: Path) -> int:
 
 
 def _phase_label(phase: float) -> str:
+    """Converte fase lunar [0,1] para rótulo em português.
+
+    Limiares: nova<0.125, crescente<0.375, cheia<0.625, minguante<0.875.
+    """
     if phase < 0.125 or phase >= 0.875:
         return "Nova"
     if phase < 0.375:
@@ -509,8 +516,8 @@ def _build_dados_page(page: int, per_page: int) -> dict:
                         hourly = c.get("hourly", {})
                         temps = hourly.get("temperature_2m", [])
                         precips = hourly.get("precipitation", [])
-                        temp_21 = temps[21] if len(temps) > 21 else None
-                        precip_21 = precips[21] if len(precips) > 21 else None
+                        temp_21 = temps[_DRAW_HOUR] if len(temps) > _DRAW_HOUR else None
+                        precip_21 = precips[_DRAW_HOUR] if len(precips) > _DRAW_HOUR else None
                         clima = {
                             "temp_c": round(temp_21, 1) if temp_21 is not None else None,
                             "precip_mm": round(precip_21, 1) if precip_21 is not None else None,
@@ -522,18 +529,16 @@ def _build_dados_page(page: int, per_page: int) -> dict:
             lua = None
             if data_str and lua_dir.exists():
                 try:
-                    parts = data_str.split("/")
-                    if len(parts) == 3:
-                        date_iso = f"{parts[2]}-{parts[1]}-{parts[0]}"
-                        lua_file = lua_dir / f"{date_iso}.json"
-                        if lua_file.exists():
-                            lua_data = json.loads(lua_file.read_text())
-                            feats = lua_data.get("features", {})
-                            phase = float(feats.get("phase", 0))
-                            lua = {
-                                "fase": _phase_label(phase),
-                                "phase": round(phase, 3),
-                            }
+                    dt = datetime.strptime(data_str, "%d/%m/%Y")
+                    lua_file = lua_dir / dt.strftime("%Y-%m-%d.json")
+                    if lua_file.exists():
+                        lua_data = json.loads(lua_file.read_text())
+                        feats = lua_data.get("features", {})
+                        phase = float(feats.get("phase", 0))
+                        lua = {
+                            "fase": _phase_label(phase),
+                            "phase": round(phase, 3),
+                        }
                 except Exception:
                     pass
 
@@ -547,8 +552,8 @@ def _build_dados_page(page: int, per_page: int) -> dict:
         except Exception:
             continue
 
-    clima_total = len(list(clima_dir.glob("clima_concurso*.json"))) if clima_dir.exists() else 0
-    lua_total = len(list(lua_dir.glob("*.json"))) if lua_dir.exists() else 0
+    clima_total = sum(1 for _ in clima_dir.glob("clima_concurso*.json")) if clima_dir.exists() else 0
+    lua_total = sum(1 for _ in lua_dir.glob("*.json")) if lua_dir.exists() else 0
 
     return {
         "total": total,
