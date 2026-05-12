@@ -9,9 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Install Python deps first (layer cache)
 COPY requirements.txt .
-# TensorFlow is optional — remove it from the install to keep the image lean.
-# LSTM models gracefully degrade to ensemble when TF is absent.
-RUN pip install --no-cache-dir $(grep -v '^tensorflow' requirements.txt | grep -v '^#' | grep -v '^$' | tr '\n' ' ')
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy project
 COPY . .
