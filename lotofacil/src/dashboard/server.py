@@ -8,6 +8,8 @@ import threading
 import subprocess
 import time
 import re
+import logging
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from datetime import datetime
 
@@ -38,6 +40,36 @@ DATA_DIR = BASE / "data"
 MODELS_CORE_DIR = BASE / "output" / "models"
 MODELS_LAB_DIR = BASE / "src" / "lotofacil_lab" / "saved_models"
 
+
+def _configure_logging() -> logging.Logger:
+    log_dir = BASE / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_path = log_dir / "dashboard_server.log"
+
+    logger = logging.getLogger("lotofacil.dashboard")
+    if logger.handlers:
+        return logger
+
+    logger.setLevel(logging.INFO)
+    formatter = logging.Formatter(
+        "%(asctime)s | %(levelname)s | %(name)s | %(message)s"
+    )
+
+    file_handler = RotatingFileHandler(
+        log_path, maxBytes=2_000_000, backupCount=5, encoding="utf-8"
+    )
+    file_handler.setFormatter(formatter)
+
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(formatter)
+
+    logger.addHandler(file_handler)
+    logger.addHandler(stream_handler)
+    logger.propagate = False
+    return logger
+
+
+LOGGER = _configure_logging()
 
 # ─── Helper ────────────────────────────────────────────────────
 
@@ -493,6 +525,26 @@ def _normalize_game_preview(filename: str):
 
 # ─── API Endpoints ─────────────────────────────────────────────
 
+
+
+@app.before_request
+def _log_request():
+    if request.path.startswith('/api'):
+        LOGGER.info("REQ %s %s from=%s", request.method, request.path, request.remote_addr)
+
+
+@app.after_request
+def _log_response(response):
+    if request.path.startswith('/api'):
+        LOGGER.info("RES %s %s status=%s", request.method, request.path, response.status_code)
+    return response
+
+
+@app.errorhandler(Exception)
+def _handle_uncaught_exception(exc):
+    LOGGER.exception("Unhandled server error on %s %s", request.method, request.path)
+    return jsonify({"error": "Erro interno no servidor", "details": str(exc)}), 500
+
 @app.route("/")
 def index():
     return send_from_directory(
@@ -667,6 +719,8 @@ def _run_command(task_id: str, q: queue.Queue, cmd: list[str], cwd: str):
     def emit(line: str):
         q.put(line)
 
+    LOGGER.info("TASK %s started cmd=%s cwd=%s", task_id, " ".join(cmd), cwd)
+
     cmd = [sys.executable if c == "python" else c for c in cmd]
     env = {**os.environ, "PYTHONPATH": str(Path(__file__).resolve().parent.parent)}
 
@@ -682,9 +736,12 @@ def _run_command(task_id: str, q: queue.Queue, cmd: list[str], cwd: str):
             env=env,
         )
         for line in iter(proc.stdout.readline, ""):
-            emit(_strip_ansi(line.rstrip("\n")))
+            clean_line = _strip_ansi(line.rstrip("\n"))
+            LOGGER.info("TASK %s output: %s", task_id, clean_line)
+            emit(clean_line)
         proc.stdout.close()
         ret = proc.wait()
+        LOGGER.info("TASK %s finished exit_code=%s", task_id, ret)
         if ret == 0:
             emit("")
             emit("✅ Comando concluído com sucesso.")
@@ -692,6 +749,7 @@ def _run_command(task_id: str, q: queue.Queue, cmd: list[str], cwd: str):
             emit("")
             emit(f"⚠️  Comando finalizou com código {ret}.")
     except Exception as e:
+        LOGGER.exception("TASK %s failed", task_id)
         emit(f"❌ Erro: {e}")
     finally:
         q.put(None)
@@ -702,9 +760,9 @@ def _run_command(task_id: str, q: queue.Queue, cmd: list[str], cwd: str):
 def main():
     host = os.environ.get("DASHBOARD_HOST", "0.0.0.0")
     port = int(os.environ.get("DASHBOARD_PORT", "5000"))
-    print("🎰 Lotofácil Dashboard")
-    print(f"   Servidor: http://{host}:{port}")
-    print(f"   Pressione Ctrl+C para parar.")
+    LOGGER.info("🎰 Lotofácil Dashboard")
+    LOGGER.info("Servidor: http://%s:%s", host, port)
+    LOGGER.info("Pressione Ctrl+C para parar.")
     app.run(host=host, port=port, debug=False)
 
 
