@@ -15,6 +15,8 @@ class SignificanceResult:
     p_value: float
     test_used: str
     significant: bool
+    status: str
+    statistical_confidence: str
     interpretation: str
 
 
@@ -30,8 +32,6 @@ def _ttest_paired(a: List[float], b: List[float]) -> float:
         return 1.0
     se = math.sqrt(var_d / n)
     t = mean_d / se
-    # Approximate two-tailed p-value using normal approximation for large n
-    # For n >= 30, t ≈ z
     z = abs(t)
     p = _normal_sf(z) * 2
     return min(1.0, max(0.0, p))
@@ -50,24 +50,54 @@ def _normal_sf(z: float) -> float:
     return poly * math.exp(-0.5 * z * z) / math.sqrt(2 * math.pi)
 
 
-def _mannwhitney_u(a: List[float], b: List[float]) -> float:
-    """Mann-Whitney U test p-value approximation."""
-    na, nb = len(a), len(b)
-    if na == 0 or nb == 0:
+def _binom_two_sided_pvalue(successes: int, n: int) -> float:
+    """Exact two-sided binomial p-value with p0=0.5."""
+    if n <= 0:
         return 1.0
-    u = 0
-    for xi in a:
-        for xj in b:
-            if xi > xj:
-                u += 1
-            elif xi == xj:
-                u += 0.5
-    mean_u = na * nb / 2
-    std_u = math.sqrt(na * nb * (na + nb + 1) / 12)
-    if std_u == 0:
-        return 1.0
-    z = abs(u - mean_u) / std_u
-    return min(1.0, _normal_sf(z) * 2)
+    tail = min(successes, n - successes)
+    cdf = sum(math.comb(n, k) for k in range(0, tail + 1)) / (2 ** n)
+    return min(1.0, 2.0 * cdf)
+
+
+def _wilcoxon_signed_rank(a: List[float], b: List[float]) -> tuple[float, str]:
+    """Wilcoxon signed-rank test (normal approximation) with robust fallback."""
+    diffs = [x - y for x, y in zip(a, b)]
+    non_zero_diffs = [d for d in diffs if d != 0]
+    n = len(non_zero_diffs)
+    if n < 2:
+        return 1.0, "fallback (all ties or n<2)"
+
+    abs_with_sign = sorted((abs(d), 1 if d > 0 else -1) for d in non_zero_diffs)
+
+    ranks_with_sign = []
+    i = 0
+    rank = 1
+    while i < n:
+        j = i
+        while j + 1 < n and abs_with_sign[j + 1][0] == abs_with_sign[i][0]:
+            j += 1
+        avg_rank = (rank + rank + (j - i)) / 2
+        for k in range(i, j + 1):
+            ranks_with_sign.append((avg_rank, abs_with_sign[k][1]))
+        rank += (j - i + 1)
+        i = j + 1
+
+    w_plus = sum(r for r, s in ranks_with_sign if s > 0)
+    mean_w = n * (n + 1) / 4
+    var_w = n * (n + 1) * (2 * n + 1) / 24
+    if var_w == 0:
+        # Extreme/tied scenario: fallback to paired sign test
+        positive = sum(1 for d in non_zero_diffs if d > 0)
+        return _binom_two_sided_pvalue(positive, n), "fallback (paired sign test)"
+
+    z = abs((w_plus - mean_w) / math.sqrt(var_w))
+    p = min(1.0, _normal_sf(z) * 2)
+
+    if not math.isfinite(p):
+        positive = sum(1 for d in non_zero_diffs if d > 0)
+        return _binom_two_sided_pvalue(positive, n), "fallback (paired sign test)"
+
+    return p, "wilcoxon signed-rank"
 
 
 def compare_vs_baseline(
@@ -75,15 +105,10 @@ def compare_vs_baseline(
     baseline_hits: List[int],
     alpha: float = 0.05,
 ) -> SignificanceResult:
-    """
-    Compare model hit counts vs baseline hit counts.
-
-    Uses paired t-test when n >= 30, Mann-Whitney U otherwise.
-    Both lists must have the same length (paired per concurso).
-    """
+    """Compare paired model hit counts vs baseline hit counts."""
     n = min(len(model_hits), len(baseline_hits))
     if n == 0:
-        return SignificanceResult(0, 0, 0, 1.0, "none", False, "Insufficient data")
+        return SignificanceResult(0, 0, 0, 1.0, "none", False, "insufficient_data", "low", "Dados insuficientes para teste estatístico.")
 
     a = [float(x) for x in model_hits[:n]]
     b = [float(x) for x in baseline_hits[:n]]
@@ -96,25 +121,35 @@ def compare_vs_baseline(
         p = _ttest_paired(a, b)
         test_used = "paired t-test"
     else:
-        p = _mannwhitney_u(a, b)
-        test_used = "Mann-Whitney U"
+        p, wilcoxon_mode = _wilcoxon_signed_rank(a, b)
+        test_used = f"Wilcoxon signed-rank ({wilcoxon_mode})"
 
     significant = p < alpha
-    if significant and improvement > 0:
-        interpretation = (
-            f"Modelo superior ao baseline (p={p:.4f} < {alpha}). "
-            f"Ganho médio: +{improvement:.2f}% acertos."
-        )
-    elif significant and improvement < 0:
-        interpretation = (
-            f"Modelo inferior ao baseline (p={p:.4f} < {alpha}). "
-            f"Perda média: {improvement:.2f}% acertos."
-        )
+    status = "significant" if significant else "not_significant"
+
+    if n < 10:
+        confidence = "low"
+    elif n < 30:
+        confidence = "medium"
     else:
-        interpretation = (
-            f"Sem evidência estatística de diferença (p={p:.4f} >= {alpha}). "
-            "O modelo não supera o baseline de forma robusta."
-        )
+        confidence = "high"
+
+    hypothesis = "H0: mediana/média das diferenças pareadas = 0 (sem ganho do modelo)."
+    low_n_note = " Limitação: amostra pequena reduz poder estatístico." if n < 30 else ""
+
+    if significant and improvement > 0:
+        verdict = f"Modelo superior ao baseline (p={p:.4f} < {alpha})."
+    elif significant and improvement < 0:
+        verdict = f"Modelo inferior ao baseline (p={p:.4f} < {alpha})."
+    else:
+        verdict = f"Sem evidência estatística de diferença (p={p:.4f} >= {alpha})."
+
+    interpretation = (
+        f"Teste utilizado: {test_used}. "
+        f"Hipótese avaliada: {hypothesis} "
+        f"{verdict} Ganho médio: {improvement:.2f}% acertos." 
+        f"{low_n_note}"
+    ).strip()
 
     return SignificanceResult(
         model_mean=model_mean,
@@ -123,5 +158,7 @@ def compare_vs_baseline(
         p_value=p,
         test_used=test_used,
         significant=significant,
+        status=status,
+        statistical_confidence=confidence,
         interpretation=interpretation,
     )
