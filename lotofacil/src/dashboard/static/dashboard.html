@@ -418,6 +418,40 @@ const LS_KEY = 'lotofacil_console_v2';
 const LS_KEY_LEGACY = 'lotofacil_console_v1';
 const CONSOLE_SCHEMA_VERSION = 2;
 
+const BROWSER_LOG_PREFIX = '[LotofacilDashboard]';
+
+function buildLogContext(extra = {}) {
+  return {
+    tab: STATE?.activeTab,
+    runningTasks: Array.from(STATE?.runningTasks || []),
+    ...extra,
+  };
+}
+
+function logClient(level, message, extra = {}) {
+  const method = console[level] ? level : 'log';
+  const context = buildLogContext(extra);
+  console[method](`${BROWSER_LOG_PREFIX} ${message}`, context);
+  if (level === 'error') addConsoleLine(`❌ ${message}`, 'error');
+  if (level === 'warn') addConsoleLine(`⚠️ ${message}`, 'warn');
+}
+
+window.addEventListener('error', (event) => {
+  logClient('error', 'Erro global no navegador', {
+    source: event.filename,
+    line: event.lineno,
+    col: event.colno,
+    error: event.error?.message || String(event.error || ''),
+  });
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+  logClient('error', 'Promise rejeitada sem tratamento', {
+    reason: event.reason?.message || String(event.reason || ''),
+  });
+});
+
+
 // ─── Init ─────────────────────────────────────────────────
 function init() {
   buildSidebar();
@@ -526,7 +560,7 @@ async function fetchCommands() {
     const r = await fetch('/api/commands');
     COMMANDS_DATA = await r.json();
     renderActions();
-  } catch (e) { console.error('Failed to fetch commands', e); }
+  } catch (e) { logClient('error', 'Falha ao carregar comandos', { error: e.message }); }
 }
 
 function renderActions() {
@@ -635,6 +669,7 @@ async function runCommand(actionId) {
     }
     listenStream(data.task_id, actionId, label);
   } catch (e) {
+    logClient('error', 'Erro de conexão ao gerar comando', { actionId, error: e.message });
     addConsoleLine(`❌ Erro de conexão: ${e.message}`, 'error');
     STATE.runningTasks.delete(actionId);
     updateButtonState(actionId, false);
@@ -653,7 +688,7 @@ function listenStream(taskId, actionId, label) {
       } else if (data.type === 'heartbeat') {
         // keep-alive
       }
-    } catch (e) { /* ignore */ }
+    } catch (e) { logClient('warn', 'Falha ao processar evento SSE', { raw: event.data, error: e.message }); }
   };
 
   evtSource.addEventListener('done', () => {
@@ -676,6 +711,7 @@ function listenStream(taskId, actionId, label) {
   });
 
   evtSource.onerror = () => {
+    logClient('error', 'Erro na conexão SSE', { taskId, actionId });
     evtSource.close();
     STATE.runningTasks.delete(actionId);
     updateButtonState(actionId, false);
@@ -814,7 +850,7 @@ async function loadStatus() {
     }
     document.querySelector('#statusGames .val').textContent = data.games_count || '0';
     document.getElementById('gamesBadge').textContent = `${data.games_count || 0} jogos`;
-  } catch (e) { /* ignore */ }
+  } catch (e) { logClient('warn', 'Falha ao carregar status', { error: e.message }); }
 }
 
 // ─── Games ───────────────────────────────────────────────
@@ -823,7 +859,7 @@ async function loadGames() {
     const r = await fetch('/api/games/previews');
     STATE.games = await r.json();
     renderGames();
-  } catch (e) { /* ignore */ }
+  } catch (e) { logClient('warn', 'Falha ao carregar jogos', { error: e.message }); }
 }
 
 function renderGames() {
