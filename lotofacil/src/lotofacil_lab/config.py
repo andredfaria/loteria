@@ -93,6 +93,17 @@ STRATEGY_WEIGHTS = {
     "ciclo": 2.0,
 }
 
+# ── Similarity search defaults ──────────────────────────────────────────────────
+SIMILARITY_TOP_N = 10
+SIMILARITY_MOON_WEIGHT = 0.5
+SIMILARITY_CLIMATE_WEIGHT = 0.5
+SIMILARITY_MIN_DRAWS = 3
+
+# ── Combined scoring weights ─────────────────────────────────────────────────────
+SCORE_SIMILAR_WEIGHT = 0.5
+SCORE_PADROES21_WEIGHT = 0.5
+PADROES21_JANELA = 21
+
 # Faixas-alvo para 15-numbers (baseadas em docs/Hierarquia de Estratégias)
 STRATEGY_RANGES = {
     "soma": (171, 220),

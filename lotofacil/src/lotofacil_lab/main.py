@@ -7,6 +7,8 @@ Usage:
     python -m lotofacil_lab.main predict --config base+temp+priors
     python -m lotofacil_lab.main ablation --n-test 100 --retrain-every 50
     python -m lotofacil_lab.main compare --periodo 2024-04 --configs random,freq,base
+    python -m lotofacil_lab.main today
+    python -m lotofacil_lab.main similar --concurso 3683
 """
 
 from __future__ import annotations
@@ -299,6 +301,119 @@ def compare(
     out_path = generate_report(result)
     _print_summary_table(result["results"])
     console.print(f"\n[green]Report:[/green] {out_path}")
+
+
+# ── today (lua + clima) ──────────────────────────────────────────────────────────
+
+@app.command("today")
+def today(
+    debug: bool = typer.Option(False, "--debug"),
+) -> None:
+    """Show today's moon phase and climate in São Paulo."""
+    _setup_logging(debug)
+    from datetime import date as dt_date
+    from lotofacil_lab.features.similarity import get_target_moon, get_target_climate
+    from lotofacil_lab.data.lunar_loader import LUNAR_FEATURE_NAMES
+    from lotofacil_lab.data.climate_loader import CLIMATE_FEATURE_NAMES
+
+    hoje = dt_date.today().isoformat()
+
+    moon = get_target_moon(hoje)
+    clim = get_target_climate(hoje)
+
+    table_moon = Table(title=f"🌙 Lua — {hoje}", box=box.SIMPLE)
+    table_moon.add_column("Feature")
+    table_moon.add_column("Value", justify="right")
+    for k, v in zip(LUNAR_FEATURE_NAMES, moon.tolist()):
+        table_moon.add_row(k, f"{v:.4f}")
+    console.print(table_moon)
+
+    table_clim = Table(title=f"☀️  Clima SP — {hoje}", box=box.SIMPLE)
+    table_clim.add_column("Feature")
+    table_clim.add_column("Value", justify="right")
+    for k, v in zip(CLIMATE_FEATURE_NAMES, clim.tolist()):
+        table_clim.add_row(k, f"{v:.4f}")
+    console.print(table_clim)
+
+
+# ── similar (lua+clima + padroes21) ──────────────────────────────────────────────
+
+@app.command("similar")
+def similar(
+    concurso: int = typer.Option(0, "--concurso", help="Target concurso number (0 = auto next)."),
+    data: str = typer.Option("", "--data", help="Target date YYYY-MM-DD (default: today)."),
+    top_n: int = typer.Option(10, "--top-n", help="Number of similar draws to consider."),
+    peso_similar: float = typer.Option(0.5, "--peso-similar", help="Weight for similarity score."),
+    peso_padroes21: float = typer.Option(0.5, "--peso-padroes21", help="Weight for padrões-21 score."),
+    debug: bool = typer.Option(False, "--debug"),
+) -> None:
+    """Generate a game based on moon+climate similarity + last 21 draws pattern."""
+    _setup_logging(debug)
+    from datetime import date as dt_date
+    from lotofacil_lab.data.draws_loader import load_draws
+    from lotofacil_lab.features.padroes_similares import gerar_jogo_com_similares, salvar_jogo
+
+    draws = load_draws()
+    if not draws:
+        console.print("[red]Nenhum dado histórico encontrado.[/red]")
+        raise typer.Exit(1)
+
+    target_date = data if data else dt_date.today().isoformat()
+    target_concurso = concurso if concurso else draws[-1].concurso + 1
+
+    console.print(f"[bold]Gerando jogo para concurso {target_concurso}[/bold]")
+    console.print(f"Data alvo (lua+clima): {target_date}")
+    console.print(f"Top-{top_n} similares | peso_similar={peso_similar} peso_padroes21={peso_padroes21}")
+    console.print(f"Base: {len(draws)} concursos carregados ({draws[0].concurso}–{draws[-1].concurso})")
+
+    result = gerar_jogo_com_similares(
+        draws,
+        target_date_iso=target_date,
+        top_n=top_n,
+        peso_similar=peso_similar,
+        peso_padroes21=peso_padroes21,
+        target_concurso=target_concurso,
+    )
+
+    # Print result
+    from rich.table import Table as RTable
+    t = RTable(title=f"Jogo Similar — Concurso {target_concurso}", box=box.SIMPLE_HEAVY)
+    t.add_column("Números", style="cyan")
+    t.add_column("Soma", justify="right")
+    t.add_column("Pares", justify="right")
+    t.add_column("Moldura", justify="right")
+    t.add_column("Primos", justify="right")
+    t.add_column("Fib.", justify="right")
+    t.add_column("Consec.", justify="right")
+    t.add_row(
+        " ".join(f"{d:02d}" for d in result["dezenas"]),
+        str(result["soma"]),
+        str(result["pares"]),
+        str(result["moldura"]),
+        str(result["primos"]),
+        str(result["fibonacci"]),
+        "sim" if result["consecutivo"] else "não",
+    )
+    console.print(t)
+
+    # Top similares table
+    if result["top_similares"]:
+        st = RTable(title="Top Concursos Similares", box=box.SIMPLE)
+        st.add_column("Rank")
+        st.add_column("Concurso")
+        st.add_column("Data")
+        st.add_column("Similaridade", justify="right")
+        for r in result["top_similares"]:
+            st.add_row(str(r["rank"]), str(r["concurso"]), r["data"], f"{r['similaridade']:.4f}")
+        console.print(st)
+
+    # Moon & climate
+    console.print(f"\n🌙 Lua: phase={result['lua_hoje']['phase']:.3f}, illumination={result['lua_hoje']['illumination']:.3f}")
+    c = result["clima_hoje"]
+    console.print(f"☀️  Clima: {c.get('temp_sorteio', 0)*40:.1f}°C, precip={c.get('precip_sorteio', 0)*100:.0f}%")
+
+    path = salvar_jogo(result)
+    console.print(f"[green]Jogo salvo:[/green] {path}")
 
 
 # ── helpers ────────────────────────────────────────────────────────────────────
