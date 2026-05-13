@@ -11,7 +11,7 @@ RUN pip install --no-cache-dir -e ".[dev]"
 
 COPY src/ src/
 
-RUN mkdir -p dados saida
+RUN mkdir -p dados saida 2>/dev/null || true
 
 ENV PYTHONPATH="/app/src:${PYTHONPATH}"
 ENV DASHBOARD_HOST="0.0.0.0"
