@@ -19,4 +19,5 @@ EXPOSE 5000
 ENV DASHBOARD_HOST=0.0.0.0
 ENV DASHBOARD_PORT=5000
 
-CMD ["python", "-m", "src.dashboard.server"]
+ENV PYTHONPATH="/app/src:${PYTHONPATH}"
+CMD ["python", "-m", "lotofacil.interface.painel.server"]
