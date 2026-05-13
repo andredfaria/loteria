@@ -1,30 +1,13 @@
-venv/
-.venv/
-__pycache__/
+.git
+.gitignore
+__pycache__
 *.pyc
-*.egg-info/
-.git/
-.cursor/
-.vscode/
-
-# dados/ é symlink local (~/lotofacil-dados/) — não copiado para o container.
-# Em produção usar volume: -v /seu/dados:/app/dados
-# O Dockerfile cria dados/ vazio; populado via `lotofacil dados atualizar`.
-dados
-
-# Trained models (mounted as volumes)
-src/models_saved/
-src/lotofacil_lab/saved_models/
-src/lotofacil.db
-
-# Generated outputs
-saida/
-output/
-
-# Test artifacts
-.pytest_cache/
-ml/datasets/
-ml/modelos/
-
-# Docs
-docs/superpowers/
+.DS_Store
+.env
+.venv
+venv
+*.egg-info
+testes/
+docs/
+tasks/
+.worktrees/

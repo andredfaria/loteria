@@ -1,29 +1,30 @@
-FROM python:3.11-slim
+FROM python:3.12-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# System deps for LightGBM, XGBoost, Pillow etc.
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc g++ libgomp1 git \
-    && rm -rf /var/lib/apt/lists/*
+COPY pyproject.toml README.md ./
+RUN pip install --no-cache-dir -e ".[dev]"
 
-# Install Python deps first (layer cache)
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY src/ src/
 
-# Copy project
-COPY . .
+RUN mkdir -p dados saida
 
-# Install the package so `lotofacil` CLI is available in PATH
-RUN pip install --no-cache-dir -e . --no-deps
+ENV PYTHONPATH="/app/src:${PYTHONPATH}"
+ENV DASHBOARD_HOST="0.0.0.0"
+ENV DASHBOARD_PORT="5000"
 
-# Persistent data dirs — mounted as volumes in production.
-# Remove symlink if present (local dev artifact), then create real dirs.
-RUN rm -f dados && mkdir -p dados saida/jogos src/models_saved src/lotofacil_lab/saved_models
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s \
+    CMD python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:5000/api/status')" || exit 1
 
 EXPOSE 5000
 
-ENV DASHBOARD_HOST=0.0.0.0
-ENV DASHBOARD_PORT=5000
-
-CMD ["python", "-m", "src.dashboard.server"]
+CMD ["gunicorn", "lotofacil.interface.painel.server:app", \
+     "--bind", "0.0.0.0:5000", \
+     "--workers", "2", \
+     "--timeout", "120", \
+     "--access-logfile", "-", \
+     "--error-logfile", "-"]

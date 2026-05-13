@@ -1,0 +1,99 @@
+from __future__ import annotations
+
+import json
+from dataclasses import dataclass
+from pathlib import Path
+from typing import List, Optional
+
+from lotofacil.dominio.entidades import Predicao, Sorteio
+from lotofacil.infra.config import DADOS_DIR
+from lotofacil.infra.dados.banco import DatabaseManager
+
+
+@dataclass(frozen=True)
+class ResultadoValidacaoPredicao:
+    concurso_alvo: int
+    dezenas_sugeridas: List[int]
+    dezenas_reais: List[int]
+    acertos: int
+    confianca_media: float
+    estrategia: str
+    validado: bool
+
+
+def validar_predicoes(
+    concurso_alvo: int,
+    predicao: Optional[Predicao] = None,
+    usar_banco: bool = True,
+) -> ResultadoValidacaoPredicao:
+    result_path = DADOS_DIR / f"concurso_{concurso_alvo}.json"
+    if not result_path.exists():
+        raise FileNotFoundError(f"Sorteio do concurso {concurso_alvo} não encontrado")
+
+    raw = json.loads(result_path.read_text(encoding="utf-8"))
+    dezenas_reais = sorted(int(d) for d in raw["dezenas"])
+
+    if predicao is None and usar_banco:
+        db = DatabaseManager()
+        historico = db.get_prediction_history(limit=100)
+        for h in historico:
+            if h["concurso_alvo"] == concurso_alvo:
+                dezenas = h["dezenas_sugeridas"]
+                confianca = h.get("confianca_media", 0.0)
+                acertos = len(set(dezenas) & set(dezenas_reais))
+                db.update_validation(concurso_alvo, acertos)
+                return ResultadoValidacaoPredicao(
+                    concurso_alvo=concurso_alvo,
+                    dezenas_sugeridas=sorted(dezenas),
+                    dezenas_reais=dezenas_reais,
+                    acertos=acertos,
+                    confianca_media=confianca,
+                    estrategia="banco",
+                    validado=True,
+                )
+        raise ValueError(f"Nenhuma predição encontrada no banco para concurso {concurso_alvo}")
+
+    if predicao is None:
+        raise ValueError("Nenhuma predição fornecida e usar_banco=False")
+
+    acertos = len(set(predicao.dezenas) & set(dezenas_reais))
+    if usar_banco:
+        db = DatabaseManager()
+        db.update_validation(concurso_alvo, acertos)
+
+    return ResultadoValidacaoPredicao(
+        concurso_alvo=concurso_alvo,
+        dezenas_sugeridas=sorted(predicao.dezenas),
+        dezenas_reais=dezenas_reais,
+        acertos=acertos,
+        confianca_media=predicao.confianca_media,
+        estrategia=predicao.estrategia,
+        validado=True,
+    )
+
+
+def validar_todas_pendentes() -> List[ResultadoValidacaoPredicao]:
+    db = DatabaseManager()
+    pendentes = db.get_pending_validations()
+    resultados = []
+    for p in pendentes:
+        concurso = p["concurso_alvo"]
+        result_path = DADOS_DIR / f"concurso_{concurso}.json"
+        if not result_path.exists():
+            continue
+        raw = json.loads(result_path.read_text(encoding="utf-8"))
+        dezenas_reais = sorted(int(d) for d in raw["dezenas"])
+        acertos = len(set(p["dezenas_sugeridas"]) & set(dezenas_reais))
+        db.update_validation(concurso, acertos)
+        resultados.append(
+            ResultadoValidacaoPredicao(
+                concurso_alvo=concurso,
+                dezenas_sugeridas=sorted(p["dezenas_sugeridas"]),
+                dezenas_reais=dezenas_reais,
+                acertos=acertos,
+                confianca_media=0.0,
+                estrategia="pendente",
+                validado=True,
+            )
+        )
+    return resultados
