@@ -32,7 +32,7 @@ def prever(
     concurso: Optional[int] = typer.Option(None, "--concurso", "-c", help="Concurso alvo"),
 ) -> None:
     """Prediz 11 números para o próximo concurso."""
-    from lotofacil.infra.dados.leitor import load_draws, load_draws_from_json
+    from lotofacil.infra.dados.leitor import load_draws
     from lotofacil.infra.estrategias.onze_dezenas.predictor import ElevenNumbersStrategy
 
     draws = load_draws(source="db")
@@ -41,13 +41,13 @@ def prever(
         # Fallback 1: data/raw/concursos/ (core system JSON files)
         _core_raw = Path(__file__).resolve().parent.parent.parent / "data" / "raw" / "concursos"
         if _core_raw.exists():
-            draws = load_draws_from_json(_core_raw)
+            draws = load_draws(_core_raw)
 
     if not draws:
         # Fallback 2: dados/ (legacy JSON files, present in git as sample)
         _dados = Path(__file__).resolve().parent.parent.parent / "dados"
         if _dados.exists():
-            draws = load_draws_from_json(_dados)
+            draws = load_draws(_dados)
 
     if not draws:
         console.print("[red]Sem dados. Execute: lotofacil dados atualizar --all[/red]")
