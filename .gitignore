@@ -14,8 +14,10 @@ dist/
 build/
 
 # ── Dados históricos completos (apenas amostras são versionadas) ──────────────
-# dados/ é um symlink para ~/lotofacil-dados/ (fora do repo) — versionado abaixo
-# As regras abaixo protegem caso alguém substitua o symlink por uma pasta real
+# lotofacil/dados é um symlink para ~/lotofacil-dados/ (fora do repo) — removido do tracking
+# para evitar erros em build Docker (COPY lotofacil/ . copia symlink quebrado,
+# impedindo mkdir -p dados). Recriar localmente: ln -s ~/lotofacil-dados lotofacil/dados
+lotofacil/dados
 lotofacil/dados/*.json
 !lotofacil/dados/sample/
 lotofacil/dados/numeros_sorteados.json
