@@ -50,3 +50,6 @@ dados/lua/
 
 # Root-level portfolio JSON outputs
 portfolio_*.json
+
+# Git worktrees
+.worktrees/
