@@ -6,8 +6,8 @@ import sys
 from pathlib import Path
 
 # ── Path setup ──────────────────────────────────────────────────────────────────
-_LAB_DIR = Path(__file__).resolve().parent        # src/lotofacil_lab/
-SRC_DIR = _LAB_DIR.parent                         # src/
+_LAB_DIR = Path(__file__).resolve().parent        # src/lotofacil/experimentos/
+SRC_DIR = _LAB_DIR.parent.parent                  # src/
 PROJECT_ROOT = SRC_DIR.parent                     # lotofacil/
 
 # Ensure src/ is importable (core.models, data.*, strategies.*, lotofacil_ml.*)

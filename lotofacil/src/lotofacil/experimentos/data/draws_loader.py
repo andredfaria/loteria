@@ -12,7 +12,7 @@ from lotofacil.experimentos.config import DATA_DIR, SRC_DIR  # noqa: F401 — se
 logger = logging.getLogger(__name__)
 
 # Import Draw after sys.path is set by config import
-from core.models import Draw  # noqa: E402
+from lotofacil.dominio.entidades import Draw  # noqa: E402
 
 
 def load_draws(data_dir: Path | None = None, min_concurso: int = 1) -> List[Draw]:

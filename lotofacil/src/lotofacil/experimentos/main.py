@@ -142,7 +142,10 @@ def train(
     console.print(f"Config: [cyan]{cfg.signature()}[/cyan]")
 
     draws = load_draws_last_n(n_draws) if n_draws else load_draws()
-    console.print(f"Draws: {len(draws)} ({draws[0].concurso}–{draws[-1].concurso})")
+    if draws:
+        console.print(f"Draws: {len(draws)} ({draws[0].concurso}–{draws[-1].concurso})")
+    else:
+        console.print("Draws: 0 (no data loaded)")
 
     if epochs:
         lab_cfg.LSTM_EPOCHS = epochs
