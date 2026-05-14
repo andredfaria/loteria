@@ -81,7 +81,7 @@ LOGGER = _configure_logging()
 # ─── Helper ────────────────────────────────────────────────────
 
 def _last_concurso_info():
-    jsons = sorted(DADOS_DIR.glob("concurso_*.json"))
+    jsons = sorted(DADOS_DIR.glob("concurso_*.json"), key=lambda p: int(p.stem.split("_")[1]) if p.stem.count("_") >= 1 else 0)
     if not jsons:
         return {"latest": None, "total": 0}
     last = jsons[-1]
