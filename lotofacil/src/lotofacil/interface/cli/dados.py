@@ -186,6 +186,11 @@ def _sync_lua(missing: list[tuple[int, str]], console: Console) -> None:
         console.print("[yellow]⚠ Lua: lotofacil_lab não disponível[/yellow]")
         return
 
+    lua_dir = _DADOS_DIR / "lua"
+    lua_dir.mkdir(parents=True, exist_ok=True)
+
+    _FEATURE_NAMES = ["phase", "phase_sin", "phase_cos", "illumination", "age_norm", "is_new", "is_full"]
+
     console.print(f"[cyan]Calculando lua para {len(missing)} concurso(s)...[/cyan]")
     done = 0
     for concurso, date_iso in missing:
@@ -196,6 +201,11 @@ def _sync_lua(missing: list[tuple[int, str]], console: Console) -> None:
             elif phase < 0.375:                   fase = "Crescente"
             elif phase < 0.625:                   fase = "Cheia"
             else:                                 fase = "Minguante"
+
+            features = {name: float(feats[i]) for i, name in enumerate(_FEATURE_NAMES)}
+            (lua_dir / f"{date_iso}.json").write_text(
+                json.dumps({"date": date_iso, "features": features}, indent=2, ensure_ascii=False)
+            )
             done += 1
             console.print(f"  Concurso {concurso} ({date_iso}): lua ✓  {fase}")
         except Exception as exc:
