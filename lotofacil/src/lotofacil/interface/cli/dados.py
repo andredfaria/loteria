@@ -18,7 +18,7 @@ from rich.console import Console
 app = typer.Typer(help="Gerenciamento de dados — coleta e status.")
 console = Console()
 
-_DADOS_DIR = Path(__file__).resolve().parent.parent.parent / "dados"
+_DADOS_DIR = Path(__file__).resolve().parent.parent.parent.parent.parent / "dados"
 _API_BASE  = "https://loteriascaixa-api.herokuapp.com/api/lotofacil"
 
 
