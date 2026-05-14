@@ -1,5 +1,6 @@
 """Feature engineering and dataset preparation for Lotofácil ML."""
 
+import dataclasses
 import logging
 from datetime import datetime
 from typing import List, Tuple
@@ -26,12 +27,15 @@ def _parse_date(date_str: str) -> datetime:
 class LotofacilPreprocessor:
     """Transform a list of draw dicts into ML-ready feature arrays."""
 
-    def __init__(self, draws: List[dict]):
+    def __init__(self, draws: list):
         """
         Args:
-            draws: sorted list of {"concurso": int, "data": str, "dezenas": [int]}
+            draws: sorted list of Draw objects or dicts with "concurso", "data", "dezenas"
         """
-        self.draws = sorted(draws, key=lambda d: d["concurso"])
+        normalized = [d if isinstance(d, dict) else (
+            d.model_dump() if hasattr(d, "model_dump") else dataclasses.asdict(d)
+        ) for d in draws]
+        self.draws = sorted(normalized, key=lambda d: d["concurso"])
         self.n = len(self.draws)
 
     # ── Internal helpers ───────────────────────────────────────────────────────

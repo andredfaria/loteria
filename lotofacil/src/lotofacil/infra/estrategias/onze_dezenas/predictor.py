@@ -46,6 +46,10 @@ class ElevenNumbersStrategy(BaseStrategy):
     def approaches(self) -> List[str]:
         return ["statistical", "ml", "neural", "all"]
 
+    def select_numbers(self, probas: np.ndarray, n: int) -> List[int]:
+        indices = np.argsort(probas)[::-1]
+        return (indices[:n] + 1).tolist()
+
     def predict(self, draws: List[Draw], approach: str = "all") -> Prediction:
         """Generate a prediction for the next draw."""
         if approach == "all":
@@ -81,8 +85,8 @@ class ElevenNumbersStrategy(BaseStrategy):
             dezenas=selected,
             probabilidades=probas.tolist(),
             confianca_media=confianca,
-            strategy=self.name,
-            approach=approach_used,
+            estrategia=self.name,
+            abordagem=approach_used,
         )
 
     def predict_batch(self, draws: List[Draw], approach: str = "all") -> List[Prediction]:

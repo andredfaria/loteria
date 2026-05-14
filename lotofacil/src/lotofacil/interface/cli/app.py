@@ -32,43 +32,35 @@ def prever(
     concurso: Optional[int] = typer.Option(None, "--concurso", "-c", help="Concurso alvo"),
 ) -> None:
     """Prediz 11 números para o próximo concurso."""
+    from lotofacil.infra.config import DADOS_DIR
     from lotofacil.infra.dados.leitor import load_draws
     from lotofacil.infra.estrategias.onze_dezenas.predictor import ElevenNumbersStrategy
 
-    draws = load_draws(source="db")
+    draws = load_draws(DADOS_DIR)
 
     if not draws:
-        # Fallback 1: data/raw/concursos/ (core system JSON files)
-        _core_raw = Path(__file__).resolve().parent.parent.parent / "data" / "raw" / "concursos"
-        if _core_raw.exists():
-            draws = load_draws(_core_raw)
-
-    if not draws:
-        # Fallback 2: dados/ (legacy JSON files, present in git as sample)
-        _dados = Path(__file__).resolve().parent.parent.parent / "dados"
-        if _dados.exists():
-            draws = load_draws(_dados)
-
-    if not draws:
-        console.print("[red]Sem dados. Execute: lotofacil dados atualizar --all[/red]")
+        console.print("[red]Sem dados. Execute: lotofacil dados atualizar[/red]")
         raise typer.Exit(1)
 
     console.print(f"  [dim]{len(draws)} concursos carregados[/dim]")
 
+    approach_map = {"todas": "all", "estatistica": "statistical", "ml": "ml", "neural": "neural"}
+    engine_approach = approach_map.get(abordagem, "all")
+
     strategy = ElevenNumbersStrategy()
-    pred = strategy.predict(draws, approach=approach)
+    pred = strategy.predict(draws, approach=engine_approach)
 
     dezenas_str = "  ".join(f"{n:02d}" for n in sorted(pred.dezenas))
     console.print()
     console.print(Panel(
         f"[bold cyan]Predição — Concurso {pred.concurso_alvo}[/bold cyan]\n\n"
         f"[yellow]{dezenas_str}[/yellow]\n\n"
-        f"Abordagem: [dim]{pred.approach}[/dim]\n"
+        f"Abordagem: [dim]{pred.abordagem}[/dim]\n"
         f"Confiança: [green]{pred.confianca_media:.4f}[/green]",
         box=box.DOUBLE_EDGE,
     ))
 
-    approach_tag = approach.replace("all", "ensemble")
+    approach_tag = abordagem.replace("todas", "ensemble")
 
     _saida = Path(__file__).resolve().parent.parent.parent / "saida" / "jogos"
     _saida.mkdir(parents=True, exist_ok=True)
