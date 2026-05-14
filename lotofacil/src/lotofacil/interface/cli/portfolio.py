@@ -130,9 +130,9 @@ def load_draws_from_files(dados_dir: Path, max_concurso: int):
 def get_probabilities(draws) -> np.ndarray:
     """Return probability array of shape (25,) — cascade: neural → ensemble → statistical → freq."""
     try:
-        from lotofacil_lab.data.feature_flags import FeatureConfig
-        from lotofacil_lab.models.neural_modular import NeuralModular
-        from lotofacil_lab.features.builder import ModularFeatureBuilder
+        from lotofacil.experimentos.data.feature_flags import FeatureConfig
+        from lotofacil.experimentos.models.neural_modular import NeuralModular
+        from lotofacil.experimentos.features.builder import ModularFeatureBuilder
 
         cfg = FeatureConfig.from_signature("base+temp+priors+clima+lua")
         model = NeuralModular(cfg)

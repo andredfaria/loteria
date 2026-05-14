@@ -181,7 +181,7 @@ def _sync_lua(missing: list[tuple[int, str]], console: Console) -> None:
         return
 
     try:
-        from lotofacil_lab.data.lunar_loader import compute_lunar_features
+        from lotofacil.experimentos.data.lunar_loader import compute_lunar_features
     except ImportError:
         console.print("[yellow]⚠ Lua: lotofacil_lab não disponível[/yellow]")
         return
@@ -213,13 +213,13 @@ def _sync_clima(missing: list[tuple[int, str]], console: Console) -> None:
         return
 
     try:
-        from lotofacil_lab.coleta.backfill_clima_archive import (
+        from lotofacil.experimentos.coleta.backfill_clima_archive import (
             _fetch_archive_batch,
             _split_hourly_by_day,
             _processar_resumo_extended,
             _save_climate,
         )
-        from lotofacil_lab.config import ARCHIVE_BATCH_DAYS, ARCHIVE_DELAY_SECONDS
+        from lotofacil.experimentos.config import ARCHIVE_BATCH_DAYS, ARCHIVE_DELAY_SECONDS
     except ImportError:
         console.print("[yellow]⚠ Clima: lotofacil_lab não disponível[/yellow]")
         return
