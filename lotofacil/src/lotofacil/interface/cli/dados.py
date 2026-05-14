@@ -276,6 +276,32 @@ def _sync_clima(missing: list[tuple[int, str]], console: Console) -> None:
     console.print(f"[green]✓ Clima: {done}/{len(missing)} concursos atualizados[/green]")
 
 
+# ─── Resetar ─────────────────────────────────────────────────────────────────
+
+@app.command()
+def resetar() -> None:
+    """Apaga todos os dados locais e rebusca do concurso 1 ao mais recente (sobrescreve tudo)."""
+    console.print("[yellow]⚠ Apagando todos os dados locais...[/yellow]")
+
+    removidos = 0
+    for f in _DADOS_DIR.glob("concurso_*.json"):
+        f.unlink()
+        removidos += 1
+
+    lua_dir = _DADOS_DIR / "lua"
+    if lua_dir.exists():
+        for f in lua_dir.glob("*.json"):
+            f.unlink()
+
+    clima_dir = _DADOS_DIR / "clima"
+    if clima_dir.exists():
+        for f in clima_dir.glob("*.json"):
+            f.unlink()
+
+    console.print(f"[green]✓ {removidos} sorteio(s) removido(s). Rebuscando histórico completo...[/green]")
+    atualizar(escopo="todos")
+
+
 # ─── Status ───────────────────────────────────────────────────────────────────
 
 @app.command()

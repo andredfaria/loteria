@@ -33,6 +33,15 @@ COMMANDS = {
                 "icon": "📋",
                 "group": "coleta",
             },
+            {
+                "id": "resetar_tudo",
+                "label": "Resetar e Buscar Tudo",
+                "description": "Apaga todos os dados locais e rebusca do concurso 1 ao mais recente (sobrescreve tudo)",
+                "cmd": ["lotofacil", "dados", "resetar"],
+                "cwd": str(BASE),
+                "icon": "⚠️",
+                "group": "coleta",
+            },
         ],
     },
     "predicao": {
