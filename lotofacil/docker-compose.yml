@@ -7,10 +7,6 @@ services:
       - DASHBOARD_HOST=0.0.0.0
       - DASHBOARD_PORT=5000
     volumes:
-      - lotofacil_dados:/app/dados   # sorteios, clima, lua — persiste entre deploys
-      - lotofacil_saida:/app/saida   # modelos, predições, logs — persiste entre deploys
+      - ./dados:/app/dados   # bind mount — diretório do host, sobrevive a down -v e system prune
+      - ./saida:/app/saida   # bind mount — diretório do host, sobrevive a down -v e system prune
     restart: unless-stopped
-
-volumes:
-  lotofacil_dados:
-  lotofacil_saida:
