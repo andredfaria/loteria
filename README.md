@@ -1,4 +1,4 @@
-# Loteria — Análise Estatística de Loterias Brasileiras
+# Loteria - Análise Estatística de Loterias Brasileiras
 
 Monorepo com sistemas de análise estatística, geração de jogos e Machine Learning para loterias da Caixa Econômica Federal.
 
