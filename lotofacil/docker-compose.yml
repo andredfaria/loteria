@@ -7,13 +7,10 @@ services:
       - DASHBOARD_HOST=0.0.0.0
       - DASHBOARD_PORT=5000
     volumes:
-      # Persistent data — survives container restarts
-      - lotofacil_dados:/app/dados
-      - lotofacil_saida:/app/saida
-      - lotofacil_db:/app/src
+      - lotofacil_dados:/app/dados   # sorteios, clima, lua — persiste entre deploys
+      - lotofacil_saida:/app/saida   # modelos, predições, logs — persiste entre deploys
     restart: unless-stopped
 
 volumes:
   lotofacil_dados:
   lotofacil_saida:
-  lotofacil_db:

@@ -12,4 +12,5 @@ docs/
 tasks/
 .worktrees/
 dados/
+!dados/sample/
 saida/

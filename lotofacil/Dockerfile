@@ -11,7 +11,13 @@ RUN pip install --no-cache-dir -e ".[dev]"
 
 COPY src/ src/
 
+# Dados de exemplo ficam na imagem como seed (volume /app/dados fica separado)
+COPY dados/sample/ /app/dados_seed/
+
 RUN mkdir -p dados saida 2>/dev/null || true
+
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
 
 ENV PYTHONPATH="/app/src:${PYTHONPATH}"
 ENV DASHBOARD_HOST="0.0.0.0"
@@ -22,6 +28,7 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=15s \
 
 EXPOSE 5000
 
+ENTRYPOINT ["/app/entrypoint.sh"]
 CMD ["gunicorn", "lotofacil.interface.painel.server:app", \
      "--bind", "0.0.0.0:5000", \
      "--workers", "2", \
