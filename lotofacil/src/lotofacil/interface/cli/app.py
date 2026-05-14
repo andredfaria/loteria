@@ -32,7 +32,7 @@ def prever(
     concurso: Optional[int] = typer.Option(None, "--concurso", "-c", help="Concurso alvo"),
 ) -> None:
     """Prediz 11 números para o próximo concurso."""
-    from lotofacil.infra.config import DADOS_DIR
+    from lotofacil.infra.config import DADOS_DIR, SAIDA_DIR
     from lotofacil.infra.dados.leitor import load_draws
     from lotofacil.infra.estrategias.onze_dezenas.predictor import ElevenNumbersStrategy
 
@@ -44,7 +44,7 @@ def prever(
 
     console.print(f"  [dim]{len(draws)} concursos carregados[/dim]")
 
-    approach_map = {"todas": "all", "estatistica": "statistical", "ml": "ml", "neural": "neural"}
+    approach_map = {"todas": "all", "estatistica": "statistical", "statistical": "statistical", "ml": "ml", "neural": "neural"}
     engine_approach = approach_map.get(abordagem, "all")
 
     strategy = ElevenNumbersStrategy()
@@ -62,7 +62,7 @@ def prever(
 
     approach_tag = abordagem.replace("todas", "ensemble")
 
-    _saida = Path(__file__).resolve().parent.parent.parent / "saida" / "jogos"
+    _saida = SAIDA_DIR / "jogos"
     _saida.mkdir(parents=True, exist_ok=True)
     out = _saida / f"predicao_{approach_tag}_{pred.concurso_alvo}.json"
     out.write_text(

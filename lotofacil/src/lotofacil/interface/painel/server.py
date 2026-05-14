@@ -31,6 +31,7 @@ import statistics
 
 _ANSI_RE = re.compile(r'\x1b(?:\[[0-9;]*[mGKHFABCDEFsuJKH]|[()][AB012])')
 _SRC = Path(__file__).resolve().parent.parent.parent.parent.parent / "src"
+_LOTOFACIL_BIN = str(Path(sys.executable).parent / "lotofacil")
 
 
 def _strip_ansi(text: str) -> str:
@@ -786,7 +787,9 @@ def api_dados():
 @app.route("/api/generate", methods=["POST"])
 def api_generate():
     body = request.get_json(force=True) or {}
-    action = body.get("action", "gerar_jogos")
+    action = body.get("action")
+    if not action:
+        return jsonify({"error": "Missing 'action' field"}), 400
 
     for cat in COMMANDS.values():
         for item in cat["items"]:
@@ -837,7 +840,12 @@ def _run_command(task_id: str, q: queue.Queue, cmd: list[str], cwd: str):
 
     LOGGER.info("TASK %s started cmd=%s cwd=%s", task_id, " ".join(cmd), cwd)
 
-    cmd = [sys.executable if c == "python" else c for c in cmd]
+    cmd = [
+        sys.executable if c == "python"
+        else _LOTOFACIL_BIN if c == "lotofacil"
+        else c
+        for c in cmd
+    ]
     env = {**os.environ, "PYTHONPATH": str(_SRC)}
 
     try:
