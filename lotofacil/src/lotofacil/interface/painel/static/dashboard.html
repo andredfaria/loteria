@@ -789,13 +789,20 @@ function listenStream(taskId, actionId, label) {
       else if (data.type === 'heartbeat') {}
     } catch (e) { logClient('warn', 'Falha ao processar evento SSE', { raw: event.data, error: e.message }); }
   };
-  evtSource.addEventListener('done', () => {
+  evtSource.addEventListener('done', (event) => {
+    let success = true;
+    try { success = JSON.parse(event.data).success !== false; } catch (e) {}
     evtSource.close();
     STATE.runningTasks.delete(actionId);
     updateButtonState(actionId, false);
     addConsoleLine('', 'sep');
-    addConsoleLine(`✅ ${label} concluído`, 'success');
-    showToast(`${label} concluído com sucesso`, 'success');
+    if (success) {
+      addConsoleLine(`✅ ${label} concluído`, 'success');
+      showToast(`${label} concluído com sucesso`, 'success');
+    } else {
+      addConsoleLine(`❌ ${label} falhou — veja o log acima`, 'error');
+      showToast(`${label} falhou`, 'error');
+    }
     if (STATE.activeTab === 'predicao') { loadPredictions(); }
     loadStatus();
   });

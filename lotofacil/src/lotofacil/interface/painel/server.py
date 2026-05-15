@@ -826,8 +826,8 @@ def api_stream(task_id):
             while True:
                 try:
                     line = q.get(timeout=0.5)
-                    if line is None:
-                        yield f"event: done\ndata: {json.dumps({'type': 'done'})}\n\n"
+                    if isinstance(line, dict) and line.get("_done"):
+                        yield f"event: done\ndata: {json.dumps({'type': 'done', 'success': line['success']})}\n\n"
                         break
                     yield f"data: {json.dumps({'type': 'stdout', 'text': line})}\n\n"
                 except queue.Empty:
@@ -897,8 +897,9 @@ def _run_command(
         emit(f"❌ Erro: {e}")
         if on_complete:
             on_complete(success=False, output_lines=output_lines)
+        ret = -1
     finally:
-        q.put(None)
+        q.put({"_done": True, "success": ret == 0})
 
 
 # ─── Treino Registry — helpers ─────────────────────────────────

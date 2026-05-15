@@ -136,6 +136,12 @@ def train(
 ) -> None:
     """Train a NeuralModular model for the given feature config and save it."""
     _setup_logging(debug)
+    try:
+        import tensorflow  # noqa: F401
+    except ImportError:
+        console.print("[red]Erro:[/red] TensorFlow não encontrado neste ambiente.")
+        console.print("Reconstrua a imagem Docker: [bold]docker-compose build --no-cache[/bold]")
+        raise typer.Exit(1)
     import dataclasses
     import lotofacil.experimentos.config as lab_cfg
     from lotofacil.experimentos.config import MODELS_DIR
