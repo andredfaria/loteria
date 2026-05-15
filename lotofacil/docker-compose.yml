@@ -9,4 +9,5 @@ services:
     volumes:
       - ./dados:/app/dados   # bind mount — diretório do host, sobrevive a down -v e system prune
       - ./saida:/app/saida   # bind mount — diretório do host, sobrevive a down -v e system prune
+      - ./saida/lab_models:/app/src/lotofacil/experimentos/saved_models  # modelos lab persistidos
     restart: unless-stopped
