@@ -13,7 +13,7 @@
     --accent: #38bdf8; --accent-dim: #0f2942; --accent-glow: rgba(56,189,248,0.12);
     --green: #4ade80; --red: #f87171; --yellow: #fbbf24;
     --orange: #fb923c; --purple: #a78bfa;
-    --sidebar-w: 180px; --nav-h: 56px;
+    --sidebar-w: 180px; --nav-h: 56px; --bottom-nav-h: 56px;
     --radius: 0.5rem; --radius-lg: 0.75rem; --radius-xl: 1rem;
     --transition: 0.2s ease;
   }
@@ -435,6 +435,91 @@
 
   /* Warning banner */
   .pred-warning { background: rgba(251,191,36,0.07); border: 1px solid rgba(251,191,36,0.25); border-radius: var(--radius); padding: 0.45rem 0.75rem; font-size: 0.72rem; color: var(--yellow); margin-top: 0.75rem; }
+
+  /* ─── Bottom Nav (mobile only) ─── */
+  .bottom-nav {
+    display: none; position: fixed; bottom: 0; left: 0; right: 0;
+    height: var(--bottom-nav-h); background: var(--surface);
+    border-top: 1px solid var(--border); z-index: 50;
+  }
+  .bottom-nav .bn-tab {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 0.15rem;
+    font-size: 0.62rem; color: var(--muted);
+    border: none; background: none; cursor: pointer;
+    padding: 0.4rem 0; min-height: 44px;
+    transition: color var(--transition); white-space: nowrap;
+  }
+  .bottom-nav .bn-tab.active { color: var(--accent); }
+  .bottom-nav .bn-tab .bn-icon { font-size: 1.2rem; line-height: 1; }
+
+  /* ─── Mobile-first responsive ─── */
+  @media (max-width: 767px) {
+    .sidebar { display: none !important; }
+    .bottom-nav { display: flex; }
+    .layout { padding-bottom: var(--bottom-nav-h); }
+
+    /* Navbar: compact, hide secondary status items */
+    .navbar { padding: 0 0.75rem; gap: 0.5rem; }
+    .status-hide-mobile { display: none !important; }
+
+    /* Actions bar: horizontal scroll strip */
+    .actions-bar {
+      padding: 0.5rem 0.75rem; overflow-x: auto; flex-wrap: nowrap;
+      scrollbar-width: none; -webkit-overflow-scrolling: touch;
+    }
+    .actions-bar::-webkit-scrollbar { display: none; }
+    .actions-bar .separator { flex-shrink: 0; }
+
+    /* Touch targets: 44px minimum */
+    .action-btn { min-height: 44px; padding: 0.6rem 1rem; font-size: 0.82rem; }
+    .pagination-btn { min-height: 44px; padding: 0.5rem 0.85rem; }
+    .pred-tab-btn { min-height: 44px; padding: 0.5rem 1rem; }
+
+    /* Inputs: font-size 1rem prevents iOS auto-zoom; min-height 44px */
+    .pred-param input, .pred-param select,
+    .dados-controls select,
+    .dados-controls .search-box input {
+      font-size: 1rem; min-height: 44px; padding: 0.6rem 0.75rem;
+    }
+    .dados-controls .search-box { min-height: 44px; }
+
+    /* Reduce lateral padding */
+    .dados-header { padding: 0.75rem 0.75rem 0.5rem; }
+    .dados-controls { padding: 0 0.75rem 0.5rem; }
+    .console-output { padding: 0.5rem 0.75rem; font-size: 0.75rem; }
+    .pred-panel { padding: 0.75rem; }
+
+    /* Tables: horizontal scroll, never overflow viewport */
+    .dados-table-wrap {
+      padding: 0 0.75rem 1rem; overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .dados-table-wrap table { min-width: 580px; }
+
+    /* Pred layout */
+    .pred-params { grid-template-columns: 1fr; }
+    .pred-config-cards { flex-direction: column; }
+    .pred-config-card { min-width: auto; flex: none; }
+    .models-grid { grid-template-columns: 1fr; }
+    .pred-jogos-grid { grid-template-columns: 1fr; }
+
+    /* Toast above bottom nav */
+    .toast-container { bottom: calc(var(--bottom-nav-h) + 0.75rem); right: 0.75rem; left: 0.75rem; }
+    .toast { max-width: none; }
+
+    /* Modal as bottom sheet */
+    .modal-overlay { align-items: flex-end; }
+    .modal {
+      width: 100%; max-width: 100%; max-height: 88vh; margin: 0;
+      border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    }
+  }
+
+  @media (min-width: 768px) {
+    .sidebar { display: flex !important; }
+    .bottom-nav { display: none !important; }
+  }
 </style>
 </head>
 <body>
@@ -444,10 +529,10 @@
   <div class="logo">🎰 <span>Lotofácil</span> Dashboard</div>
   <div class="spacer"></div>
   <div class="status-items">
-    <span id="statusTime">⏱ —</span>
-    <span id="statusDraws">🎯 Sorteios: <span class="val">—</span></span>
-    <span id="statusLatest">📌 Último: <span class="val">—</span></span>
-    <span id="statusGames">🎲 Jogos: <span class="val">—</span></span>
+    <span id="statusTime" class="status-hide-mobile">⏱ —</span>
+    <span id="statusDraws">🎯 <span class="val">—</span></span>
+    <span id="statusLatest">📌 <span class="val">—</span></span>
+    <span id="statusGames" class="status-hide-mobile">🎲 <span class="val">—</span></span>
     <span><span class="online"></span>Online</span>
   </div>
 </nav>
@@ -507,6 +592,9 @@
 
 <!-- Toast -->
 <div class="toast-container" id="toastContainer"></div>
+
+<!-- Bottom Nav (mobile) -->
+<nav class="bottom-nav" id="bottomNav"></nav>
 
 <script>
 // ═══════════════════════════════════════════════════════════════
@@ -648,11 +736,28 @@ function buildSidebar() {
     btn.onclick = () => switchTab(cat.id);
     el.appendChild(btn);
   }
+  buildBottomNav();
+}
+
+function buildBottomNav() {
+  const el = document.getElementById('bottomNav');
+  if (!el) return;
+  el.innerHTML = '';
+  for (const cat of CATEGORIES) {
+    const btn = document.createElement('button');
+    btn.className = 'bn-tab' + (cat.id === STATE.activeTab ? ' active' : '');
+    btn.innerHTML = `<span class="bn-icon">${cat.icon}</span><span>${cat.label}</span>`;
+    btn.onclick = () => switchTab(cat.id);
+    el.appendChild(btn);
+  }
 }
 
 function switchTab(id) {
   STATE.activeTab = id;
   document.querySelectorAll('.sidebar .tab').forEach((el, i) => {
+    el.classList.toggle('active', CATEGORIES[i].id === id);
+  });
+  document.querySelectorAll('.bottom-nav .bn-tab').forEach((el, i) => {
     el.classList.toggle('active', CATEGORIES[i].id === id);
   });
   const cs = document.querySelector('.content-split');
