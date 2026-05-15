@@ -365,6 +365,76 @@
   .drift-ok { color: var(--green); }
   .drift-alert { color: var(--red); font-weight: 600; }
   .health-meta { font-size: 0.72rem; color: var(--muted); margin-top: 0.35rem; }
+
+  /* ── Predição mode ── */
+  .content-split.pred-mode .numbers-section { flex: 1; border-bottom: none; max-height: none; }
+  .content-split.pred-mode .console-section { max-height: 220px; flex-shrink: 0; }
+
+  /* Sub-nav inline na actionsBar */
+  .pred-subnav-inline { display: flex; gap: 0.25rem; }
+  .pred-tab-btn {
+    padding: 0.3rem 0.85rem; border-radius: var(--radius);
+    border: 1px solid var(--border); background: transparent;
+    color: var(--muted); font-size: 0.78rem; cursor: pointer;
+    transition: all var(--transition);
+  }
+  .pred-tab-btn.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+  .pred-tab-btn:hover:not(.active) { border-color: var(--border); color: var(--text); }
+
+  /* Sub-tab panels */
+  .pred-panel { display: none; padding: 1rem 1.5rem; }
+  .pred-panel.active { display: block; }
+
+  /* Config cards */
+  .pred-config-cards { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem; }
+  .pred-config-card {
+    flex: 1; min-width: 130px; padding: 0.6rem 0.85rem;
+    border: 1px solid var(--border); border-radius: var(--radius);
+    cursor: pointer; transition: all var(--transition); background: var(--surface-2);
+  }
+  .pred-config-card:hover { border-color: var(--accent); }
+  .pred-config-card.selected { border-color: var(--accent); background: var(--accent-dim); }
+  .pred-config-card .card-title { font-size: 0.8rem; font-weight: 600; color: var(--text); }
+  .pred-config-card .card-tags { font-size: 0.68rem; color: var(--muted); margin-top: 0.2rem; }
+
+  /* Params grid */
+  .pred-params { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem; }
+  .pred-param { display: flex; flex-direction: column; gap: 0.25rem; }
+  .pred-param label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  .pred-param input, .pred-param select {
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 0.35rem 0.6rem;
+    color: var(--text); font-size: 0.8rem; width: 100%;
+  }
+  .pred-param input:focus, .pred-param select:focus { outline: none; border-color: var(--accent); }
+
+  /* Modelos table */
+  .pred-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+  .pred-table th { color: var(--dim); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em; padding: 0.5rem 0.75rem; text-align: left; border-bottom: 1px solid var(--border); }
+  .pred-table td { padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border-light); vertical-align: middle; }
+  .pred-table tr:hover td { background: var(--surface-2); }
+  .pred-status { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 999px; font-size: 0.65rem; font-weight: 700; }
+  .pred-status.completed { background: rgba(74,222,128,0.12); color: var(--green); }
+  .pred-status.running { background: rgba(251,191,36,0.12); color: var(--yellow); }
+  .pred-status.failed { background: rgba(248,113,113,0.12); color: var(--red); }
+
+  /* Gerar jogos */
+  .pred-jogos-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.75rem; margin-top: 1rem; }
+  .pred-jogo-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.75rem; }
+  .pred-jogo-title { font-size: 0.72rem; color: var(--muted); margin-bottom: 0.5rem; }
+  .pred-balls { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+  .pred-jogo-card .ball { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 0.7rem; font-weight: 700; background: var(--surface-2); border: 1px solid var(--border); color: var(--text); }
+  .pred-jogo-card .ball.high { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+
+  /* Comparar */
+  .pred-compare-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+  .pred-compare-table th { color: var(--dim); font-size: 0.68rem; text-transform: uppercase; padding: 0.5rem 0.75rem; text-align: left; border-bottom: 1px solid var(--border); }
+  .pred-compare-table td { padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border-light); }
+  .delta-better { color: var(--green); font-weight: 600; }
+  .delta-worse { color: var(--red); }
+
+  /* Warning banner */
+  .pred-warning { background: rgba(251,191,36,0.07); border: 1px solid rgba(251,191,36,0.25); border-radius: var(--radius); padding: 0.45rem 0.75rem; font-size: 0.72rem; color: var(--yellow); margin-top: 0.75rem; }
 </style>
 </head>
 <body>
@@ -585,7 +655,9 @@ function switchTab(id) {
   document.querySelectorAll('.sidebar .tab').forEach((el, i) => {
     el.classList.toggle('active', CATEGORIES[i].id === id);
   });
-  document.querySelector('.content-split').classList.toggle('dados-mode', id === 'dados');
+  const cs = document.querySelector('.content-split');
+  cs.classList.toggle('dados-mode', id === 'dados');
+  cs.classList.toggle('pred-mode', id === 'predicao');
 
   const numSec = document.getElementById('numbersSection');
   const bar = document.getElementById('actionsBar');
@@ -604,6 +676,9 @@ function switchTab(id) {
   } else if (id === 'coleta') {
     numSec.style.display = 'none';
     renderActions();
+  } else if (id === 'predicao') {
+    numSec.style.display = '';
+    renderPredicao();
   } else {
     numSec.style.display = '';
     renderActions();
@@ -1267,6 +1342,345 @@ function showToast(msg, type = 'info') {
   setTimeout(() => { toast.remove(); }, 3000);
 }
 
+
+// ═══════════════════════════════════════════════════════════════
+// PREDIÇÃO — 4 sub-abas (Treinar · Modelos · Gerar · Comparar)
+// ═══════════════════════════════════════════════════════════════
+
+const PRED_CONFIGS = [
+  { id: 'base',      label: 'Base',       tags: 'histórico + temporal + priors', icon: '📊' },
+  { id: 'lua',       label: '+ Lua',      tags: 'base + fase lunar',              icon: '🌙' },
+  { id: 'clima',     label: '+ Clima',    tags: 'base + clima SP',                icon: '🌤️' },
+  { id: 'lua_clima', label: '+ Lua+Clima',tags: 'base + lua + clima',             icon: '🔭' },
+];
+
+const _predState = {
+  activeSubTab: 'treinar',
+  selectedConfig: 'base',
+  modelos: [],
+  gerarModeloId: null,
+  pollingInterval: null,
+};
+
+function renderPredicao() {
+  const bar = document.getElementById('actionsBar');
+  const section = document.getElementById('numbersSection');
+
+  bar.innerHTML = `
+    <div class="section-title" style="margin-right:0.25rem">🤖 Predição</div>
+    <div class="pred-subnav-inline" id="predSubnav">
+      ${['treinar','modelos','gerar','comparar'].map(t =>
+        `<button class="pred-tab-btn${_predState.activeSubTab === t ? ' active' : ''}"
+           onclick="showPredSubTab('${t}')">${t.charAt(0).toUpperCase()+t.slice(1)}</button>`
+      ).join('')}
+    </div>`;
+
+  section.innerHTML = `
+    <div id="pred-treinar" class="pred-panel${_predState.activeSubTab==='treinar'?' active':''}"></div>
+    <div id="pred-modelos" class="pred-panel${_predState.activeSubTab==='modelos'?' active':''}"></div>
+    <div id="pred-gerar"   class="pred-panel${_predState.activeSubTab==='gerar'  ?' active':''}"></div>
+    <div id="pred-comparar"class="pred-panel${_predState.activeSubTab==='comparar'?' active':''}"></div>`;
+
+  renderPredTreinar();
+  loadModelosAndRender();
+}
+
+function showPredSubTab(name) {
+  _predState.activeSubTab = name;
+  document.querySelectorAll('.pred-tab-btn').forEach(btn => {
+    const t = btn.textContent.toLowerCase();
+    btn.classList.toggle('active', t === name);
+  });
+  document.querySelectorAll('.pred-panel').forEach(p => {
+    p.classList.toggle('active', p.id === `pred-${name}`);
+  });
+  if (name === 'gerar')    renderPredGerar();
+  if (name === 'comparar') renderPredComparar();
+  if (name === 'modelos')  renderPredModelos();
+}
+
+// ── Treinar ────────────────────────────────────────────────────
+function renderPredTreinar() {
+  const panel = document.getElementById('pred-treinar');
+  if (!panel) return;
+  panel.innerHTML = `
+    <h3 style="font-size:0.85rem;font-weight:600;margin-bottom:0.75rem">Configurar Treinamento</h3>
+    <div class="pred-config-cards" id="predConfigCards">
+      ${PRED_CONFIGS.map(c => `
+        <div class="pred-config-card${c.id===_predState.selectedConfig?' selected':''}"
+             onclick="selectPredConfig('${c.id}')">
+          <div class="card-title">${c.icon} ${c.label}</div>
+          <div class="card-tags">${c.tags}</div>
+        </div>`).join('')}
+    </div>
+    <div style="margin-bottom:0.75rem">
+      <label style="font-size:0.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.04em;display:block;margin-bottom:0.3rem">Nome do treino</label>
+      <input type="text" id="predNome" placeholder="ex: treino_lua_v1"
+        style="width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius);padding:0.4rem 0.65rem;color:var(--text);font-size:0.8rem">
+    </div>
+    <div class="pred-params">
+      <div class="pred-param"><label>Épocas</label><input type="number" id="predEpocas" value="40" min="1" max="500"></div>
+      <div class="pred-param"><label>Janela histórico</label><input type="number" id="predJanela" value="50" min="10" max="200"></div>
+      <div class="pred-param"><label>Seed</label><input type="number" id="predSeed" value="42" min="0"></div>
+      <div class="pred-param"><label>Concursos (0 = todos)</label><input type="number" id="predConcursos" value="0" min="0"></div>
+    </div>
+    <button class="action-btn" id="predTrainBtn" onclick="iniciarTreino()"
+      style="background:var(--accent-dim);border-color:var(--accent);color:var(--accent);font-weight:600">▶ Treinar</button>
+    <div id="predTrainStatus" style="margin-top:0.5rem;font-size:0.72rem;color:var(--muted)"></div>`;
+}
+
+function selectPredConfig(id) {
+  _predState.selectedConfig = id;
+  document.querySelectorAll('.pred-config-card').forEach(c => {
+    c.classList.toggle('selected', c.getAttribute('onclick').includes(`'${id}'`));
+  });
+}
+
+async function iniciarTreino() {
+  const nome = (document.getElementById('predNome').value || '').trim();
+  if (!nome) { alert('Informe um nome para o treino.'); return; }
+  const btn = document.getElementById('predTrainBtn');
+  btn.disabled = true; btn.textContent = '⏳ Iniciando...';
+
+  const parametros = {
+    epochs: parseInt(document.getElementById('predEpocas').value) || 40,
+    window_size: parseInt(document.getElementById('predJanela').value) || 50,
+    seed: parseInt(document.getElementById('predSeed').value) || 42,
+    n_draws: parseInt(document.getElementById('predConcursos').value) || 0,
+  };
+  if (!parametros.n_draws) delete parametros.n_draws;
+
+  try {
+    const r = await fetch('/api/treinos/iniciar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nome, tipo_config: _predState.selectedConfig, parametros }),
+    });
+    const data = await r.json();
+    if (data.error) throw new Error(data.error);
+    document.getElementById('predTrainStatus').innerHTML =
+      `✅ Treino iniciado — <span style="color:var(--accent);font-family:monospace">${esc(data.treino_id)}</span>. Acompanhe o log no console abaixo.`;
+    listenStream(data.task_id, `treino_${data.treino_id}`, nome);
+    setTimeout(() => { loadModelosAndRender(); startModelosPolling(); }, 2000);
+  } catch (e) {
+    document.getElementById('predTrainStatus').textContent = `❌ Erro: ${e.message}`;
+  } finally {
+    btn.disabled = false; btn.textContent = '▶ Treinar';
+  }
+}
+
+// ── Modelos ────────────────────────────────────────────────────
+async function loadModelosAndRender() {
+  try {
+    const r = await fetch('/api/treinos');
+    _predState.modelos = await r.json();
+    if (_predState.activeSubTab === 'modelos') renderPredModelos();
+    if (_predState.activeSubTab === 'gerar')   renderPredGerar();
+    if (_predState.activeSubTab === 'comparar') renderPredComparar();
+    const hasRunning = _predState.modelos.some(m => m.status === 'running');
+    if (!hasRunning && _predState.pollingInterval) {
+      clearInterval(_predState.pollingInterval); _predState.pollingInterval = null;
+    }
+  } catch (e) {}
+}
+
+function startModelosPolling() {
+  if (_predState.pollingInterval) return;
+  _predState.pollingInterval = setInterval(() => {
+    if (STATE.activeTab === 'predicao') loadModelosAndRender();
+    else { clearInterval(_predState.pollingInterval); _predState.pollingInterval = null; }
+  }, 5000);
+}
+
+function renderPredModelos() {
+  const panel = document.getElementById('pred-modelos');
+  if (!panel) return;
+  const modelos = _predState.modelos;
+  if (!modelos || modelos.length === 0) {
+    panel.innerHTML = `<div style="padding:2rem 0;text-align:center;color:var(--muted)">
+      Nenhum treino encontrado.<br>Vá para <b>Treinar</b> para iniciar.</div>`;
+    return;
+  }
+  let html = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem">
+      <h3 style="font-size:0.85rem;font-weight:600">Versões Treinadas</h3>
+      <button class="action-btn" onclick="loadModelosAndRender()" style="font-size:0.72rem;padding:0.25rem 0.6rem">↻ Atualizar</button>
+    </div>
+    <table class="pred-table"><thead><tr>
+      <th>Nome</th><th>Tipo</th><th>Val Loss</th><th>Épocas</th><th>Data</th><th>Status</th><th></th>
+    </tr></thead><tbody>`;
+  for (const m of modelos) {
+    const met = m.metricas || {};
+    const dt = m.criado_em ? new Date(m.criado_em).toLocaleDateString('pt-BR') : '—';
+    const loss = met.val_loss_final != null ? met.val_loss_final.toFixed(5) : '—';
+    const ep   = met.epochs_trained   != null ? met.epochs_trained   : '—';
+    html += `<tr>
+      <td style="font-weight:600">${esc(m.nome)}</td>
+      <td style="color:var(--muted)">${esc(m.tipo_config||'')}</td>
+      <td style="font-family:monospace">${loss}</td><td>${ep}</td>
+      <td style="color:var(--dim)">${dt}</td>
+      <td><span class="pred-status ${m.status||'running'}">${m.status||'?'}</span></td>
+      <td>${m.status==='completed'?`<button class="action-btn" onclick="usarModeloParaGerar('${m.id}')"
+        style="font-size:0.7rem;padding:0.2rem 0.5rem">⚡ Gerar</button>`:''}</td>
+    </tr>`;
+  }
+  html += '</tbody></table>';
+  panel.innerHTML = html;
+}
+
+function usarModeloParaGerar(id) {
+  _predState.gerarModeloId = id;
+  showPredSubTab('gerar');
+}
+
+// ── Gerar ──────────────────────────────────────────────────────
+function renderPredGerar() {
+  const panel = document.getElementById('pred-gerar');
+  if (!panel) return;
+  const completed = (_predState.modelos||[]).filter(m => m.status==='completed');
+  const sel = _predState.gerarModeloId;
+  panel.innerHTML = `
+    <h3 style="font-size:0.85rem;font-weight:600;margin-bottom:0.75rem">Gerar Próximo Concurso</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.75rem;margin-bottom:1rem;align-items:end">
+      <div class="pred-param">
+        <label>Modelo treinado</label>
+        <select id="gerarModeloSelect">
+          <option value="">— selecionar —</option>
+          ${completed.map(m=>`<option value="${m.id}"${m.id===sel?' selected':''}>${esc(m.nome)} (${esc(m.tipo_config)})</option>`).join('')}
+        </select>
+      </div>
+      <div class="pred-param"><label>Nº de jogos</label><input type="number" id="gerarNJogos" value="3" min="1" max="20"></div>
+      <div class="pred-param">
+        <label>Números por jogo</label>
+        <select id="gerarNNumeros">
+          ${[11,12,13,14,15].map(n=>`<option value="${n}"${n===15?' selected':''}>${n} números</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <button class="action-btn" id="gerarBtn" onclick="gerarJogos()"
+      style="background:var(--accent-dim);border-color:var(--accent);color:var(--accent);font-weight:600">⚡ Gerar Jogos</button>
+    <div class="pred-warning">⚠️ Resultados experimentais e estatísticos — não garantem acertos.</div>
+    <div id="gerarResultados"></div>`;
+}
+
+async function gerarJogos() {
+  const modeloId = document.getElementById('gerarModeloSelect').value;
+  if (!modeloId) { alert('Selecione um modelo treinado.'); return; }
+  const btn = document.getElementById('gerarBtn');
+  btn.disabled = true; btn.textContent = '⏳ Gerando...';
+  const n_jogos   = parseInt(document.getElementById('gerarNJogos').value)   || 3;
+  const n_numeros = parseInt(document.getElementById('gerarNNumeros').value)  || 15;
+  try {
+    const r = await fetch(`/api/treinos/${modeloId}/gerar`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ n_jogos, n_numeros }),
+    });
+    const data = await r.json();
+    if (data.error) throw new Error(data.error);
+    renderJogos(data);
+  } catch (e) {
+    document.getElementById('gerarResultados').innerHTML =
+      `<div style="color:var(--red);margin-top:0.5rem">❌ ${esc(e.message)}</div>`;
+  } finally { btn.disabled = false; btn.textContent = '⚡ Gerar Jogos'; }
+}
+
+function renderJogos(data) {
+  const div = document.getElementById('gerarResultados');
+  if (!data.jogos || !data.jogos.length) {
+    div.innerHTML = '<div style="color:var(--muted);margin-top:0.5rem">Nenhum jogo retornado.</div>'; return;
+  }
+  let html = `<div style="font-size:0.72rem;color:var(--muted);margin-top:0.5rem;margin-bottom:0.5rem">
+    Concurso alvo: <b style="color:var(--text)">${data.concurso}</b> ·
+    Modelo: <b style="color:var(--accent)">${esc(data.treino_nome||data.treino_id)}</b>
+  </div><div class="pred-jogos-grid">`;
+  data.jogos.forEach((jogo, i) => {
+    html += `<div class="pred-jogo-card">
+      <div class="pred-jogo-title">Jogo ${i+1} — ${jogo.length} números</div>
+      <div class="pred-balls">${jogo.map(n=>`<span class="ball${n>12?' high':''}">${String(n).padStart(2,'0')}</span>`).join('')}</div>
+    </div>`;
+  });
+  html += '</div>';
+  div.innerHTML = html;
+}
+
+// ── Comparar ───────────────────────────────────────────────────
+function renderPredComparar() {
+  const panel = document.getElementById('pred-comparar');
+  if (!panel) return;
+  const completed = (_predState.modelos||[]).filter(m => m.status==='completed');
+  panel.innerHTML = `
+    <h3 style="font-size:0.85rem;font-weight:600;margin-bottom:0.75rem">Comparar Treinos</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:1rem;align-items:end">
+      <div class="pred-param">
+        <label>Modelo A</label>
+        <select id="cmpA">
+          <option value="">— selecionar —</option>
+          ${completed.map(m=>`<option value="${m.id}">${esc(m.nome)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="pred-param">
+        <label>Modelo B</label>
+        <select id="cmpB">
+          <option value="">— selecionar —</option>
+          ${completed.map(m=>`<option value="${m.id}">${esc(m.nome)}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <button class="action-btn" onclick="compararModelos()" style="margin-bottom:1rem">⚖️ Comparar</button>
+    <div id="cmpResultados"></div>`;
+}
+
+async function compararModelos() {
+  const a = document.getElementById('cmpA').value;
+  const b = document.getElementById('cmpB').value;
+  if (!a||!b)   { alert('Selecione dois modelos.'); return; }
+  if (a===b)    { alert('Selecione modelos diferentes.'); return; }
+  const div = document.getElementById('cmpResultados');
+  div.innerHTML = '<div style="color:var(--muted);font-size:0.78rem">Carregando...</div>';
+  try {
+    const r = await fetch(`/api/treinos/comparar?a=${a}&b=${b}`);
+    const data = await r.json();
+    if (data.error) throw new Error(data.error);
+    renderComparacao(data);
+  } catch(e) {
+    div.innerHTML = `<div style="color:var(--red);font-size:0.78rem">❌ ${esc(e.message)}</div>`;
+  }
+}
+
+function renderComparacao(data) {
+  const div = document.getElementById('cmpResultados');
+  const ma = data.a.metricas||{}; const mb = data.b.metricas||{};
+  const dl = data.delta.val_loss_final;
+  const dlClass = dl==null?'':(dl<0?'delta-better':'delta-worse');
+  const dlSign  = dl==null?'':(dl<0?'▼ ':'▲ ');
+  div.innerHTML = `
+    <table class="pred-compare-table"><thead>
+      <tr><th>Métrica</th><th>${esc(data.a.nome)}</th><th>${esc(data.b.nome)}</th><th>Delta (A−B)</th></tr>
+    </thead><tbody>
+      <tr><td style="color:var(--muted)">Tipo</td><td>${esc(data.a.tipo_config)}</td><td>${esc(data.b.tipo_config)}</td><td>—</td></tr>
+      <tr>
+        <td style="color:var(--muted)">Val Loss</td>
+        <td style="font-family:monospace">${ma.val_loss_final!=null?ma.val_loss_final.toFixed(5):'—'}</td>
+        <td style="font-family:monospace">${mb.val_loss_final!=null?mb.val_loss_final.toFixed(5):'—'}</td>
+        <td class="${dlClass}" style="font-family:monospace">${dl!=null?dlSign+Math.abs(dl).toFixed(5):'—'}</td>
+      </tr>
+      <tr>
+        <td style="color:var(--muted)">Épocas</td>
+        <td>${ma.epochs_trained??'—'}</td><td>${mb.epochs_trained??'—'}</td>
+        <td>${data.delta.epochs_trained!=null?(data.delta.epochs_trained>=0?'+':'')+data.delta.epochs_trained:'—'}</td>
+      </tr>
+      <tr>
+        <td style="color:var(--muted)">Criado em</td>
+        <td style="color:var(--dim)">${data.a.criado_em?new Date(data.a.criado_em).toLocaleDateString('pt-BR'):'—'}</td>
+        <td style="color:var(--dim)">${data.b.criado_em?new Date(data.b.criado_em).toLocaleDateString('pt-BR'):'—'}</td>
+        <td>—</td>
+      </tr>
+    </tbody></table>
+    <div style="font-size:0.7rem;color:var(--dim);margin-top:0.5rem">
+      Val Loss menor = melhor. ▼ verde = Modelo A melhor que B.
+    </div>`;
+}
 
 // ═══════════════════════════════════════════════════════════════
 // START

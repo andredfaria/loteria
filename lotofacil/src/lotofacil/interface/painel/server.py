@@ -9,13 +9,16 @@ import subprocess
 import time
 import re
 import logging
+import uuid
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from datetime import datetime
 
+import numpy as np
 from flask import Flask, jsonify, Response, request, send_from_directory
 
 from lotofacil.interface.painel.commands import COMMANDS, BASE  # noqa: E402
+from lotofacil.interface.painel.treino_registry import TreinoRegistry
 from lotofacil.infra.avaliacao.metricas import LotofacilMetrics
 from lotofacil.infra.avaliacao.significancia import compare_vs_baseline
 from lotofacil.infra.config import (
@@ -46,6 +49,11 @@ DADOS_DIR = _DADOS_DIR
 SAIDA_DIR = _SAIDA_DIR
 MODELS_CORE_DIR = MODELOS_DIR
 MODELS_LAB_DIR = SAIDA_DIR / "experimentos"
+
+# Lab experiment models: src/lotofacil/experimentos/saved_models/
+_LAB_MODELS_DIR = Path(__file__).resolve().parents[2] / "experimentos" / "saved_models"
+
+_registry = TreinoRegistry(SAIDA_DIR / "treinos.db")
 
 
 def _configure_logging() -> logging.Logger:
@@ -834,7 +842,13 @@ def api_stream(task_id):
 
 # ─── Command Runner ────────────────────────────────────────────
 
-def _run_command(task_id: str, q: queue.Queue, cmd: list[str], cwd: str):
+def _run_command(
+    task_id: str,
+    q: queue.Queue,
+    cmd: list[str],
+    cwd: str,
+    on_complete=None,  # callable(success: bool, output_lines: list[str]) | None
+):
     def emit(line: str):
         q.put(line)
 
@@ -847,6 +861,7 @@ def _run_command(task_id: str, q: queue.Queue, cmd: list[str], cwd: str):
         for c in cmd
     ]
     env = {**os.environ, "PYTHONPATH": str(_SRC)}
+    output_lines: list[str] = []
 
     try:
         emit(f"$ {' '.join(cmd)}\n")
@@ -862,6 +877,7 @@ def _run_command(task_id: str, q: queue.Queue, cmd: list[str], cwd: str):
         for line in iter(proc.stdout.readline, ""):
             clean_line = _strip_ansi(line.rstrip("\n"))
             LOGGER.info("TASK %s output: %s", task_id, clean_line)
+            output_lines.append(clean_line)
             emit(clean_line)
         proc.stdout.close()
         ret = proc.wait()
@@ -869,14 +885,232 @@ def _run_command(task_id: str, q: queue.Queue, cmd: list[str], cwd: str):
         if ret == 0:
             emit("")
             emit("✅ Comando concluído com sucesso.")
+            if on_complete:
+                on_complete(success=True, output_lines=output_lines)
         else:
             emit("")
             emit(f"⚠️  Comando finalizou com código {ret}.")
+            if on_complete:
+                on_complete(success=False, output_lines=output_lines)
     except Exception as e:
         LOGGER.exception("TASK %s failed", task_id)
         emit(f"❌ Erro: {e}")
+        if on_complete:
+            on_complete(success=False, output_lines=output_lines)
     finally:
         q.put(None)
+
+
+# ─── Treino Registry — helpers ─────────────────────────────────
+
+_CONFIG_SIG_MAP = {
+    "base": "base+temp+priors",
+    "lua": "base+temp+priors+lua",
+    "clima": "base+temp+priors+clima",
+    "lua_clima": "base+temp+priors+lua+clima",
+}
+
+
+def _slug(text: str) -> str:
+    """Sanitize a string to safe filename characters."""
+    import unicodedata
+    nfkd = unicodedata.normalize("NFKD", text)
+    ascii_str = nfkd.encode("ascii", "ignore").decode("ascii")
+    return re.sub(r"[^\w]+", "_", ascii_str).strip("_")[:40] or "treino"
+
+
+def _extract_model_path_from_output(lines: list[str]) -> str | None:
+    for line in lines:
+        if line.startswith("TREINO_MODELO_PATH:"):
+            return line.split(":", 1)[1].strip()
+    return None
+
+
+def _read_meta_from_keras(keras_path: str) -> dict:
+    meta_path = Path(keras_path).with_suffix(".meta.json")
+    if not meta_path.exists():
+        return {}
+    try:
+        raw = json.loads(meta_path.read_text())
+        hist = raw.get("history", {})
+        val_loss = hist.get("val_loss", [])
+        return {
+            "val_loss_final": round(val_loss[-1], 5) if val_loss else None,
+            "epochs_trained": len(hist.get("loss", [])),
+        }
+    except Exception:
+        return {}
+
+
+# ─── Treino Registry — API routes ──────────────────────────────
+
+@app.route("/api/treinos/iniciar", methods=["POST"])
+def api_treinos_iniciar():
+    body = request.get_json(force=True) or {}
+    nome = (body.get("nome") or "treino").strip()
+    tipo_config = body.get("tipo_config", "base")
+    params = body.get("parametros") or {}
+
+    config_sig = _CONFIG_SIG_MAP.get(tipo_config, tipo_config)
+    treino_id = uuid.uuid4().hex[:8]
+    nome_slug = _slug(nome)
+    model_name = f"{treino_id}_{nome_slug}"
+
+    _registry.criar(treino_id, nome, tipo_config, params)
+
+    cmd = ["lotofacil", "lab", "train", "--config", config_sig, "--name", model_name]
+    if params.get("epochs"):
+        cmd += ["--epochs", str(params["epochs"])]
+    if params.get("n_draws"):
+        cmd += ["--n-draws", str(params["n_draws"])]
+    if params.get("seed"):
+        cmd += ["--seed", str(params["seed"])]
+    if params.get("window_size"):
+        cmd += ["--window-size", str(params["window_size"])]
+
+    task_id = f"treino_{int(time.time() * 1000)}_{treino_id}"
+    q: queue.Queue = queue.Queue()
+    TASKS[task_id] = q
+
+    def on_done(success: bool, output_lines: list[str]):
+        if success:
+            keras_path = _extract_model_path_from_output(output_lines)
+            if not keras_path:
+                keras_path = str(_LAB_MODELS_DIR / f"neural_{model_name}.keras")
+            metricas = _read_meta_from_keras(keras_path)
+            _registry.registrar_modelo(treino_id, keras_path, metricas)
+            LOGGER.info("TREINO %s registered: %s", treino_id, keras_path)
+        else:
+            _registry.marcar_falha(treino_id)
+            LOGGER.warning("TREINO %s failed", treino_id)
+
+    t = threading.Thread(
+        target=_run_command,
+        args=(task_id, q, cmd, str(BASE_DIR)),
+        kwargs={"on_complete": on_done},
+        daemon=True,
+    )
+    t.start()
+    return jsonify({"treino_id": treino_id, "task_id": task_id})
+
+
+@app.route("/api/treinos")
+def api_treinos_listar():
+    return jsonify(_registry.listar())
+
+
+@app.route("/api/treinos/comparar")
+def api_treinos_comparar():
+    id_a = request.args.get("a")
+    id_b = request.args.get("b")
+    if not id_a or not id_b:
+        return jsonify({"error": "Parâmetros 'a' e 'b' são obrigatórios"}), 400
+    ta = _registry.buscar(id_a)
+    tb = _registry.buscar(id_b)
+    if not ta:
+        return jsonify({"error": f"Treino '{id_a}' não encontrado"}), 404
+    if not tb:
+        return jsonify({"error": f"Treino '{id_b}' não encontrado"}), 404
+
+    def _met(t, key):
+        m = t.get("metricas") or {}
+        return m.get(key)
+
+    delta = {
+        "val_loss_final": (
+            round((_met(ta, "val_loss_final") or 0) - (_met(tb, "val_loss_final") or 0), 5)
+            if _met(ta, "val_loss_final") is not None and _met(tb, "val_loss_final") is not None
+            else None
+        ),
+        "epochs_trained": (
+            (_met(ta, "epochs_trained") or 0) - (_met(tb, "epochs_trained") or 0)
+        ),
+    }
+    return jsonify({"a": ta, "b": tb, "delta": delta})
+
+
+@app.route("/api/treinos/<treino_id>")
+def api_treino_detalhe(treino_id: str):
+    t = _registry.buscar(treino_id)
+    if not t:
+        return jsonify({"error": "Não encontrado"}), 404
+    return jsonify(t)
+
+
+@app.route("/api/treinos/<treino_id>/gerar", methods=["POST"])
+def api_treino_gerar(treino_id: str):
+    t = _registry.buscar(treino_id)
+    if not t:
+        return jsonify({"error": "Treino não encontrado"}), 404
+    if t.get("status") != "completed":
+        return jsonify({"error": "Treino ainda não concluído"}), 400
+
+    arquivo_modelo = t.get("arquivo_modelo")
+    if not arquivo_modelo or not Path(arquivo_modelo).exists():
+        return jsonify({"error": "Arquivo do modelo não encontrado"}), 404
+
+    body = request.get_json(force=True) or {}
+    n_jogos = max(1, min(int(body.get("n_jogos", 1)), 20))
+    n_numeros = max(11, min(int(body.get("n_numeros", 15)), 15))
+
+    try:
+        import sys as _sys
+        _sys.path.insert(0, str(_SRC))
+        from lotofacil.experimentos.data.feature_flags import FeatureConfig
+        from lotofacil.experimentos.data.draws_loader import load_draws_last_n
+        from lotofacil.experimentos.models.neural_modular import NeuralModular
+
+        tipo_config = t.get("tipo_config", "base")
+        config_sig = _CONFIG_SIG_MAP.get(tipo_config, tipo_config)
+        cfg = FeatureConfig.from_signature(config_sig)
+
+        draws = load_draws_last_n(500)
+        if not draws:
+            return jsonify({"error": "Sem dados de sorteios disponíveis"}), 500
+
+        model = NeuralModular(cfg)
+        model.load(Path(arquivo_modelo))
+        proba = model.predict_proba(draws)  # shape (25,)
+
+        rng = np.random.default_rng()
+        jogos = []
+        for _ in range(n_jogos):
+            noise = rng.normal(0, 0.02, size=proba.shape)
+            scores = proba + noise
+            top_idx = np.argsort(scores)[::-1][:n_numeros]
+            jogos.append(sorted(int(i + 1) for i in top_idx))
+
+        next_concurso = draws[-1].concurso + 1
+
+        # Persist each game
+        jogos_dir = SAIDA_DIR / "jogos"
+        jogos_dir.mkdir(parents=True, exist_ok=True)
+        for i, jogo in enumerate(jogos, 1):
+            out_path = jogos_dir / f"predicao_lab_{treino_id}_j{i}_{next_concurso}.json"
+            out_path.write_text(
+                json.dumps({
+                    "concurso": next_concurso,
+                    "abordagem": f"lab_{treino_id}",
+                    "dezenas": jogo,
+                    "confianca": None,
+                    "treino_id": treino_id,
+                    "treino_nome": t.get("nome"),
+                }, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+
+        return jsonify({
+            "treino_id": treino_id,
+            "treino_nome": t.get("nome"),
+            "concurso": next_concurso,
+            "n_jogos": n_jogos,
+            "n_numeros": n_numeros,
+            "jogos": jogos,
+        })
+
+    except Exception as exc:
+        LOGGER.exception("Erro ao gerar jogos para treino %s", treino_id)
+        return jsonify({"error": str(exc)}), 500
 
 
 # ─── Main ──────────────────────────────────────────────────────

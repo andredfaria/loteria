@@ -129,16 +129,23 @@ def train(
                                     help="Feature config signature. e.g. 'base+temp+priors+clima+lua'"),
     epochs: int = typer.Option(None, "--epochs", help="Override max epochs."),
     n_draws: int = typer.Option(None, "--n-draws", help="Use only last N draws."),
+    seed: int = typer.Option(None, "--seed", help="Override RANDOM_SEED for reproducibility."),
+    window_size: int = typer.Option(None, "--window-size", help="Override LSTM window (past draws as context)."),
+    name: str = typer.Option(None, "--name", help="Custom model stem for versioning (e.g. 'abc1_meu_treino')."),
     debug: bool = typer.Option(False, "--debug"),
 ) -> None:
     """Train a NeuralModular model for the given feature config and save it."""
     _setup_logging(debug)
+    import dataclasses
     import lotofacil.experimentos.config as lab_cfg
+    from lotofacil.experimentos.config import MODELS_DIR
     from lotofacil.experimentos.data.feature_flags import FeatureConfig
     from lotofacil.experimentos.data.draws_loader import load_draws, load_draws_last_n
     from lotofacil.experimentos.models.neural_modular import NeuralModular
 
     cfg = FeatureConfig.from_signature(config_sig)
+    if window_size:
+        cfg = dataclasses.replace(cfg, window_size=window_size)
     console.print(f"Config: [cyan]{cfg.signature()}[/cyan]")
 
     draws = load_draws_last_n(n_draws) if n_draws else load_draws()
@@ -149,12 +156,20 @@ def train(
 
     if epochs:
         lab_cfg.LSTM_EPOCHS = epochs
+    if seed:
+        lab_cfg.RANDOM_SEED = seed
 
     model = NeuralModular(cfg)
     console.print("Training... (this may take a while)")
     model.fit(draws)
-    model.save()
-    console.print(f"[green]Saved:[/green] saved_models/neural_{cfg.signature()}.keras")
+
+    save_path = MODELS_DIR / f"neural_{name}.keras" if name else None
+    model.save(save_path)
+    stem = name if name else f"{cfg.signature()}"
+    console.print(f"[green]Saved:[/green] neural_{stem}.keras")
+    # Emitted for dashboard registry to capture the saved path
+    actual_path = save_path or (MODELS_DIR / f"neural_{cfg.signature()}.keras")
+    console.print(f"TREINO_MODELO_PATH: {actual_path}")
 
 
 # ── predict ────────────────────────────────────────────────────────────────────
