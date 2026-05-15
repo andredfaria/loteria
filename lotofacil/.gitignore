@@ -53,3 +53,6 @@ portfolio_*.json
 
 # Git worktrees
 .worktrees/
+
+# Volume backups (gerados por scripts/volume-backup.sh)
+backups/
