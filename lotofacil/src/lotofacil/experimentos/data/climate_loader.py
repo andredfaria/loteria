@@ -40,7 +40,7 @@ def get_climate_matrix(draws) -> np.ndarray:
     Returns:
         Array of shape (n, 8), float32. Missing → zeros (logged as warning).
     """
-    from data.climate_loader import load_all_climate, normalize_climate  # src/data/
+    from lotofacil.experimentos.data.climate_loader import load_all_climate, normalize_climate
 
     climate_map = load_all_climate()
     n = len(draws)
@@ -63,7 +63,7 @@ def get_climate_matrix(draws) -> np.ndarray:
 
 def get_coverage_pct(draws) -> float:
     """Return fraction of draws that have climate data."""
-    from data.climate_loader import load_all_climate
+    from lotofacil.experimentos.data.climate_loader import load_all_climate
     climate_map = load_all_climate()
     if not draws:
         return 0.0

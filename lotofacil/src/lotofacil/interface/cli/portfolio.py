@@ -303,7 +303,7 @@ def print_portfolio(
 
 # ── Typer commands ─────────────────────────────────────────────────────────────
 
-_DADOS_DIR = Path(__file__).resolve().parent.parent.parent / "dados"
+_DADOS_DIR = Path(__file__).resolve().parent.parent.parent.parent.parent / "dados"
 
 
 @app.callback(invoke_without_command=True)

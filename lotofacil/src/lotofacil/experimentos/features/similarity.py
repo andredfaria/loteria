@@ -41,7 +41,7 @@ def get_target_moon(date_iso: str) -> np.ndarray:
 def get_target_climate(date_iso: str) -> np.ndarray:
     if date_iso in _climate_cache:
         return _climate_cache[date_iso]
-    from data.climate_loader import fetch_climate_from_api, normalize_climate
+    from lotofacil.experimentos.data.climate_loader import fetch_climate_from_api, normalize_climate
     resumo = fetch_climate_from_api(date_iso)
     if resumo:
         arr = np.array(normalize_climate(resumo), dtype=np.float32)
@@ -58,7 +58,7 @@ def build_historical_matrices(draws) -> Tuple[np.ndarray, np.ndarray, np.ndarray
     mask = []
     valid_draws = []
 
-    from data.climate_loader import load_all_climate, normalize_climate
+    from lotofacil.experimentos.data.climate_loader import load_all_climate, normalize_climate
     climate_map = load_all_climate()
 
     for d in draws:
