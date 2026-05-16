@@ -12,9 +12,6 @@ RUN pip install --no-cache-dir -e ".[dev]"
 
 COPY src/ src/
 
-# Dados de exemplo ficam na imagem como seed (volume /app/dados fica separado)
-COPY dados/sample/ /app/dados_seed/
-
 RUN mkdir -p dados saida 2>/dev/null || true
 
 COPY entrypoint.sh /app/entrypoint.sh
