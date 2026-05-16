@@ -3,7 +3,6 @@
 import os
 import sys
 import json
-import queue
 import threading
 import subprocess
 import time
@@ -15,7 +14,7 @@ from pathlib import Path
 from datetime import datetime
 
 import numpy as np
-from flask import Flask, jsonify, Response, request, send_from_directory
+from flask import Flask, jsonify, request, send_from_directory
 
 from lotofacil.interface.painel.commands import COMMANDS, BASE  # noqa: E402
 from lotofacil.interface.painel.treino_registry import TreinoRegistry
@@ -43,7 +42,6 @@ def _strip_ansi(text: str) -> str:
 
 app = Flask(__name__, static_folder=None)
 
-TASKS: dict[str, queue.Queue] = {}
 BASE_DIR = BASE
 DADOS_DIR = _DADOS_DIR
 SAIDA_DIR = _SAIDA_DIR
@@ -803,11 +801,10 @@ def api_generate():
         for item in cat["items"]:
             if item["id"] == action:
                 task_id = f"task_{int(time.time() * 1000)}_{action}"
-                q: queue.Queue = queue.Queue()
-                TASKS[task_id] = q
+                _registry.create_job(task_id)
                 t = threading.Thread(
                     target=_run_command,
-                    args=(task_id, q, item["cmd"], item["cwd"]),
+                    args=(task_id, _registry, item["cmd"], item["cwd"]),
                     daemon=True,
                 )
                 t.start()
@@ -815,43 +812,15 @@ def api_generate():
     return jsonify({"error": f"Unknown action: {action}"}), 400
 
 
-@app.route("/api/stream/<task_id>")
-def api_stream(task_id):
-    def generate():
-        q = TASKS.get(task_id)
-        if q is None:
-            yield f"data: {json.dumps({'type': 'error', 'text': 'Task not found'})}\n\n"
-            return
-        try:
-            while True:
-                try:
-                    line = q.get(timeout=0.5)
-                    if isinstance(line, dict) and line.get("_done"):
-                        yield f"event: done\ndata: {json.dumps({'type': 'done', 'success': line['success']})}\n\n"
-                        break
-                    yield f"data: {json.dumps({'type': 'stdout', 'text': line})}\n\n"
-                except queue.Empty:
-                    yield f"data: {json.dumps({'type': 'heartbeat'})}\n\n"
-        except GeneratorExit:
-            pass
-        finally:
-            TASKS.pop(task_id, None)
-
-    return Response(generate(), mimetype="text/event-stream")
-
-
 # ─── Command Runner ────────────────────────────────────────────
 
 def _run_command(
     task_id: str,
-    q: queue.Queue,
+    registry: "TreinoRegistry",
     cmd: list[str],
     cwd: str,
-    on_complete=None,  # callable(success: bool, output_lines: list[str]) | None
+    on_complete=None,
 ):
-    def emit(line: str):
-        q.put(line)
-
     LOGGER.info("TASK %s started cmd=%s cwd=%s", task_id, " ".join(cmd), cwd)
 
     cmd = [
@@ -862,9 +831,13 @@ def _run_command(
     ]
     env = {**os.environ, "PYTHONPATH": str(_SRC)}
     output_lines: list[str] = []
+    ret = -1
 
     try:
-        emit(f"$ {' '.join(cmd)}\n")
+        first = f"$ {' '.join(cmd)}"
+        registry.write_line(task_id, first)
+        output_lines.append(first)
+
         proc = subprocess.Popen(
             cmd,
             cwd=cwd,
@@ -875,31 +848,31 @@ def _run_command(
             env=env,
         )
         for line in iter(proc.stdout.readline, ""):
-            clean_line = _strip_ansi(line.rstrip("\n"))
-            LOGGER.info("TASK %s output: %s", task_id, clean_line)
-            output_lines.append(clean_line)
-            emit(clean_line)
+            clean = _strip_ansi(line.rstrip("\n"))
+            LOGGER.info("TASK %s output: %s", task_id, clean)
+            output_lines.append(clean)
+            registry.write_line(task_id, clean)
         proc.stdout.close()
         ret = proc.wait()
         LOGGER.info("TASK %s finished exit_code=%s", task_id, ret)
         if ret == 0:
-            emit("")
-            emit("✅ Comando concluído com sucesso.")
+            registry.write_line(task_id, "")
+            registry.write_line(task_id, "✅ Comando concluído com sucesso.")
             if on_complete:
                 on_complete(success=True, output_lines=output_lines)
         else:
-            emit("")
-            emit(f"⚠️  Comando finalizou com código {ret}.")
+            registry.write_line(task_id, "")
+            registry.write_line(task_id, f"⚠️  Comando finalizou com código {ret}.")
             if on_complete:
                 on_complete(success=False, output_lines=output_lines)
     except Exception as e:
         LOGGER.exception("TASK %s failed", task_id)
-        emit(f"❌ Erro: {e}")
+        registry.write_line(task_id, f"❌ Erro: {e}")
         if on_complete:
             on_complete(success=False, output_lines=output_lines)
         ret = -1
     finally:
-        q.put({"_done": True, "success": ret == 0})
+        registry.finish_job(task_id, ret == 0)
 
 
 # ─── Treino Registry — helpers ─────────────────────────────────
@@ -970,8 +943,7 @@ def api_treinos_iniciar():
         cmd += ["--window-size", str(params["window_size"])]
 
     task_id = f"treino_{int(time.time() * 1000)}_{treino_id}"
-    q: queue.Queue = queue.Queue()
-    TASKS[task_id] = q
+    _registry.create_job(task_id)
 
     def on_done(success: bool, output_lines: list[str]):
         if success:
@@ -987,7 +959,7 @@ def api_treinos_iniciar():
 
     t = threading.Thread(
         target=_run_command,
-        args=(task_id, q, cmd, str(BASE_DIR)),
+        args=(task_id, _registry, cmd, str(BASE_DIR)),
         kwargs={"on_complete": on_done},
         daemon=True,
     )
@@ -1028,6 +1000,12 @@ def api_treinos_comparar():
         ),
     }
     return jsonify({"a": ta, "b": tb, "delta": delta})
+
+
+@app.route("/api/jobs/<task_id>/poll")
+def api_jobs_poll(task_id: str):
+    offset = request.args.get("offset", default=0, type=int)
+    return jsonify(_registry.poll_job(task_id, offset))
 
 
 @app.route("/api/treinos/<treino_id>")
