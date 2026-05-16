@@ -2077,6 +2077,46 @@ function updateTreinoLastInfo(treinos) {
   el.textContent = `Último treino: ${done.nome} · ${done.tipo_config} · ${date}`;
 }
 
+function selectTreinoConfig(btn) {
+  document.querySelectorAll('#treinoConfigBtns .treino-config-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+async function startTreino() {
+  const configBtn = document.querySelector('#treinoConfigBtns .treino-config-btn.active');
+  const tipo_config = configBtn ? configBtn.dataset.config : 'base';
+  const epochs = parseInt(document.getElementById('treinoEpochs').value) || 100;
+  const seed = parseInt(document.getElementById('treinoSeed').value) || 42;
+
+  const errEl = document.getElementById('treinoErrorMsg');
+  errEl.style.display = 'none';
+
+  const startBtn = document.getElementById('treinoStartBtn');
+  startBtn.disabled = true;
+
+  try {
+    const res = await fetch('/api/treinos/iniciar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        nome: `treino_${tipo_config}`,
+        tipo_config,
+        parametros: { epochs, seed },
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.task_id) {
+      throw new Error(data.error || 'Falha ao iniciar treino');
+    }
+    openTreinoModal(data.task_id, tipo_config);
+  } catch (e) {
+    logClient('error', 'Erro ao iniciar treino', { error: e.message });
+    errEl.textContent = `Erro: ${e.message}`;
+    errEl.style.display = '';
+    startBtn.disabled = false;
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════
 // START
 // ═══════════════════════════════════════════════════════════════
