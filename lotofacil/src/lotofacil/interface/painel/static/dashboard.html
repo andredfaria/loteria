@@ -2006,6 +2006,78 @@ function renderComparacao(data) {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// MODELOS TAB
+// ═══════════════════════════════════════════════════════════════
+
+const MODELO_CONFIG_LABELS = {
+  base: 'base+temp',
+  lua: '+lua',
+  clima: '+clima',
+  lua_clima: '+lua+clima',
+};
+
+async function loadModelos() {
+  const grid = document.getElementById('modelosGrid');
+  grid.innerHTML = '<div class="empty-state"><span class="big-icon" style="font-size:1.5rem;opacity:0.5">⏳</span><p>Carregando…</p></div>';
+
+  try {
+    const [qualRes, lastRes] = await Promise.all([
+      fetch('/api/models/quality').then(r => r.json()),
+      fetch('/api/treinos').then(r => r.json()),
+    ]);
+    renderModelCards(qualRes.models || []);
+    updateTreinoLastInfo(Array.isArray(lastRes) ? lastRes : []);
+  } catch (e) {
+    logClient('error', 'Falha ao carregar modelos', { error: e.message });
+    grid.innerHTML = '<div class="empty-state"><span class="big-icon">⚠️</span><p>Erro ao carregar modelos</p></div>';
+  }
+}
+
+function renderModelCards(models) {
+  const grid = document.getElementById('modelosGrid');
+
+  if (!models || models.length === 0) {
+    grid.innerHTML = '<div class="empty-state"><span class="big-icon">🧠</span><p>Nenhum modelo treinado encontrado</p></div>';
+    return;
+  }
+
+  const sorted = [...models].sort((a, b) => (b.mean_hits ?? 0) - (a.mean_hits ?? 0));
+
+  grid.innerHTML = sorted.map((m, i) => {
+    const rank = i + 1;
+    const rankClass = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : 'rank-other';
+    const rankLabel = `#${rank}`;
+    const hits = m.mean_hits != null ? m.mean_hits.toFixed(2) : '—';
+    const pval = m.p_value != null ? m.p_value.toFixed(4) : '—';
+    const std = m.stability?.std_hits != null ? `±${m.stability.std_hits.toFixed(2)}` : '';
+    const configKey = m.model?.split('_').slice(-1)[0] || 'base';
+    const configLabel = MODELO_CONFIG_LABELS[configKey] ?? m.model ?? '—';
+
+    return `
+      <div class="modelo-card ${rankClass}">
+        <span class="modelo-card-rank">${rankLabel}</span>
+        <div class="modelo-card-name">${m.model ?? '—'}</div>
+        <div class="modelo-hits">${hits}</div>
+        <div class="modelo-hits-label">hits médios</div>
+        <div class="modelo-meta">
+          <span class="modelo-meta-item">p=<strong>${pval}</strong></span>
+          ${std ? `<span class="modelo-meta-item"><strong>${std}</strong></span>` : ''}
+        </div>
+        <span class="modelo-config-badge">${configLabel}</span>
+      </div>`;
+  }).join('');
+}
+
+function updateTreinoLastInfo(treinos) {
+  const el = document.getElementById('treinoLastInfo');
+  if (!el) return;
+  const done = treinos.find(t => t.status === 'completed');
+  if (!done) { el.textContent = 'Nenhum treino concluído ainda.'; return; }
+  const date = done.concluido_em ? new Date(done.concluido_em).toLocaleDateString('pt-BR') : '?';
+  el.textContent = `Último treino: ${done.nome} · ${done.tipo_config} · ${date}`;
+}
+
+// ═══════════════════════════════════════════════════════════════
 // START
 // ═══════════════════════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', init);
