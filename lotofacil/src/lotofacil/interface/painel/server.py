@@ -32,7 +32,7 @@ import random
 import statistics
 
 _ANSI_RE = re.compile(r'\x1b(?:\[[0-9;]*[mGKHFABCDEFsuJKH]|[()][AB012])')
-_procs: dict[str, "subprocess.Popen[str]"] = {}
+_procs: dict[str, subprocess.Popen[str]] = {}
 _SRC = Path(__file__).resolve().parent.parent.parent.parent.parent / "src"
 _LOTOFACIL_BIN = str(Path(sys.executable).parent / "lotofacil")
 
@@ -856,7 +856,6 @@ def _run_command(
             registry.write_line(task_id, clean)
         proc.stdout.close()
         ret = proc.wait()
-        _procs.pop(task_id, None)
         LOGGER.info("TASK %s finished exit_code=%s", task_id, ret)
         if ret == 0:
             registry.write_line(task_id, "")
@@ -874,6 +873,7 @@ def _run_command(
         if on_complete:
             on_complete(success=False, output_lines=output_lines)
     finally:
+        _procs.pop(task_id, None)
         registry.finish_job(task_id, ret == 0)
 
 

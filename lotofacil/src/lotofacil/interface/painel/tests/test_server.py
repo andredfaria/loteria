@@ -93,7 +93,7 @@ def test_api_jobs_poll_unknown_task(client, tmp_path, monkeypatch):
     assert data["success"] is False
 
 
-def test_cancel_unknown_task_returns_404(client, tmp_path, monkeypatch):
+def test_cancel_unknown_task_returns_404(client, monkeypatch):
     import lotofacil.interface.painel.server as srv
     monkeypatch.setattr(srv, "_procs", {})
     resp = client.post("/api/jobs/nao_existe/cancel")
@@ -102,8 +102,7 @@ def test_cancel_unknown_task_returns_404(client, tmp_path, monkeypatch):
     assert "error" in data
 
 
-def test_cancel_running_task_terminates(client, tmp_path, monkeypatch):
-    import subprocess
+def test_cancel_running_task_terminates(client, monkeypatch):
     import lotofacil.interface.painel.server as srv
 
     class FakeProc:
