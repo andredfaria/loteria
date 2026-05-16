@@ -117,3 +117,31 @@ def test_cancel_running_task_terminates(client, monkeypatch):
     assert fake.terminated is True
     data = resp.get_json()
     assert data.get("ok") is True
+
+
+def test_api_models_status_returns_list(client):
+    resp = client.get("/api/models/status")
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert isinstance(data, list)
+
+
+def test_api_models_quality_returns_models_key(client):
+    resp = client.get("/api/models/quality")
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert "models" in data
+    assert isinstance(data["models"], list)
+
+
+def test_api_treinos_iniciar_returns_ids(client, monkeypatch):
+    import threading
+    monkeypatch.setattr(threading, "Thread", lambda *a, **kw: type("T", (), {"start": lambda s: None})())
+    resp = client.post(
+        "/api/treinos/iniciar",
+        json={"nome": "teste", "tipo_config": "base", "parametros": {"epochs": 10}},
+    )
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert "treino_id" in data
+    assert "task_id" in data
