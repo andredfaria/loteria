@@ -910,7 +910,7 @@ function pollJob(taskId, actionId, label) {
         loadStatus();
       }
     } catch (e) {
-      logClient('error', 'Erro ao buscar output do job', { taskId, error: e.message });
+      logClient('error', 'Erro ao buscar output do job', { taskId, actionId, offset, error: e.message });
       addConsoleLine(`⚠️ Falha ao buscar output: ${e.message}`, 'warn');
     }
   }, 2000);
