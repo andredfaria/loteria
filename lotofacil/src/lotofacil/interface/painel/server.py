@@ -1,4 +1,4 @@
-"""Dashboard server — Flask + SSE for real-time command execution."""
+"""Dashboard server — Flask + SQLite-backed polling for command execution."""
 
 import os
 import sys
@@ -870,7 +870,6 @@ def _run_command(
         registry.write_line(task_id, f"❌ Erro: {e}")
         if on_complete:
             on_complete(success=False, output_lines=output_lines)
-        ret = -1
     finally:
         registry.finish_job(task_id, ret == 0)
 

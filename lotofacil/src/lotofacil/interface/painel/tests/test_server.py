@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from lotofacil.interface.painel import server as server_module
+from lotofacil.interface.painel.treino_registry import TreinoRegistry
 from lotofacil.infra.config import DADOS_DIR
 
 SAMPLE_DIR = DADOS_DIR / "sample"
@@ -51,9 +52,6 @@ def test_api_dados_pagination_order(client):
         assert d1["items"][0]["concurso"] > d2["items"][-1]["concurso"]
 
 
-from lotofacil.interface.painel.treino_registry import TreinoRegistry
-
-
 def test_api_jobs_poll_returns_lines(client, tmp_path, monkeypatch):
     reg = TreinoRegistry(tmp_path / "test_treinos.db")
     monkeypatch.setattr(server_module, "_registry", reg)
@@ -81,6 +79,7 @@ def test_api_jobs_poll_offset_advances(client, tmp_path, monkeypatch):
 
     second = json.loads(client.get(f"/api/jobs/task_xyz/poll?offset={first['next_offset']}").data)
     assert second["lines"] == []
+    assert second["done"] is False
 
 
 def test_api_jobs_poll_unknown_task(client, tmp_path, monkeypatch):
