@@ -32,6 +32,7 @@ import random
 import statistics
 
 _ANSI_RE = re.compile(r'\x1b(?:\[[0-9;]*[mGKHFABCDEFsuJKH]|[()][AB012])')
+_procs: dict[str, "subprocess.Popen[str]"] = {}
 _SRC = Path(__file__).resolve().parent.parent.parent.parent.parent / "src"
 _LOTOFACIL_BIN = str(Path(sys.executable).parent / "lotofacil")
 
@@ -847,6 +848,7 @@ def _run_command(
             bufsize=1,
             env=env,
         )
+        _procs[task_id] = proc
         for line in iter(proc.stdout.readline, ""):
             clean = _strip_ansi(line.rstrip("\n"))
             LOGGER.info("TASK %s output: %s", task_id, clean)
@@ -854,6 +856,7 @@ def _run_command(
             registry.write_line(task_id, clean)
         proc.stdout.close()
         ret = proc.wait()
+        _procs.pop(task_id, None)
         LOGGER.info("TASK %s finished exit_code=%s", task_id, ret)
         if ret == 0:
             registry.write_line(task_id, "")
@@ -1005,6 +1008,18 @@ def api_treinos_comparar():
 def api_jobs_poll(task_id: str):
     offset = request.args.get("offset", default=0, type=int)
     return jsonify(_registry.poll_job(task_id, offset))
+
+
+@app.route("/api/jobs/<task_id>/cancel", methods=["POST"])
+def api_jobs_cancel(task_id: str):
+    proc = _procs.get(task_id)
+    if proc is None:
+        return jsonify({"error": "Processo não encontrado ou já finalizado"}), 404
+    try:
+        proc.terminate()
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    return jsonify({"ok": True})
 
 
 @app.route("/api/treinos/<treino_id>")
