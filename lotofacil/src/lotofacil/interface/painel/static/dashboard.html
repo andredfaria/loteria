@@ -875,7 +875,7 @@ async function runCommand(actionId) {
       updateButtonState(actionId, false);
       return;
     }
-    listenStream(data.task_id, actionId, label);
+    pollJob(data.task_id, actionId, label);
   } catch (e) {
     logClient('error', 'Erro de conexão ao gerar comando', { actionId, error: e.message });
     addConsoleLine(`❌ Erro de conexão: ${e.message}`, 'error');
@@ -885,40 +885,35 @@ async function runCommand(actionId) {
   }
 }
 
-function listenStream(taskId, actionId, label) {
-  const evtSource = new EventSource(`/api/stream/${taskId}`);
-  evtSource.onmessage = (event) => {
+function pollJob(taskId, actionId, label) {
+  let offset = 0;
+  const interval = setInterval(async () => {
     try {
-      const data = JSON.parse(event.data);
-      if (data.type === 'stdout') { addConsoleLine(data.text); }
-      else if (data.type === 'heartbeat') {}
-    } catch (e) { logClient('warn', 'Falha ao processar evento SSE', { raw: event.data, error: e.message }); }
-  };
-  evtSource.addEventListener('done', (event) => {
-    let success = true;
-    try { success = JSON.parse(event.data).success !== false; } catch (e) {}
-    evtSource.close();
-    STATE.runningTasks.delete(actionId);
-    updateButtonState(actionId, false);
-    addConsoleLine('', 'sep');
-    if (success) {
-      addConsoleLine(`✅ ${label} concluído`, 'success');
-      showToast(`${label} concluído com sucesso`, 'success');
-    } else {
-      addConsoleLine(`❌ ${label} falhou — veja o log acima`, 'error');
-      showToast(`${label} falhou`, 'error');
+      const res = await fetch(`/api/jobs/${taskId}/poll?offset=${offset}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      data.lines.forEach(l => addConsoleLine(l));
+      offset = data.next_offset;
+      if (data.done) {
+        clearInterval(interval);
+        STATE.runningTasks.delete(actionId);
+        updateButtonState(actionId, false);
+        addConsoleLine('', 'sep');
+        if (data.success) {
+          addConsoleLine(`✅ ${label} concluído`, 'success');
+          showToast(`${label} concluído com sucesso`, 'success');
+        } else {
+          addConsoleLine(`❌ ${label} falhou — veja o log acima`, 'error');
+          showToast(`${label} falhou`, 'error');
+        }
+        if (STATE.activeTab === 'predicao') { loadPredictions(); }
+        loadStatus();
+      }
+    } catch (e) {
+      logClient('error', 'Erro ao buscar output do job', { taskId, error: e.message });
+      addConsoleLine(`⚠️ Falha ao buscar output: ${e.message}`, 'warn');
     }
-    if (STATE.activeTab === 'predicao') { loadPredictions(); }
-    loadStatus();
-  });
-  evtSource.onerror = () => {
-    logClient('error', 'Erro na conexão SSE', { taskId, actionId });
-    evtSource.close();
-    STATE.runningTasks.delete(actionId);
-    updateButtonState(actionId, false);
-    addConsoleLine('⚠️ Conexão perdida com o servidor', 'warn');
-    showToast('Conexão perdida', 'error');
-  };
+  }, 2000);
 }
 
 function updateButtonState(actionId, running) {
@@ -1572,7 +1567,7 @@ async function iniciarTreino() {
     if (data.error) throw new Error(data.error);
     document.getElementById('predTrainStatus').innerHTML =
       `✅ Treino iniciado — <span style="color:var(--accent);font-family:monospace">${esc(data.treino_id)}</span>. Acompanhe o log no console abaixo.`;
-    listenStream(data.task_id, `treino_${data.treino_id}`, nome);
+    pollJob(data.task_id, `treino_${data.treino_id}`, nome);
     setTimeout(() => { loadModelosAndRender(); startModelosPolling(); }, 2000);
   } catch (e) {
     document.getElementById('predTrainStatus').textContent = `❌ Erro: ${e.message}`;
