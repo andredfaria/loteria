@@ -724,6 +724,62 @@
           <div class="line dim">Bem-vindo ao Lotofácil Dashboard. Selecione uma ação para começar.</div>
         </div>
       </div>
+
+      <!-- Modelos Tab -->
+      <div id="tab-modelos" style="display:none;flex:1;overflow:hidden">
+        <div class="modelos-tab">
+          <div class="modelos-grid-section">
+            <div class="modelos-grid-title">Modelos Treinados</div>
+            <div class="modelos-grid" id="modelosGrid">
+              <div class="empty-state"><span class="big-icon">🧠</span><p>Carregando modelos…</p></div>
+            </div>
+          </div>
+
+          <div class="treino-panel">
+            <div class="treino-panel-title">Iniciar Treino</div>
+            <div class="treino-panel-row">
+              <div class="treino-config-group">
+                <div class="treino-config-label">Configuração</div>
+                <div class="treino-config-btns" id="treinoConfigBtns">
+                  <button class="treino-config-btn active" data-config="base" onclick="selectTreinoConfig(this)">base</button>
+                  <button class="treino-config-btn" data-config="lua" onclick="selectTreinoConfig(this)">+ lua</button>
+                  <button class="treino-config-btn" data-config="clima" onclick="selectTreinoConfig(this)">+ clima</button>
+                  <button class="treino-config-btn" data-config="lua_clima" onclick="selectTreinoConfig(this)">+ lua+clima</button>
+                </div>
+              </div>
+              <div class="treino-field">
+                <label for="treinoEpochs">Epochs</label>
+                <input id="treinoEpochs" type="number" value="100" min="10" max="500">
+              </div>
+              <div class="treino-field">
+                <label for="treinoSeed">Seed</label>
+                <input id="treinoSeed" type="number" value="42" min="0">
+              </div>
+              <button class="treino-start-btn" id="treinoStartBtn" onclick="startTreino()">▶ Iniciar Treino</button>
+            </div>
+            <div class="treino-last-info" id="treinoLastInfo">—</div>
+            <div class="treino-error-msg" id="treinoErrorMsg"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de progresso de treino -->
+<div class="treino-modal-overlay" id="treinoModalOverlay">
+  <div class="treino-modal">
+    <div class="treino-modal-header">
+      <h3 id="treinoModalTitle">Treinando…</h3>
+      <span class="treino-modal-status" id="treinoModalStatus"></span>
+    </div>
+    <div class="treino-progress-bar">
+      <div class="treino-progress-fill" id="treinoProgressFill"></div>
+    </div>
+    <div class="treino-epoch-label" id="treinoEpochLabel">Iniciando…</div>
+    <div class="treino-log" id="treinoLog"></div>
+    <div class="treino-modal-footer">
+      <button class="treino-cancel-btn" id="treinoCancelBtn" onclick="cancelTreino()">✕ Cancelar</button>
     </div>
   </div>
 </div>
@@ -872,6 +928,7 @@ const CATEGORIES = [
   { id: 'coleta',    icon: '📥', label: 'Coleta' },
   { id: 'dados',     icon: '🗃️', label: 'Dados' },
   { id: 'predicao',  icon: '🤖', label: 'Predição' },
+  { id: 'modelos',   icon: '🧠', label: 'Modelos' },
   { id: 'validacao', icon: '✅', label: 'Validação' },
 ];
 
@@ -915,6 +972,10 @@ function switchTab(id) {
 
   const numSec = document.getElementById('numbersSection');
   const bar = document.getElementById('actionsBar');
+  const tabModelos = document.getElementById('tab-modelos');
+
+  tabModelos.style.display = id === 'modelos' ? 'flex' : 'none';
+  document.getElementById('consoleSection').style.display = id === 'modelos' ? 'none' : '';
 
   if (id === 'dados') {
     numSec.style.display = '';
@@ -933,6 +994,12 @@ function switchTab(id) {
   } else if (id === 'predicao') {
     numSec.style.display = '';
     renderPredicao();
+  } else if (id === 'modelos') {
+    numSec.style.display = 'none';
+    bar.innerHTML = `
+      <div class="section-title">🧠 Modelos Treinados</div>
+      <button class="action-btn" onclick="loadModelos()"><span class="icon">↻</span> Atualizar</button>`;
+    loadModelos();
   } else {
     numSec.style.display = '';
     renderActions();
