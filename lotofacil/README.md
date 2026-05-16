@@ -231,7 +231,7 @@ CMD ["gunicorn", ..., "--workers", "2", "--timeout", "600"]
 | Campo | Valor |
 |-------|-------|
 | **Build Context** | `lotofacil` |
-| **Dockerfile Path** | `lotofacil/Dockerfile` |
+| **Dockerfile Path** | `Dockerfile` |
 | **Port** | `5000` |
 
 > Se apontar para o `Dockerfile` da raiz, o TensorFlow **não será instalado** e o servidor de desenvolvimento Flask será usado em vez do Gunicorn.

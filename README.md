@@ -89,7 +89,7 @@ Ao configurar o serviço no EasyPanel, defina:
 | Campo | Valor correto |
 |-------|---------------|
 | **Build Context** | `lotofacil` |
-| **Dockerfile Path** | `lotofacil/Dockerfile` |
+| **Dockerfile Path** | `Dockerfile` |
 | **Port** | `5000` |
 
 > Se o EasyPanel estiver apontando para o `Dockerfile` da raiz, o TensorFlow não será instalado e o servidor Flask dev será usado em vez do Gunicorn.
