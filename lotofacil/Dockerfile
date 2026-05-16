@@ -8,9 +8,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 COPY pyproject.toml README.md ./
-RUN pip install --no-cache-dir -e ".[dev]"
-
 COPY src/ src/
+RUN pip install --no-cache-dir -e ".[dev]"
 
 RUN mkdir -p dados saida 2>/dev/null || true
 
