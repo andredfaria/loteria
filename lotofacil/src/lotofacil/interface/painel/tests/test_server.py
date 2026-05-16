@@ -49,3 +49,46 @@ def test_api_dados_pagination_order(client):
     assert d2["page"] == 2
     if d1["items"] and d2["items"]:
         assert d1["items"][0]["concurso"] > d2["items"][-1]["concurso"]
+
+
+from lotofacil.interface.painel.treino_registry import TreinoRegistry
+
+
+def test_api_jobs_poll_returns_lines(client, tmp_path, monkeypatch):
+    reg = TreinoRegistry(tmp_path / "test_treinos.db")
+    monkeypatch.setattr(server_module, "_registry", reg)
+    reg.create_job("task_abc")
+    reg.write_line("task_abc", "output line 1")
+    reg.finish_job("task_abc", True)
+
+    r = client.get("/api/jobs/task_abc/poll?offset=0")
+    assert r.status_code == 200
+    data = json.loads(r.data)
+    assert data["lines"] == ["output line 1"]
+    assert data["done"] is True
+    assert data["success"] is True
+
+
+def test_api_jobs_poll_offset_advances(client, tmp_path, monkeypatch):
+    reg = TreinoRegistry(tmp_path / "test_treinos.db")
+    monkeypatch.setattr(server_module, "_registry", reg)
+    reg.create_job("task_xyz")
+    reg.write_line("task_xyz", "linha A")
+    reg.write_line("task_xyz", "linha B")
+
+    first = json.loads(client.get("/api/jobs/task_xyz/poll?offset=0").data)
+    assert first["lines"] == ["linha A", "linha B"]
+
+    second = json.loads(client.get(f"/api/jobs/task_xyz/poll?offset={first['next_offset']}").data)
+    assert second["lines"] == []
+
+
+def test_api_jobs_poll_unknown_task(client, tmp_path, monkeypatch):
+    reg = TreinoRegistry(tmp_path / "test_treinos.db")
+    monkeypatch.setattr(server_module, "_registry", reg)
+
+    r = client.get("/api/jobs/nonexistent_task/poll?offset=0")
+    assert r.status_code == 200
+    data = json.loads(r.data)
+    assert data["done"] is True
+    assert data["success"] is False
