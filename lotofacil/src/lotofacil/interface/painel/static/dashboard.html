@@ -1631,6 +1631,7 @@ const _predState = {
   backtestLastN: 120,
   listaSort: { key: 'criado_em', dir: -1 },
   listaFiltroStatus: '',
+  listaBusca: '',
 };
 
 function _subTabLabel(t) {
@@ -1915,7 +1916,10 @@ function renderModLista() {
       ${s} ${statusCounts[s]}
     </span>`).join('');
 
-  const filteredModelos = sf ? modelos.filter(m => (m.status || 'running') === sf) : modelos;
+  const sb = (_predState.listaBusca || '').toLowerCase();
+  const filteredModelos = modelos
+    .filter(m => !sf || (m.status || 'running') === sf)
+    .filter(m => !sb || (m.nome || '').toLowerCase().includes(sb));
   const sortedModelos = [...filteredModelos].sort((a, b) => {
     let va, vb;
     if (sk === 'val_loss') { va = a.metricas?.val_loss_final ?? Infinity; vb = b.metricas?.val_loss_final ?? Infinity; }
@@ -1928,11 +1932,19 @@ function renderModLista() {
   const thStyle = 'cursor:pointer;user-select:none';
   const sortIco = (k) => sk === k ? (sd > 0 ? ' ▲' : ' ▼') : '';
 
+  const hasFailed = modelos.some(m => m.status === 'failed' || m.status === 'cancelled');
   html += `<div>
-    <div style="display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;margin-bottom:0.5rem">
+    <div style="display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;margin-bottom:0.4rem">
       <div class="modelos-section-title" style="margin:0">Treinos Registrados</div>
       <div style="display:flex;gap:0.3rem;flex-wrap:wrap;margin-left:0.25rem">${badgesHtml}</div>
-      ${sf ? `<button onclick="_filtroLista('')" style="font-size:0.6rem;padding:1px 5px;background:none;border:1px solid var(--border);border-radius:3px;color:var(--muted);cursor:pointer;margin-left:auto">✕ limpar</button>` : ''}
+      ${sf ? `<button onclick="_filtroLista('')" style="font-size:0.6rem;padding:1px 5px;background:none;border:1px solid var(--border);border-radius:3px;color:var(--muted);cursor:pointer">✕ limpar</button>` : ''}
+      ${hasFailed ? `<button onclick="_limparFalhas()" style="font-size:0.6rem;padding:1px 6px;background:none;border:1px solid var(--red);border-radius:3px;color:var(--red);cursor:pointer;margin-left:auto">🗑 limpar falhas</button>` : ''}
+    </div>
+    <div style="margin-bottom:0.5rem">
+      <input type="text" id="listaBuscaInput" value="${esc(_predState.listaBusca)}"
+        oninput="_buscaLista(this.value)" placeholder="🔍 buscar por nome…"
+        style="width:100%;max-width:280px;font-size:0.72rem;padding:0.2rem 0.5rem;
+          background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:4px">
     </div>`;
   if (sortedModelos.length === 0) {
     html += `<div style="padding:2rem 0;text-align:center;color:var(--muted)">
@@ -1953,12 +1965,24 @@ function renderModLista() {
       const loss = met.val_loss_final != null ? met.val_loss_final.toFixed(5) : '—';
       const ep   = met.epochs_trained != null ? met.epochs_trained : '—';
       const deleteLabel = m.status === 'running' ? '🗑 Cancelar e Apagar' : '🗑 Apagar';
+      // training duration
+      let durHtml = '';
+      if (m.criado_em && m.concluido_em) {
+        const ms = new Date(m.concluido_em) - new Date(m.criado_em);
+        if (ms > 0) {
+          const s = Math.floor(ms / 1000);
+          const dur = s < 60 ? `${s}s` : s < 3600 ? `${Math.floor(s/60)}m${s%60?` ${s%60}s`:''}` : `${Math.floor(s/3600)}h${Math.floor((s%3600)/60)?` ${Math.floor((s%3600)/60)}m`:''}`;
+          durHtml = `<br><span style="font-size:0.6rem;color:var(--dim)">⏱ ${dur}</span>`;
+        }
+      } else if (m.status === 'running') {
+        durHtml = `<br><span style="font-size:0.6rem;color:var(--accent)">em andamento</span>`;
+      }
       html += `<tr>
         <td style="font-weight:600">${esc(m.nome)}</td>
         <td style="color:var(--muted)">${esc(m.tipo_config||'')}</td>
         <td style="font-family:monospace">${loss}</td>
         <td>${ep}</td>
-        <td style="color:var(--dim)">${dt}</td>
+        <td style="color:var(--dim)">${dt}${durHtml}</td>
         <td><span class="pred-status ${m.status||'running'}">${m.status||'?'}</span></td>
         <td style="display:flex;gap:0.3rem;align-items:center;flex-wrap:wrap">
           ${m.status==='completed'?`<button class="action-btn" onclick="usarModeloParaGerar('${m.id}')"
@@ -1989,6 +2013,31 @@ function _sortLista(key) {
 function _filtroLista(status) {
   _predState.listaFiltroStatus = status;
   renderModLista();
+}
+
+function _buscaLista(val) {
+  _predState.listaBusca = val;
+  renderModLista();
+  // restore focus and cursor
+  requestAnimationFrame(() => {
+    const el = document.getElementById('listaBuscaInput');
+    if (el) { el.focus(); el.setSelectionRange(val.length, val.length); }
+  });
+}
+
+async function _limparFalhas() {
+  const falhos = (_predState.modelos || []).filter(m => m.status === 'failed' || m.status === 'cancelled');
+  if (!falhos.length) return;
+  if (!confirm(`Apagar ${falhos.length} modelo(s) com status failed/cancelled?`)) return;
+  let erros = 0;
+  for (const m of falhos) {
+    try {
+      const r = await fetch(`/api/treinos/${m.id}`, { method: 'DELETE' });
+      if (!r.ok) erros++;
+    } catch { erros++; }
+  }
+  showToast(erros ? `${falhos.length - erros} apagados, ${erros} erro(s).` : `${falhos.length} modelos apagados.`, erros ? 'error' : 'success');
+  await loadModelosAndRender();
 }
 
 async function _recalcBacktest() {
