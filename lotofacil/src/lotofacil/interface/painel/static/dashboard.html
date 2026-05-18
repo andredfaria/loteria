@@ -2127,44 +2127,121 @@ function renderComparacao(data) {
 }
 
 // ── Histórico de jogos gerados ─────────────────────────────────
+let _historicoData = [];
+let _historicoFiltroModelo = '';
+
 async function renderPredHistorico() {
   const panel = document.getElementById('mod-historico');
   if (!panel) return;
   panel.innerHTML = `<div style="color:var(--muted);font-size:0.78rem;padding:1rem 0">Carregando histórico…</div>`;
   try {
     const r = await fetch('/api/jogos-gerados');
-    const jogos = await r.json();
-    if (!Array.isArray(jogos) || jogos.length === 0) {
-      panel.innerHTML = `<div style="padding:2rem 0;text-align:center;color:var(--muted)">
-        Nenhum jogo gerado ainda. Use <b>⚡ Gerar</b> para criar apostas a partir de um modelo treinado.</div>`;
-      return;
-    }
-    let html = `
-      <div class="modelos-section-title" style="margin-bottom:0.75rem">🗂 Histórico de Jogos Gerados</div>
-      <table class="pred-table"><thead><tr>
-        <th>Data</th><th>Modelo</th><th>Concurso</th><th>Jogos</th>
-      </tr></thead><tbody>`;
-    for (const item of jogos) {
-      const dt = item.criado_em ? new Date(item.criado_em).toLocaleString('pt-BR') : '—';
-      const jogosArr = Array.isArray(item.jogos) ? item.jogos : [];
-      const jogosHtml = jogosArr.map((jogo, i) => {
-        const balls = Array.isArray(jogo)
-          ? jogo.map(n => `<span class="ball${n>12?' high':''}">${String(n).padStart(2,'0')}</span>`).join('')
-          : '—';
-        return `<div style="margin-bottom:0.35rem"><span style="font-size:0.65rem;color:var(--muted);margin-right:0.3rem">J${i+1}</span><span class="pred-balls" style="display:inline-flex;gap:2px">${balls}</span></div>`;
-      }).join('');
-      html += `<tr>
-        <td style="color:var(--dim);white-space:nowrap">${dt}</td>
-        <td style="font-weight:600">${esc(item.treino_nome || item.treino_id)}</td>
-        <td style="font-family:monospace;text-align:center">${item.concurso}</td>
-        <td>${jogosHtml}</td>
-      </tr>`;
-    }
-    html += `</tbody></table>`;
-    panel.innerHTML = html;
+    _historicoData = await r.json();
+    _renderHistoricoPanel(panel);
   } catch(e) {
     panel.innerHTML = `<div style="color:var(--red);font-size:0.78rem;padding:1rem 0">❌ Erro ao carregar histórico: ${esc(e.message)}</div>`;
   }
+}
+
+function _renderHistoricoPanel(panel) {
+  const jogos = _historicoData;
+  if (!Array.isArray(jogos) || jogos.length === 0) {
+    panel.innerHTML = `<div style="padding:2rem 0;text-align:center;color:var(--muted)">
+      Nenhum jogo gerado ainda. Use <b>⚡ Gerar</b> para criar apostas a partir de um modelo treinado.</div>`;
+    return;
+  }
+
+  // unique model names for filter
+  const modelos = [...new Set(jogos.map(j => j.treino_nome || j.treino_id))].sort();
+  const filtered = _historicoFiltroModelo
+    ? jogos.filter(j => (j.treino_nome || j.treino_id) === _historicoFiltroModelo)
+    : jogos;
+
+  let html = `
+    <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.75rem;flex-wrap:wrap">
+      <div class="modelos-section-title" style="margin:0">🗂 Histórico de Jogos Gerados</div>
+      <select id="historicoFiltroModelo" onchange="_onHistoricoFiltro()"
+        style="font-size:0.72rem;padding:0.2rem 0.4rem;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:4px">
+        <option value="">Todos os modelos</option>
+        ${modelos.map(m => `<option value="${esc(m)}"${_historicoFiltroModelo===m?' selected':''}>${esc(m)}</option>`).join('')}
+      </select>
+      <button class="action-btn" onclick="_exportHistoricoCSV()"
+        style="font-size:0.72rem;padding:0.2rem 0.5rem;margin-left:auto">⬇ CSV</button>
+    </div>`;
+
+  if (filtered.length === 0) {
+    html += `<div style="color:var(--muted);font-size:0.78rem">Nenhum jogo para o modelo selecionado.</div>`;
+    panel.innerHTML = html;
+    return;
+  }
+
+  html += `<table class="pred-table"><thead><tr>
+    <th>Data</th><th>Modelo</th><th>Concurso</th><th>Jogos</th>
+  </tr></thead><tbody>`;
+
+  for (const item of filtered) {
+    const dt = item.criado_em ? new Date(item.criado_em).toLocaleString('pt-BR') : '—';
+    const jogosArr = Array.isArray(item.jogos) ? item.jogos : [];
+    const acertos  = item.acertos_por_jogo || [];
+    const real     = item.dezenas_reais;
+
+    const jogosHtml = jogosArr.map((jogo, i) => {
+      const hits = acertos[i];
+      const hasReal = hits != null;
+      const hitColor = hasReal ? (hits >= 13 ? 'var(--green)' : hits >= 11 ? 'var(--yellow)' : 'var(--red)') : '';
+      const badge = hasReal
+        ? `<span style="font-size:0.6rem;font-weight:700;padding:1px 4px;border-radius:3px;background:rgba(255,255,255,0.07);color:${hitColor};margin-left:4px">${hits}/15 ✓</span>`
+        : '';
+      const balls = Array.isArray(jogo)
+        ? jogo.map(n => {
+            const isHit = real && real.includes(n);
+            return `<span class="ball${n>12?' high':''}" style="${isHit?'outline:1px solid var(--green);opacity:1':'opacity:0.75'}">${String(n).padStart(2,'0')}</span>`;
+          }).join('')
+        : '—';
+      return `<div style="margin-bottom:0.35rem;display:flex;align-items:center">
+        <span style="font-size:0.65rem;color:var(--muted);margin-right:0.3rem;min-width:18px">J${i+1}</span>
+        <span class="pred-balls" style="display:inline-flex;gap:2px">${balls}</span>${badge}
+      </div>`;
+    }).join('');
+
+    html += `<tr>
+      <td style="color:var(--dim);white-space:nowrap">${dt}</td>
+      <td style="font-weight:600">${esc(item.treino_nome || item.treino_id)}</td>
+      <td style="font-family:monospace;text-align:center">${item.concurso}</td>
+      <td>${jogosHtml}</td>
+    </tr>`;
+  }
+  html += `</tbody></table>`;
+  panel.innerHTML = html;
+}
+
+function _onHistoricoFiltro() {
+  const sel = document.getElementById('historicoFiltroModelo');
+  _historicoFiltroModelo = sel ? sel.value : '';
+  const panel = document.getElementById('mod-historico');
+  if (panel) _renderHistoricoPanel(panel);
+}
+
+function _exportHistoricoCSV() {
+  const jogos = _historicoFiltroModelo
+    ? _historicoData.filter(j => (j.treino_nome || j.treino_id) === _historicoFiltroModelo)
+    : _historicoData;
+  const rows = [['data', 'modelo', 'concurso', 'jogo', 'dezenas', 'acertos']];
+  for (const item of jogos) {
+    const dt = item.criado_em ? new Date(item.criado_em).toLocaleString('pt-BR') : '';
+    const modelo = item.treino_nome || item.treino_id || '';
+    const arr = Array.isArray(item.jogos) ? item.jogos : [];
+    const acertos = item.acertos_por_jogo || [];
+    arr.forEach((jogo, i) => {
+      rows.push([dt, modelo, item.concurso, `J${i+1}`, Array.isArray(jogo) ? jogo.join(' ') : '', acertos[i] ?? '']);
+    });
+  }
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'jogos_gerados.csv'; a.click();
+  URL.revokeObjectURL(url);
 }
 
 // ═══════════════════════════════════════════════════════════════

@@ -27,6 +27,7 @@ from lotofacil.infra.config import (
     DADOS_DIR as _DADOS_DIR,
     SAIDA_DIR as _SAIDA_DIR,
     MODELOS_DIR,
+    DB_PATH,
 )
 import random
 import statistics
@@ -1067,10 +1068,38 @@ def api_treino_deletar(treino_id: str):
     return jsonify({"ok": True})
 
 
+def _get_draw_dezenas(concurso: int) -> list[int] | None:
+    try:
+        import sqlite3 as _sqlite3
+        with _sqlite3.connect(str(DB_PATH)) as conn:
+            row = conn.execute(
+                "SELECT dezenas FROM concursos WHERE concurso = ?", (concurso,)
+            ).fetchone()
+        if row:
+            return json.loads(row[0])
+    except Exception:
+        pass
+    return None
+
+
 @app.route("/api/jogos-gerados")
 def api_jogos_gerados():
     limit = request.args.get("limit", default=100, type=int)
-    return jsonify(_registry.listar_jogos(limit=max(1, min(limit, 500))))
+    items = _registry.listar_jogos(limit=max(1, min(limit, 500)))
+    # enrich with actual draw results when available
+    cache: dict[int, list[int] | None] = {}
+    for item in items:
+        concurso = item.get("concurso")
+        if concurso not in cache:
+            cache[concurso] = _get_draw_dezenas(concurso)
+        real = cache[concurso]
+        if real:
+            item["dezenas_reais"] = real
+            jogos = item.get("jogos") or []
+            item["acertos_por_jogo"] = [
+                len(set(jogo) & set(real)) for jogo in jogos
+            ]
+    return jsonify(items)
 
 
 @app.route("/api/treinos/<treino_id>/gerar", methods=["POST"])
