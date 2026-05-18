@@ -559,6 +559,14 @@
   .modelos-treinar-btn:hover { background:rgba(56,189,248,0.2); }
   .modelos-treinar-btn:disabled { opacity:0.35; cursor:not-allowed; }
   .modelos-treinar-status { font-size:0.72rem; color:var(--muted); }
+  .param-hint { font-size:0.68rem; color:var(--dim); margin-top:0.25rem; line-height:1.4; }
+  .pred-config-card .card-desc { font-size:0.67rem; color:var(--dim); margin-top:0.3rem; line-height:1.4; }
+  .pred-config-card.selected .card-desc { color:var(--muted); }
+  .modelos-section-divider {
+    font-size:0.7rem; text-transform:uppercase; letter-spacing:0.05em;
+    color:var(--dim); font-weight:600; margin:1.25rem 0 0.65rem;
+    padding-bottom:0.4rem; border-bottom:1px solid var(--border-light);
+  }
 
   .modelo-card {
     background: var(--surface); border: 1px solid var(--border);
@@ -1593,10 +1601,22 @@ function showToast(msg, type = 'info') {
 // ═══════════════════════════════════════════════════════════════
 
 const PRED_CONFIGS = [
-  { id: 'base',      label: 'Base',        tags: 'histórico + temporal + priors', icon: '📊' },
-  { id: 'lua',       label: '+ Lua',       tags: 'base + fase lunar',             icon: '🌙' },
-  { id: 'clima',     label: '+ Clima',     tags: 'base + clima SP',               icon: '🌤️' },
-  { id: 'lua_clima', label: '+ Lua+Clima', tags: 'base + lua + clima',            icon: '🔭' },
+  {
+    id: 'base', label: 'Base', icon: '📊', tags: 'histórico · temporal · priors',
+    desc: 'Usa somente os sorteios históricos, padrões de dia/hora e probabilidades a priori. É o modelo mais simples, mais rápido de treinar e serve como referência para comparar os demais.',
+  },
+  {
+    id: 'lua', label: '+ Lua', icon: '🌙', tags: 'base + fase lunar',
+    desc: 'Inclui a fase da Lua no momento do sorteio (nova, crescente, cheia, minguante). Útil para explorar se ciclos lunares têm alguma correlação estatística com os resultados.',
+  },
+  {
+    id: 'clima', label: '+ Clima', icon: '🌤️', tags: 'base + clima SP',
+    desc: 'Adiciona temperatura e precipitação em São Paulo (cidade sede da Caixa) na hora do sorteio. Experimento para testar se condições climáticas influenciam o processo.',
+  },
+  {
+    id: 'lua_clima', label: '+ Lua+Clima', icon: '🔭', tags: 'base + lua + clima',
+    desc: 'Combina todos os dados disponíveis: histórico, fase lunar e clima. O modelo mais completo, mas também o que demora mais para treinar e tem maior risco de overfitting.',
+  },
 ];
 
 const _predState = {
@@ -1662,30 +1682,59 @@ function renderModTreinar() {
   if (!panel) return;
   panel.innerHTML = `
     <div class="modelos-treinar-form">
-      <h3 style="font-size:0.88rem;font-weight:700;margin-bottom:1rem;color:var(--text)">Configurar Treinamento</h3>
+      <h3 style="font-size:0.88rem;font-weight:700;margin-bottom:0.35rem;color:var(--text)">Configurar Treinamento</h3>
+      <p style="font-size:0.75rem;color:var(--muted);margin-bottom:1rem;line-height:1.5">
+        Selecione quais variáveis o modelo vai usar, dê um nome e ajuste os hiperparâmetros abaixo.
+        Após treinar, o modelo fica disponível na aba <b>📋 Lista</b> para gerar apostas.
+      </p>
+
+      <div class="modelos-section-divider">1 · Tipo de configuração</div>
       <div class="pred-config-cards" id="predConfigCards">
         ${PRED_CONFIGS.map(c => `
           <div class="pred-config-card${c.id===_predState.selectedConfig?' selected':''}"
                onclick="selectPredConfig('${c.id}')">
             <div class="card-title">${c.icon} ${c.label}</div>
             <div class="card-tags">${c.tags}</div>
+            <div class="card-desc">${c.desc}</div>
           </div>`).join('')}
       </div>
+
+      <div class="modelos-section-divider">2 · Identificação</div>
       <div class="modelos-nome-row">
         <label>Nome do treino</label>
         <input type="text" id="predNome" placeholder="ex: treino_lua_v1">
+        <div class="param-hint">Nome livre para identificar esta versão do modelo depois. Use algo descritivo, como <code style="color:var(--accent)">lua_100ep_seed42</code>. Evite espaços.</div>
       </div>
-      <div class="pred-params" style="margin-bottom:1rem">
-        <div class="pred-param"><label>Épocas</label><input type="number" id="predEpocas" value="40" min="1" max="500"></div>
-        <div class="pred-param"><label>Janela histórico</label><input type="number" id="predJanela" value="50" min="10" max="200"></div>
-        <div class="pred-param"><label>Seed</label><input type="number" id="predSeed" value="42" min="0"></div>
-        <div class="pred-param"><label>Concursos (0 = todos)</label><input type="number" id="predConcursos" value="0" min="0"></div>
+
+      <div class="modelos-section-divider">3 · Hiperparâmetros</div>
+      <div class="pred-params" style="margin-bottom:0.5rem">
+        <div class="pred-param">
+          <label>Épocas</label>
+          <input type="number" id="predEpocas" value="40" min="1" max="500">
+          <div class="param-hint">Quantas vezes o modelo percorre todo o conjunto de dados durante o treino. Mais épocas = aprendizado mais profundo, mas demora mais. <b>Recomendado: 40–100.</b></div>
+        </div>
+        <div class="pred-param">
+          <label>Janela histórico</label>
+          <input type="number" id="predJanela" value="50" min="10" max="200">
+          <div class="param-hint">Quantos sorteios consecutivos o modelo "enxerga" de uma vez para aprender padrões de sequência. Janelas maiores capturam tendências mais longas. <b>Recomendado: 30–80.</b></div>
+        </div>
+        <div class="pred-param">
+          <label>Seed</label>
+          <input type="number" id="predSeed" value="42" min="0">
+          <div class="param-hint">Semente do gerador aleatório. Manter o mesmo valor garante que dois treinos com os mesmos parâmetros produzam resultados idênticos — útil para comparar configurações.</div>
+        </div>
+        <div class="pred-param">
+          <label>Concursos</label>
+          <input type="number" id="predConcursos" value="0" min="0">
+          <div class="param-hint"><b>0 = usa todos</b> os sorteios históricos disponíveis (~3.600+). Informe um número menor (ex: 500) para treinos mais rápidos ou para testar o fluxo antes de um treino completo.</div>
+        </div>
       </div>
-      <div class="modelos-treinar-actions">
+
+      <div class="modelos-treinar-actions" style="margin-top:1.25rem">
         <button class="modelos-treinar-btn" id="modTreinoBtn" onclick="iniciarTreino()">▶ Iniciar Treino</button>
         <span class="modelos-treinar-status" id="modTreinoStatus"></span>
       </div>
-      <div class="pred-warning" style="margin-top:1rem">⚠️ Resultados experimentais — os modelos são treinados com dados históricos e não garantem acertos futuros.</div>
+      <div class="pred-warning" style="margin-top:1rem">⚠️ Resultados experimentais — modelos treinados com dados históricos não garantem acertos futuros.</div>
     </div>`;
 }
 
@@ -1820,9 +1869,11 @@ function renderModLista() {
         <td>${ep}</td>
         <td style="color:var(--dim)">${dt}</td>
         <td><span class="pred-status ${m.status||'running'}">${m.status||'?'}</span></td>
-        <td style="display:flex;gap:0.3rem;align-items:center">
+        <td style="display:flex;gap:0.3rem;align-items:center;flex-wrap:wrap">
           ${m.status==='completed'?`<button class="action-btn" onclick="usarModeloParaGerar('${m.id}')"
             style="font-size:0.7rem;padding:0.2rem 0.5rem">⚡ Gerar</button>`:''}
+          ${m.status==='failed'?`<button class="action-btn" onclick="retreinarModelo('${m.id}')"
+            style="font-size:0.7rem;padding:0.2rem 0.5rem;border-color:var(--yellow);color:var(--yellow)">↻ Retreinar</button>`:''}
           ${canDelete?`<button class="action-btn" onclick="deleteModelo('${m.id}','${esc(m.nome)}')"
             style="font-size:0.7rem;padding:0.2rem 0.5rem;border-color:var(--red);color:var(--red)">🗑 Apagar</button>`:''}
         </td>
@@ -1838,6 +1889,31 @@ function renderModLista() {
 function usarModeloParaGerar(id) {
   _predState.gerarModeloId = id;
   showModelosSubTab('gerar');
+}
+
+function retreinarModelo(id) {
+  const m = (_predState.modelos || []).find(t => t.id === id);
+  if (!m) return;
+  const params = m.parametros || {};
+
+  // pre-fill state and switch to Treinar
+  _predState.selectedConfig = m.tipo_config || 'base';
+  showModelosSubTab('treinar');
+
+  // after render, populate the form fields
+  requestAnimationFrame(() => {
+    const nome = document.getElementById('predNome');
+    const epocas = document.getElementById('predEpocas');
+    const janela = document.getElementById('predJanela');
+    const seed   = document.getElementById('predSeed');
+    const concursos = document.getElementById('predConcursos');
+    if (nome)      nome.value      = m.nome || '';
+    if (epocas)    epocas.value    = params.epochs     ?? 40;
+    if (janela)    janela.value    = params.window_size ?? 50;
+    if (seed)      seed.value      = params.seed        ?? 42;
+    if (concursos) concursos.value = params.n_draws     ?? 0;
+    nome?.focus();
+  });
 }
 
 async function deleteModelo(id, nome) {
