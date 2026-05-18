@@ -33,6 +33,15 @@ CREATE TABLE IF NOT EXISTS job_status (
     success     INTEGER,
     finished_at TEXT
 );
+
+CREATE TABLE IF NOT EXISTS jogos_gerados (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    treino_id  TEXT NOT NULL,
+    treino_nome TEXT NOT NULL,
+    concurso   INTEGER NOT NULL,
+    jogos      TEXT NOT NULL,
+    criado_em  TEXT NOT NULL
+);
 """
 
 _INDEXES = """
@@ -126,6 +135,33 @@ class TreinoRegistry:
         with self._conn() as conn:
             cur = conn.execute("DELETE FROM treinos WHERE id = ?", (treino_id,))
         return cur.rowcount > 0
+
+    # ── Jogos gerados ────────────────────────────────────────────
+
+    def salvar_jogo(self, treino_id: str, treino_nome: str, concurso: int, jogos: list) -> int:
+        with self._conn() as conn:
+            cur = conn.execute(
+                "INSERT INTO jogos_gerados (treino_id, treino_nome, concurso, jogos, criado_em) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (treino_id, treino_nome, concurso, json.dumps(jogos, ensure_ascii=False), _now()),
+            )
+        return cur.lastrowid
+
+    def listar_jogos(self, limit: int = 100) -> list[dict]:
+        with self._conn() as conn:
+            rows = conn.execute(
+                "SELECT * FROM jogos_gerados ORDER BY criado_em DESC LIMIT ?", (limit,)
+            ).fetchall()
+        result = []
+        for r in rows:
+            d = dict(r)
+            if d.get("jogos"):
+                try:
+                    d["jogos"] = json.loads(d["jogos"])
+                except Exception:
+                    pass
+            result.append(d)
+        return result
 
     # ── Job output ───────────────────────────────────────────────
 

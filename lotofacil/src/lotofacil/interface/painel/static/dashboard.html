@@ -1629,7 +1629,7 @@ const _predState = {
 };
 
 function _subTabLabel(t) {
-  return { treinar: '▶ Treinar', lista: '📋 Lista', gerar: '⚡ Gerar', comparar: '⚖️ Comparar' }[t] || t;
+  return { treinar: '▶ Treinar', lista: '📋 Lista', gerar: '⚡ Gerar', comparar: '⚖️ Comparar', historico: '🗂 Histórico' }[t] || t;
 }
 
 function renderModelosPage() {
@@ -1639,7 +1639,7 @@ function renderModelosPage() {
       <div class="modelos-page-header">
         <span class="modelos-page-title">🧠 Modelos</span>
         <div class="pred-subnav-inline" id="modelosSubnav">
-          ${['treinar','lista','gerar','comparar'].map(t =>
+          ${['treinar','lista','gerar','comparar','historico'].map(t =>
             `<button class="pred-tab-btn${_predState.activeSubTab===t?' active':''}"
                onclick="showModelosSubTab('${t}')">${_subTabLabel(t)}</button>`
           ).join('')}
@@ -1648,10 +1648,11 @@ function renderModelosPage() {
           style="margin-left:auto;font-size:0.72rem;padding:0.25rem 0.6rem">↻ Atualizar</button>
       </div>
       <div class="modelos-page-body">
-        <div id="mod-treinar"  class="modelos-page-panel${_predState.activeSubTab==='treinar' ?' active':''}"></div>
-        <div id="mod-lista"    class="modelos-page-panel${_predState.activeSubTab==='lista'   ?' active':''}"></div>
-        <div id="mod-gerar"    class="modelos-page-panel${_predState.activeSubTab==='gerar'   ?' active':''}"></div>
-        <div id="mod-comparar" class="modelos-page-panel${_predState.activeSubTab==='comparar'?' active':''}"></div>
+        <div id="mod-treinar"   class="modelos-page-panel${_predState.activeSubTab==='treinar'  ?' active':''}"></div>
+        <div id="mod-lista"     class="modelos-page-panel${_predState.activeSubTab==='lista'    ?' active':''}"></div>
+        <div id="mod-gerar"     class="modelos-page-panel${_predState.activeSubTab==='gerar'    ?' active':''}"></div>
+        <div id="mod-comparar"  class="modelos-page-panel${_predState.activeSubTab==='comparar' ?' active':''}"></div>
+        <div id="mod-historico" class="modelos-page-panel${_predState.activeSubTab==='historico'?' active':''}"></div>
       </div>
     </div>`;
   _renderActiveModSubTab();
@@ -1675,6 +1676,7 @@ function _renderActiveModSubTab() {
   if (t === 'lista')    renderModLista();
   if (t === 'gerar')    renderPredGerar();
   if (t === 'comparar') renderPredComparar();
+  if (t === 'historico') renderPredHistorico();
 }
 
 // ── Treinar ────────────────────────────────────────────────────
@@ -1833,15 +1835,46 @@ function renderModLista() {
       const std  = m.stability?.std_hits != null ? `±${m.stability.std_hits.toFixed(2)}` : '';
       const configKey   = m.model?.split('_').slice(-1)[0] || 'base';
       const configLabel = MODELO_CONFIG_LABELS[configKey] ?? m.model ?? '—';
+
+      // hit distribution bars
+      const dist = m.hit_distribution || {};
+      const total = Object.values(dist).reduce((s, v) => s + v, 0) || 1;
+      const distHtml = [11,12,13,14,15].map(k => {
+        const count = dist[k] ?? dist[String(k)] ?? 0;
+        const pct = Math.round(count / total * 100);
+        const barW = Math.max(pct, count > 0 ? 3 : 0);
+        return `<div style="display:flex;align-items:center;gap:4px;font-size:0.62rem;line-height:1.6">
+          <span style="width:14px;text-align:right;color:var(--dim)">${k}</span>
+          <div style="flex:1;background:rgba(255,255,255,0.07);border-radius:2px;height:6px;overflow:hidden">
+            <div style="width:${barW}%;height:100%;background:var(--accent);border-radius:2px;opacity:0.8"></div>
+          </div>
+          <span style="width:28px;color:var(--muted)">${count}x</span>
+        </div>`;
+      }).join('');
+
+      // baseline badge
+      const imp = m.improvement_pct;
+      const cls = m.classification || {};
+      const impColor = imp > 0 ? 'var(--green)' : imp < 0 ? 'var(--red)' : 'var(--muted)';
+      const impSign  = imp > 0 ? '+' : '';
+      const baselineHtml = imp != null ? `
+        <div style="margin-top:0.4rem;display:flex;align-items:center;gap:0.35rem;flex-wrap:wrap">
+          <span style="font-size:0.62rem;color:var(--dim)">vs baseline</span>
+          <span style="font-size:0.68rem;font-weight:700;color:${impColor}">${impSign}${imp.toFixed(1)}%</span>
+          ${cls.label ? `<span style="font-size:0.6rem;padding:1px 5px;border-radius:3px;background:rgba(255,255,255,0.07);color:var(--muted)">${cls.label}</span>` : ''}
+        </div>` : '';
+
       html += `<div class="modelo-card ${rankClass}">
         <span class="modelo-card-rank">#${rank}</span>
         <div class="modelo-card-name">${m.model ?? '—'}</div>
         <div class="modelo-hits">${hits}</div>
-        <div class="modelo-hits-label">hits médios</div>
+        <div class="modelo-hits-label">hits médios ${std ? `<span style="font-size:0.65rem">${std}</span>` : ''}</div>
         <div class="modelo-meta">
           <span class="modelo-meta-item">p=<strong>${pval}</strong></span>
-          ${std ? `<span class="modelo-meta-item"><strong>${std}</strong></span>` : ''}
+          ${m.sample_size ? `<span class="modelo-meta-item">n=<strong>${m.sample_size}</strong></span>` : ''}
         </div>
+        ${baselineHtml}
+        <div style="margin-top:0.5rem;border-top:1px solid rgba(255,255,255,0.07);padding-top:0.4rem">${distHtml}</div>
         <span class="modelo-config-badge">${configLabel}</span>
       </div>`;
     });
@@ -1864,7 +1897,7 @@ function renderModLista() {
       const dt   = m.criado_em ? new Date(m.criado_em).toLocaleDateString('pt-BR') : '—';
       const loss = met.val_loss_final != null ? met.val_loss_final.toFixed(5) : '—';
       const ep   = met.epochs_trained != null ? met.epochs_trained : '—';
-      const canDelete = m.status !== 'running';
+      const deleteLabel = m.status === 'running' ? '🗑 Cancelar e Apagar' : '🗑 Apagar';
       html += `<tr>
         <td style="font-weight:600">${esc(m.nome)}</td>
         <td style="color:var(--muted)">${esc(m.tipo_config||'')}</td>
@@ -1877,8 +1910,8 @@ function renderModLista() {
             style="font-size:0.7rem;padding:0.2rem 0.5rem">⚡ Gerar</button>`:''}
           ${m.status==='failed'?`<button class="action-btn" onclick="retreinarModelo('${m.id}')"
             style="font-size:0.7rem;padding:0.2rem 0.5rem;border-color:var(--yellow);color:var(--yellow)">↻ Retreinar</button>`:''}
-          ${canDelete?`<button class="action-btn" onclick="deleteModelo('${m.id}','${esc(m.nome)}')"
-            style="font-size:0.7rem;padding:0.2rem 0.5rem;border-color:var(--red);color:var(--red)">🗑 Apagar</button>`:''}
+          <button class="action-btn" onclick="deleteModelo('${m.id}','${esc(m.nome)}')"
+            style="font-size:0.7rem;padding:0.2rem 0.5rem;border-color:var(--red);color:var(--red)">${deleteLabel}</button>
         </td>
       </tr>`;
     }
@@ -1920,7 +1953,12 @@ function retreinarModelo(id) {
 }
 
 async function deleteModelo(id, nome) {
-  if (!confirm(`Apagar o modelo "${nome}"?\nEsta ação remove o registro e o arquivo .keras do disco.`)) return;
+  const m = (_predState.modelos || []).find(t => t.id === id);
+  const isRunning = m && m.status === 'running';
+  const msg = isRunning
+    ? `Cancelar e apagar o modelo "${nome}"?\nO treinamento em andamento será interrompido e o registro removido.`
+    : `Apagar o modelo "${nome}"?\nEsta ação remove o registro e o arquivo .keras do disco.`;
+  if (!confirm(msg)) return;
   try {
     const r = await fetch(`/api/treinos/${id}`, { method: 'DELETE' });
     const data = await r.json();
@@ -2086,6 +2124,47 @@ function renderComparacao(data) {
     <div style="font-size:0.7rem;color:var(--dim);margin-top:0.5rem">
       Val Loss menor = melhor. ▼ verde = Modelo A melhor que B.
     </div>`;
+}
+
+// ── Histórico de jogos gerados ─────────────────────────────────
+async function renderPredHistorico() {
+  const panel = document.getElementById('mod-historico');
+  if (!panel) return;
+  panel.innerHTML = `<div style="color:var(--muted);font-size:0.78rem;padding:1rem 0">Carregando histórico…</div>`;
+  try {
+    const r = await fetch('/api/jogos-gerados');
+    const jogos = await r.json();
+    if (!Array.isArray(jogos) || jogos.length === 0) {
+      panel.innerHTML = `<div style="padding:2rem 0;text-align:center;color:var(--muted)">
+        Nenhum jogo gerado ainda. Use <b>⚡ Gerar</b> para criar apostas a partir de um modelo treinado.</div>`;
+      return;
+    }
+    let html = `
+      <div class="modelos-section-title" style="margin-bottom:0.75rem">🗂 Histórico de Jogos Gerados</div>
+      <table class="pred-table"><thead><tr>
+        <th>Data</th><th>Modelo</th><th>Concurso</th><th>Jogos</th>
+      </tr></thead><tbody>`;
+    for (const item of jogos) {
+      const dt = item.criado_em ? new Date(item.criado_em).toLocaleString('pt-BR') : '—';
+      const jogosArr = Array.isArray(item.jogos) ? item.jogos : [];
+      const jogosHtml = jogosArr.map((jogo, i) => {
+        const balls = Array.isArray(jogo)
+          ? jogo.map(n => `<span class="ball${n>12?' high':''}">${String(n).padStart(2,'0')}</span>`).join('')
+          : '—';
+        return `<div style="margin-bottom:0.35rem"><span style="font-size:0.65rem;color:var(--muted);margin-right:0.3rem">J${i+1}</span><span class="pred-balls" style="display:inline-flex;gap:2px">${balls}</span></div>`;
+      }).join('');
+      html += `<tr>
+        <td style="color:var(--dim);white-space:nowrap">${dt}</td>
+        <td style="font-weight:600">${esc(item.treino_nome || item.treino_id)}</td>
+        <td style="font-family:monospace;text-align:center">${item.concurso}</td>
+        <td>${jogosHtml}</td>
+      </tr>`;
+    }
+    html += `</tbody></table>`;
+    panel.innerHTML = html;
+  } catch(e) {
+    panel.innerHTML = `<div style="color:var(--red);font-size:0.78rem;padding:1rem 0">❌ Erro ao carregar histórico: ${esc(e.message)}</div>`;
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════
