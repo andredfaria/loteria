@@ -34,6 +34,8 @@ import statistics
 
 _ANSI_RE = re.compile(r'\x1b(?:\[[0-9;]*[mGKHFABCDEFsuJKH]|[()][AB012])')
 _procs: dict[str, subprocess.Popen[str]] = {}
+_freq_cache: dict = {}           # {"data": {...}, "ts": float}
+_FREQ_TTL = 300                  # 5 minutes
 _SRC = Path(__file__).resolve().parent.parent.parent.parent.parent / "src"
 _LOTOFACIL_BIN = str(Path(sys.executable).parent / "lotofacil")
 
@@ -802,6 +804,8 @@ def api_dados():
 
 @app.route("/api/dados/frequencia")
 def api_dados_frequencia():
+    if _freq_cache and (time.time() - _freq_cache.get("ts", 0)) < _FREQ_TTL:
+        return jsonify(_freq_cache["data"])
     freq: dict[int, int] = {i: 0 for i in range(1, 26)}
     total = 0
     for f in sorted(DADOS_DIR.glob("concurso_*.json"), key=_concurso_num):
@@ -815,7 +819,24 @@ def api_dados_frequencia():
         except Exception:
             pass
     avg = round((total * 15) / 25, 1) if total else 0
-    return jsonify({"frequency": freq, "total_draws": total, "expected_avg": avg})
+    result = {"frequency": freq, "total_draws": total, "expected_avg": avg}
+    _freq_cache["data"] = result
+    _freq_cache["ts"] = time.time()
+    return jsonify(result)
+
+
+@app.route("/api/dados/page-for-concurso")
+def api_dados_page_for_concurso():
+    concurso = request.args.get("concurso", type=int)
+    per_page = request.args.get("per_page", default=25, type=int)
+    if not concurso:
+        return jsonify({"error": "concurso required"}), 400
+    files = sorted(DADOS_DIR.glob("concurso_*.json"), key=_concurso_num, reverse=True)
+    for i, f in enumerate(files):
+        if _concurso_num(f) == concurso:
+            page = (i // per_page) + 1
+            return jsonify({"page": page, "found": True, "concurso": concurso})
+    return jsonify({"found": False, "concurso": concurso})
 
 
 @app.route("/api/generate", methods=["POST"])

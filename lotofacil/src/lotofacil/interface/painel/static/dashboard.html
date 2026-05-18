@@ -675,6 +675,8 @@
     <span id="statusLatest">📌 <span class="val">—</span></span>
     <span id="statusGames" class="status-hide-mobile">🎲 <span class="val">—</span></span>
     <span><span class="online"></span>Online</span>
+    <button onclick="_openShortcuts()" title="Atalhos de teclado (?)"
+      style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--muted);cursor:pointer;font-size:0.72rem;padding:2px 7px;line-height:1.4">⌨</button>
   </div>
 </nav>
 
@@ -754,6 +756,33 @@
 
 <!-- Toast -->
 <div class="toast-container" id="toastContainer"></div>
+
+<!-- Shortcuts modal -->
+<div id="shortcutsModal" onclick="if(event.target===this)_closeShortcuts()"
+  style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9000;align-items:center;justify-content:center">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1.5rem;width:360px;max-width:90vw;max-height:80vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+      <span style="font-weight:700;font-size:0.9rem">⌨ Atalhos de teclado</span>
+      <button onclick="_closeShortcuts()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:1rem">✕</button>
+    </div>
+    <div style="font-size:0.75rem;display:grid;grid-template-columns:auto 1fr;gap:0.4rem 1rem;align-items:center">
+      <kbd style="background:rgba(255,255,255,0.1);border-radius:4px;padding:1px 6px;font-family:monospace">C</kbd><span>Ir para Coleta</span>
+      <kbd style="background:rgba(255,255,255,0.1);border-radius:4px;padding:1px 6px;font-family:monospace">D</kbd><span>Ir para Dados</span>
+      <kbd style="background:rgba(255,255,255,0.1);border-radius:4px;padding:1px 6px;font-family:monospace">M</kbd><span>Ir para Modelos</span>
+      <kbd style="background:rgba(255,255,255,0.1);border-radius:4px;padding:1px 6px;font-family:monospace">V</kbd><span>Ir para Validação</span>
+      <div style="grid-column:1/-1;height:1px;background:var(--border);margin:0.25rem 0"></div>
+      <kbd style="background:rgba(255,255,255,0.1);border-radius:4px;padding:1px 6px;font-family:monospace">1</kbd><span>Modelos → Treinar</span>
+      <kbd style="background:rgba(255,255,255,0.1);border-radius:4px;padding:1px 6px;font-family:monospace">2</kbd><span>Modelos → Lista</span>
+      <kbd style="background:rgba(255,255,255,0.1);border-radius:4px;padding:1px 6px;font-family:monospace">3</kbd><span>Modelos → Gerar</span>
+      <kbd style="background:rgba(255,255,255,0.1);border-radius:4px;padding:1px 6px;font-family:monospace">4</kbd><span>Modelos → Comparar</span>
+      <kbd style="background:rgba(255,255,255,0.1);border-radius:4px;padding:1px 6px;font-family:monospace">5</kbd><span>Modelos → Histórico</span>
+      <div style="grid-column:1/-1;height:1px;background:var(--border);margin:0.25rem 0"></div>
+      <kbd style="background:rgba(255,255,255,0.1);border-radius:4px;padding:1px 6px;font-family:monospace">Esc</kbd><span>Fechar modal de treino</span>
+      <kbd style="background:rgba(255,255,255,0.1);border-radius:4px;padding:1px 6px;font-family:monospace">?</kbd><span>Mostrar/fechar atalhos</span>
+    </div>
+    <div style="margin-top:1rem;font-size:0.65rem;color:var(--dim)">Atalhos desativados quando um campo está em foco.</div>
+  </div>
+</div>
 
 <!-- Bottom Nav (mobile) -->
 <nav class="bottom-nav" id="bottomNav"></nav>
@@ -1543,19 +1572,18 @@ async function dadosJumpTo(e) {
   const input = document.getElementById('dadosJumpInput');
   const num = parseInt(input?.value);
   if (!num || num < 1) return;
-  // find which page contains this concurso: fetch page 1 to know total, then binary search
   try {
-    const r = await fetch('/api/dados?page=1&per_page=1');
+    const r = await fetch(`/api/dados/page-for-concurso?concurso=${num}&per_page=${STATE.dadosPerPage || 25}`);
     const d = await r.json();
-    const perPage = STATE.dadosPerPage || 25;
-    // concursos are sorted descending, so page = ceil((total - rank + 1) / perPage)
-    // simpler: search by fetching increasingly large pages — instead, jump to page by index
-    // We don't know the rank, so just set filter to the concurso number and go to page 1
-    STATE.dadosFilter = String(num);
-    STATE.dadosPage = 1;
-    renderDados();
+    if (d.found) {
+      STATE.dadosPage = d.page;
+      STATE.dadosFilter = String(num);
+      renderDados();
+    } else {
+      showToast(`Concurso #${num} não encontrado na base.`, 'error');
+    }
     if (input) input.value = '';
-  } catch(e) { /* silencioso */ }
+  } catch(e) { showToast('Erro ao buscar concurso.', 'error'); }
 }
 
 function dadosExportCSV() {
@@ -1676,15 +1704,44 @@ async function renderValidacao() {
       html += `<div style="grid-column:1/-1;margin-top:0.75rem">
         <div class="health-title" style="margin-bottom:0.5rem">QUALIDADE POR ABORDAGEM</div>
         <div class="models-grid">`;
-      for (const q of quality.models) {
+      const sortedQ = [...quality.models].sort((a,b) => (b.mean_hits||0) - (a.mean_hits||0));
+      for (const [qi, q] of sortedQ.entries()) {
         const level = q.classification?.level || 'warning';
-        const interp = q.classification?.label === 'Bom' ? 'Melhor que aleatorio com significancia estatistica.' : q.classification?.label === 'Atencao' ? 'Melhoria aparente, porem sem significancia robusta.' : 'Nao supera o aleatorio na janela avaliada.';
+        const imp = q.improvement_pct;
+        const impColor = imp > 0 ? 'var(--green)' : imp < 0 ? 'var(--red)' : 'var(--muted)';
+        const impSign = imp > 0 ? '+' : '';
+        const cls = q.classification || {};
+
+        // hit distribution bars
+        const dist = q.hit_distribution || {};
+        const distTotal = Object.values(dist).reduce((s,v)=>s+v,0)||1;
+        const distBars = [11,12,13,14,15].map(k=>{
+          const cnt = dist[k]??dist[String(k)]??0;
+          const w = Math.max(Math.round(cnt/distTotal*100),cnt>0?2:0);
+          return `<div style="display:flex;align-items:center;gap:3px;font-size:0.6rem;line-height:1.8">
+            <span style="width:14px;text-align:right;color:var(--dim)">${k}</span>
+            <div style="flex:1;height:5px;background:rgba(255,255,255,0.07);border-radius:2px;overflow:hidden">
+              <div style="width:${w}%;height:100%;background:var(--accent);opacity:0.8;border-radius:2px"></div>
+            </div>
+            <span style="width:26px;color:var(--muted)">${cnt}x</span>
+          </div>`;
+        }).join('');
+
         html += `<div class="model-card quality-card ${level}">
-          <div class="quality-status">${esc(q.classification?.label || 'Atencao')}</div>
-          <div class="model-name">Qualidade: ${esc(q.model)}</div>
-          <div class="model-meta">Media acertos: ${q.mean_hits} · Melhoria: ${q.improvement_pct}% · p-value: ${q.p_value}</div>
-          <div class="model-meta">Estabilidade: desvio=${q.stability?.std_hits} · variancia=${q.stability?.var_hits}</div>
-          <div class="model-meta" style="margin-top:0.35rem">${interp}</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.25rem">
+            <div class="quality-status" style="margin:0">${esc(cls.label || 'Atenção')}</div>
+            <span style="font-size:0.62rem;color:var(--dim)">#${qi+1}</span>
+          </div>
+          <div class="model-name" style="font-size:0.72rem;margin-bottom:0.4rem">${esc(q.model)}</div>
+          <div style="font-size:1.1rem;font-weight:700;color:var(--text);line-height:1">${q.mean_hits?.toFixed(2) ?? '—'}</div>
+          <div style="font-size:0.62rem;color:var(--muted);margin-bottom:0.4rem">hits médios ±${q.stability?.std_hits?.toFixed(2)??'—'}</div>
+          <div style="display:flex;align-items:center;gap:0.35rem;margin-bottom:0.5rem;flex-wrap:wrap">
+            <span style="font-size:0.62rem;color:var(--dim)">vs baseline</span>
+            <b style="font-size:0.7rem;color:${impColor}">${impSign}${imp?.toFixed(1)??'—'}%</b>
+            <span style="font-size:0.6rem;color:var(--muted)">p=${q.p_value?.toFixed(4)??'—'}</span>
+            ${q.sample_size?`<span style="font-size:0.6rem;color:var(--dim)">n=${q.sample_size}</span>`:''}
+          </div>
+          <div style="border-top:1px solid rgba(255,255,255,0.07);padding-top:0.35rem">${distBars}</div>
         </div>`;
       }
       html += `</div></div>`;
@@ -2931,6 +2988,9 @@ const _TAB_KEYS = { 'c': 'coleta', 'd': 'dados', 'm': 'modelos', 'v': 'validacao
 const _SUBTAB_KEYS = { '1': 'treinar', '2': 'lista', '3': 'gerar', '4': 'comparar', '5': 'historico' };
 const _TAB_LABELS = { coleta: 'Coleta', dados: 'Dados', modelos: 'Modelos', validacao: 'Validação' };
 
+function _openShortcuts()  { const m = document.getElementById('shortcutsModal'); if(m) m.style.display='flex'; }
+function _closeShortcuts() { const m = document.getElementById('shortcutsModal'); if(m) m.style.display='none'; }
+
 function _updatePageTitle() {
   const tab = _TAB_LABELS[STATE.activeTab] || STATE.activeTab;
   document.title = `${tab} — Lotofácil Dashboard`;
@@ -2941,11 +3001,16 @@ document.addEventListener('keydown', e => {
   const tag = document.activeElement?.tagName?.toLowerCase();
   if (['input','select','textarea'].includes(tag)) return;
 
-  // Escape: close training modal if open
+  // Escape: close modals
   if (e.key === 'Escape') {
+    const sm = document.getElementById('shortcutsModal');
+    if (sm?.style.display === 'flex') { _closeShortcuts(); return; }
     const overlay = document.getElementById('treinoModalOverlay');
     if (overlay?.classList.contains('visible')) { closeTreinoModal(); return; }
   }
+
+  // ? → shortcuts help
+  if (e.key === '?' && !e.ctrlKey && !e.metaKey) { _openShortcuts(); return; }
 
   // Tab shortcuts: C=Coleta, D=Dados, M=Modelos, V=Validação
   const tabTarget = _TAB_KEYS[e.key.toLowerCase()];
