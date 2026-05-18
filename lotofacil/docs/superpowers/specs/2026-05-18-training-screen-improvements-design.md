@@ -213,10 +213,37 @@ No new test files added — the changes are primarily UI logic; the backend addi
 
 ---
 
-## 8. Remaining Work
+## 8. Additional Features (implemented post-spec)
 
-- [ ] Dados: jump-to-concurso input + export CSV for current page
-- [ ] Validação: dismissable alerts, CSS-bar sparkline (replace ASCII)
-- [ ] Coleta: auto-refresh stats panel after command completes
-- [ ] Modelos: keyboard shortcuts (1–5 for sub-tabs, Escape for modal)
-- [ ] Global: dynamic page title reflecting active tab
+### Performance caches
+- `/api/dados/frequencia` — 5-min TTL cache (`_freq_cache`); 1500ms → 1ms on repeat calls
+- `/api/models/quality` — 2-min TTL cache per `last_n` window (`_quality_cache`); invalidated on training completion; 250ms → 0ms on repeat calls
+
+### New API routes
+| Route | Purpose |
+|-------|---------|
+| `GET /api/dados/export-csv` | Streaming CSV of all draws (generator, no memory spike) |
+| `GET /api/dados/page-for-concurso?concurso=N` | Returns exact page number for a given concurso |
+| `PATCH /api/treinos/<id>` | Rename training session |
+
+### Dados tab
+- Jump-to-concurso: form uses `/api/dados/page-for-concurso` for exact navigation; toast on not-found
+- Export page CSV + Export all CSV (streaming endpoint)
+- Frequency chart bars are clickable (toggle filter, outline highlight when active)
+
+### Validação tab
+- CSS bar sparkline replaces ASCII characters; accent colour on latest bar
+- Dismissable alerts: ✕ per alert, stored in `localStorage`, "↺ restore" button
+- Leaderboard sortable: click Média/Melh./p-val/std column headers; p-val sorts ascending
+
+### Coleta tab
+- Stats panel auto-refreshes after any command completes on this tab
+
+### Global
+- Keyboard shortcuts: C/D/M/V for tabs, 1–5 for Modelos sub-tabs, Escape for modals
+- `?` key / ⌨ navbar button opens shortcuts reference modal
+- `document.title` updates on every tab switch
+
+## 9. Status
+
+**Complete.** All 118 tests pass. 14/14 API routes smoke-tested. Spec reflects final implementation.
