@@ -1634,7 +1634,9 @@ const _predState = {
   listaFiltroStatus: '',
   listaBusca: '',
   expandedModelId: null,
+  listaPage: 0,
 };
+const LISTA_PAGE_SIZE = 10;
 
 function _subTabLabel(t) {
   return { treinar: '▶ Treinar', lista: '📋 Lista', gerar: '⚡ Gerar', comparar: '⚖️ Comparar', historico: '🗂 Histórico' }[t] || t;
@@ -1803,6 +1805,7 @@ async function loadModelosAndRender() {
     _predState.lastConcurso = statusRes?.last_concurso?.concurso || 0;
     _predState.lastDraw = statusRes?.last_concurso || null;
     _predState.lastUpdatedAt = Date.now();
+    _updateListaBadge();
     const t = _predState.activeSubTab;
     if (t === 'lista')    renderModLista();
     if (t === 'gerar')    renderPredGerar();
@@ -1825,6 +1828,15 @@ function startModelosPolling() {
     }
     _tickLastUpdated();
   }, 5000);
+}
+
+function _updateListaBadge() {
+  const n = (_predState.modelos || []).length;
+  document.querySelectorAll('#modelosSubnav .pred-tab-btn').forEach(btn => {
+    if (btn.getAttribute('onclick')?.includes("'lista'")) {
+      btn.textContent = `📋 Lista${n ? ` (${n})` : ''}`;
+    }
+  });
 }
 
 function _tickLastUpdated() {
@@ -1962,6 +1974,11 @@ function renderModLista() {
         style="width:100%;max-width:280px;font-size:0.72rem;padding:0.2rem 0.5rem;
           background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:4px">
     </div>`;
+  const page = _predState.listaPage || 0;
+  const pageEnd = (page + 1) * LISTA_PAGE_SIZE;
+  const pagedModelos = sortedModelos.slice(0, pageEnd);
+  const remaining = sortedModelos.length - pageEnd;
+
   if (sortedModelos.length === 0) {
     html += `<div style="padding:2rem 0;text-align:center;color:var(--muted)">
       ${sf ? `Nenhum treino com status <b>${sf}</b>.` : 'Nenhum treino encontrado. Vá para <b>▶ Treinar</b> para iniciar.'}</div>`;
@@ -1975,7 +1992,7 @@ function renderModLista() {
       <th style="${thStyle}" onclick="_sortLista('status')">Status${sortIco('status')}</th>
       <th></th>
     </tr></thead><tbody>`;
-    for (const m of sortedModelos) {
+    for (const m of pagedModelos) {
       const met = m.metricas || {};
       const dt   = m.criado_em ? new Date(m.criado_em).toLocaleDateString('pt-BR') : '—';
       const loss = met.val_loss_final != null ? met.val_loss_final.toFixed(5) : '—';
@@ -2028,17 +2045,31 @@ function renderModLista() {
           .filter(([k]) => !['val_loss_final','epochs_trained'].includes(k))
           .map(([k,v]) => `<span style="color:var(--muted)">${k}:</span> <b>${typeof v === 'number' ? v.toFixed(5) : v}</b>`)
           .join(' · ');
+        const exportJson = JSON.stringify({ nome: m.nome, tipo_config: m.tipo_config, parametros: m.parametros || {} }, null, 2);
+        const exportSafe = exportJson.replace(/'/g, "\\'").replace(/\n/g, '\\n');
         html += `<tr style="background:rgba(255,255,255,0.02)"><td colspan="7" style="padding:0.5rem 1rem 0.75rem;font-size:0.7rem;border-top:none">
           <div style="display:flex;flex-direction:column;gap:0.25rem">
             <div>${paramRows}</div>
             ${metRows ? `<div>${metRows}</div>` : ''}
             <div style="color:var(--dim)">Arquivo: <code style="font-size:0.65rem">${esc(arquivo)}</code></div>
             ${m.criado_em ? `<div style="color:var(--dim)">Criado: ${new Date(m.criado_em).toLocaleString('pt-BR')}${m.concluido_em ? ' · Concluído: ' + new Date(m.concluido_em).toLocaleString('pt-BR') : ''}</div>` : ''}
+            <div style="margin-top:0.25rem">
+              <button onclick="navigator.clipboard.writeText('${exportSafe}').then(()=>showToast('Config copiada','success'))"
+                style="font-size:0.62rem;padding:1px 6px;background:none;border:1px solid var(--border);border-radius:3px;color:var(--muted);cursor:pointer">⎘ Copiar config JSON</button>
+            </div>
           </div>
         </td></tr>`;
       }
     }
     html += `</tbody></table>`;
+    if (remaining > 0) {
+      html += `<div style="text-align:center;margin-top:0.5rem">
+        <button class="action-btn" onclick="_verMaisLista()"
+          style="font-size:0.72rem;padding:0.25rem 0.75rem">
+          Ver mais ${Math.min(remaining, LISTA_PAGE_SIZE)} de ${remaining} restantes
+        </button>
+      </div>`;
+    }
   }
   html += `</div>`;
 
@@ -2056,6 +2087,12 @@ function _sortLista(key) {
 
 function _filtroLista(status) {
   _predState.listaFiltroStatus = status;
+  _predState.listaPage = 0;
+  renderModLista();
+}
+
+function _verMaisLista() {
+  _predState.listaPage = (_predState.listaPage || 0) + 1;
   renderModLista();
 }
 
@@ -2084,6 +2121,7 @@ async function renomearModelo(id, nomeAtual) {
 
 function _buscaLista(val) {
   _predState.listaBusca = val;
+  _predState.listaPage = 0;
   renderModLista();
   // restore focus and cursor
   requestAnimationFrame(() => {
