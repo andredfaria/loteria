@@ -1632,6 +1632,7 @@ const _predState = {
   listaSort: { key: 'criado_em', dir: -1 },
   listaFiltroStatus: '',
   listaBusca: '',
+  expandedModelId: null,
 };
 
 function _subTabLabel(t) {
@@ -1977,8 +1978,12 @@ function renderModLista() {
       } else if (m.status === 'running') {
         durHtml = `<br><span style="font-size:0.6rem;color:var(--accent)">em andamento</span>`;
       }
-      html += `<tr>
-        <td style="font-weight:600">${esc(m.nome)}</td>
+      const isExpanded = _predState.expandedModelId === m.id;
+      const expandIco = isExpanded ? '▲' : '▼';
+      html += `<tr style="cursor:default">
+        <td style="font-weight:600">
+          <span style="cursor:pointer" onclick="_toggleModelExpand('${m.id}')">${expandIco} ${esc(m.nome)}</span>
+        </td>
         <td style="color:var(--muted)">${esc(m.tipo_config||'')}</td>
         <td style="font-family:monospace">${loss}</td>
         <td>${ep}</td>
@@ -1993,6 +1998,27 @@ function renderModLista() {
             style="font-size:0.7rem;padding:0.2rem 0.5rem;border-color:var(--red);color:var(--red)">${deleteLabel}</button>
         </td>
       </tr>`;
+      if (isExpanded) {
+        const p = m.parametros || {};
+        const met2 = m.metricas || {};
+        const arquivo = m.arquivo_modelo ? m.arquivo_modelo.split('/').pop() : '—';
+        const paramRows = [
+          ['Épocas definidas', p.epochs ?? '—'], ['Janela', p.window_size ?? '—'],
+          ['Seed', p.seed ?? '—'], ['Concursos', p.n_draws || 'todos'],
+        ].map(([k,v]) => `<span style="color:var(--muted)">${k}:</span> <b>${v}</b>`).join(' · ');
+        const metRows = Object.entries(met2)
+          .filter(([k]) => !['val_loss_final','epochs_trained'].includes(k))
+          .map(([k,v]) => `<span style="color:var(--muted)">${k}:</span> <b>${typeof v === 'number' ? v.toFixed(5) : v}</b>`)
+          .join(' · ');
+        html += `<tr style="background:rgba(255,255,255,0.02)"><td colspan="7" style="padding:0.5rem 1rem 0.75rem;font-size:0.7rem;border-top:none">
+          <div style="display:flex;flex-direction:column;gap:0.25rem">
+            <div>${paramRows}</div>
+            ${metRows ? `<div>${metRows}</div>` : ''}
+            <div style="color:var(--dim)">Arquivo: <code style="font-size:0.65rem">${esc(arquivo)}</code></div>
+            ${m.criado_em ? `<div style="color:var(--dim)">Criado: ${new Date(m.criado_em).toLocaleString('pt-BR')}${m.concluido_em ? ' · Concluído: ' + new Date(m.concluido_em).toLocaleString('pt-BR') : ''}</div>` : ''}
+          </div>
+        </td></tr>`;
+      }
     }
     html += `</tbody></table>`;
   }
@@ -2012,6 +2038,11 @@ function _sortLista(key) {
 
 function _filtroLista(status) {
   _predState.listaFiltroStatus = status;
+  renderModLista();
+}
+
+function _toggleModelExpand(id) {
+  _predState.expandedModelId = _predState.expandedModelId === id ? null : id;
   renderModLista();
 }
 
@@ -2227,6 +2258,19 @@ function renderJogos(data) {
     </div>`;
   });
   html += '</div>';
+
+  // frequency heatmap across all generated games
+  const freq = {};
+  data.jogos.forEach(jogo => jogo.forEach(n => { freq[n] = (freq[n] || 0) + 1; }));
+  const maxFreq = Math.max(...Object.values(freq), 1);
+  let heatHtml = '<div style="margin-top:0.75rem"><div style="font-size:0.65rem;color:var(--dim);margin-bottom:0.3rem">Frequência nos jogos gerados</div><div style="display:flex;gap:3px;flex-wrap:wrap">';
+  for (let n = 1; n <= 25; n++) {
+    const f = freq[n] || 0;
+    const alpha = f ? 0.25 + (f / maxFreq) * 0.75 : 0.08;
+    heatHtml += `<div title="${n}: ${f}x" style="width:22px;height:22px;border-radius:4px;background:rgba(96,165,250,${alpha.toFixed(2)});display:flex;align-items:center;justify-content:center;font-size:0.6rem;font-weight:${f===maxFreq?700:400};color:${f===maxFreq?'#fff':'rgba(255,255,255,0.7)'}">${n}</div>`;
+  }
+  heatHtml += '</div></div>';
+  html += heatHtml;
 
   // show last real draw for reference
   const ld = _predState.lastDraw;
@@ -2484,11 +2528,13 @@ let _treinoPoller = null;
 let _treinoTaskId = null;
 let _treinoPollOffset = 0;
 let _treinoTotalEpochs = 100;
+let _treinoEpochLog = [];   // [{epoch, ts}] for ETA calculation
 
 function openTreinoModal(taskId, configLabel, epochsHint) {
   _treinoTaskId = taskId;
   _treinoPollOffset = 0;
   _treinoTotalEpochs = epochsHint || parseInt(document.getElementById('predEpocas')?.value) || 100;
+  _treinoEpochLog = [];
 
   document.getElementById('treinoModalTitle').textContent = `Treinando (${configLabel})…`;
   document.getElementById('treinoModalStatus').textContent = '';
@@ -2546,7 +2592,20 @@ function _updateEpochFromLog(lines) {
       const total = parseInt(m[2]) || _treinoTotalEpochs;
       const pct = Math.min(100, Math.round((cur / total) * 100));
       document.getElementById('treinoProgressFill').style.width = `${pct}%`;
-      document.getElementById('treinoEpochLabel').textContent = `Epoch ${cur}/${total} · ${pct}%`;
+
+      // ETA calculation using last 5 epoch intervals
+      _treinoEpochLog.push({ epoch: cur, ts: Date.now() });
+      if (_treinoEpochLog.length > 6) _treinoEpochLog.shift();
+      let etaStr = '';
+      if (_treinoEpochLog.length >= 2) {
+        const samples = _treinoEpochLog;
+        const msPerEpoch = (samples[samples.length-1].ts - samples[0].ts) / (samples[samples.length-1].epoch - samples[0].epoch);
+        if (msPerEpoch > 0 && cur < total) {
+          const remSec = Math.round(((total - cur) * msPerEpoch) / 1000);
+          etaStr = remSec < 60 ? ` · ETA ${remSec}s` : ` · ETA ${Math.ceil(remSec/60)}min`;
+        }
+      }
+      document.getElementById('treinoEpochLabel').textContent = `Epoch ${cur}/${total} · ${pct}%${etaStr}`;
       return;
     }
   }
