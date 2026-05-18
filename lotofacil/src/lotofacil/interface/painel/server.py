@@ -1044,6 +1044,17 @@ def api_treino_detalhe(treino_id: str):
     return jsonify(t)
 
 
+@app.route("/api/treinos/<treino_id>", methods=["PATCH"])
+def api_treino_renomear(treino_id: str):
+    body = request.get_json(force=True) or {}
+    nome = (body.get("nome") or "").strip()
+    if not nome:
+        return jsonify({"error": "Nome não pode ser vazio"}), 400
+    if not _registry.renomear(treino_id, nome):
+        return jsonify({"error": "Não encontrado"}), 404
+    return jsonify({"ok": True, "nome": nome})
+
+
 @app.route("/api/treinos/<treino_id>", methods=["DELETE"])
 def api_treino_deletar(treino_id: str):
     t = _registry.buscar(treino_id)

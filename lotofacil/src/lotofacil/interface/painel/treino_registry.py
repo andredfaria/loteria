@@ -131,6 +131,13 @@ class TreinoRegistry:
             ).fetchone()
         return _row_to_dict(row) if row else None
 
+    def renomear(self, treino_id: str, nome: str) -> bool:
+        with self._conn() as conn:
+            cur = conn.execute(
+                "UPDATE treinos SET nome = ? WHERE id = ?", (nome.strip(), treino_id)
+            )
+        return cur.rowcount > 0
+
     def deletar(self, treino_id: str) -> bool:
         with self._conn() as conn:
             cur = conn.execute("DELETE FROM treinos WHERE id = ?", (treino_id,))

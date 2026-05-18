@@ -1628,6 +1628,7 @@ const _predState = {
   pollingInterval: null,
   lastConcurso: 0,
   lastDraw: null,
+  lastUpdatedAt: null,
   backtestLastN: 120,
   listaSort: { key: 'criado_em', dir: -1 },
   listaFiltroStatus: '',
@@ -1651,8 +1652,9 @@ function renderModelosPage() {
                onclick="showModelosSubTab('${t}')">${_subTabLabel(t)}</button>`
           ).join('')}
         </div>
+        <span id="modelosLastUpdated" style="font-size:0.62rem;color:var(--dim);margin-left:auto"></span>
         <button class="action-btn" onclick="loadModelosAndRender()"
-          style="margin-left:auto;font-size:0.72rem;padding:0.25rem 0.6rem">↻ Atualizar</button>
+          style="font-size:0.72rem;padding:0.25rem 0.6rem">↻ Atualizar</button>
       </div>
       <div class="modelos-page-body">
         <div id="mod-treinar"   class="modelos-page-panel${_predState.activeSubTab==='treinar'  ?' active':''}"></div>
@@ -1800,6 +1802,7 @@ async function loadModelosAndRender() {
     _predState.qualidade = qualRes.models || [];
     _predState.lastConcurso = statusRes?.last_concurso?.concurso || 0;
     _predState.lastDraw = statusRes?.last_concurso || null;
+    _predState.lastUpdatedAt = Date.now();
     const t = _predState.activeSubTab;
     if (t === 'lista')    renderModLista();
     if (t === 'gerar')    renderPredGerar();
@@ -1814,9 +1817,21 @@ async function loadModelosAndRender() {
 function startModelosPolling() {
   if (_predState.pollingInterval) return;
   _predState.pollingInterval = setInterval(() => {
-    if (STATE.activeTab === 'modelos') loadModelosAndRender();
-    else { clearInterval(_predState.pollingInterval); _predState.pollingInterval = null; }
+    if (STATE.activeTab === 'modelos') {
+      loadModelosAndRender();
+    } else {
+      clearInterval(_predState.pollingInterval);
+      _predState.pollingInterval = null;
+    }
+    _tickLastUpdated();
   }, 5000);
+}
+
+function _tickLastUpdated() {
+  const el = document.getElementById('modelosLastUpdated');
+  if (!el || !_predState.lastUpdatedAt) return;
+  const sec = Math.round((Date.now() - _predState.lastUpdatedAt) / 1000);
+  el.textContent = sec < 5 ? 'agora mesmo' : sec < 60 ? `há ${sec}s` : `há ${Math.floor(sec/60)}min`;
 }
 
 function renderModLista() {
@@ -1983,6 +1998,9 @@ function renderModLista() {
       html += `<tr style="cursor:default">
         <td style="font-weight:600">
           <span style="cursor:pointer" onclick="_toggleModelExpand('${m.id}')">${expandIco} ${esc(m.nome)}</span>
+          <span onclick="renomearModelo('${m.id}','${esc(m.nome)}')" title="Renomear"
+            style="cursor:pointer;font-size:0.65rem;color:var(--dim);margin-left:4px;opacity:0.5"
+            onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.5">✏</span>
         </td>
         <td style="color:var(--muted)">${esc(m.tipo_config||'')}</td>
         <td style="font-family:monospace">${loss}</td>
@@ -2044,6 +2062,24 @@ function _filtroLista(status) {
 function _toggleModelExpand(id) {
   _predState.expandedModelId = _predState.expandedModelId === id ? null : id;
   renderModLista();
+}
+
+async function renomearModelo(id, nomeAtual) {
+  const novo = prompt('Novo nome para o modelo:', nomeAtual);
+  if (!novo || novo.trim() === nomeAtual) return;
+  try {
+    const r = await fetch(`/api/treinos/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nome: novo.trim() }),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'Erro ao renomear');
+    showToast(`Renomeado para "${data.nome}"`, 'success');
+    await loadModelosAndRender();
+  } catch(e) {
+    showToast(`Erro: ${e.message}`, 'error');
+  }
 }
 
 function _buscaLista(val) {
@@ -2336,6 +2372,22 @@ function renderComparacao(data) {
   const dl = data.delta.val_loss_final;
   const dlClass = dl==null?'':(dl<0?'delta-better':'delta-worse');
   const dlSign  = dl==null?'':(dl<0?'▼ ':'▲ ');
+
+  // find backtest quality for each model (match by treino_id substring in approach name)
+  const qual = _predState.qualidade || [];
+  const qa = qual.find(q => q.model && q.model.includes(data.a.id)) || null;
+  const qb = qual.find(q => q.model && q.model.includes(data.b.id)) || null;
+  const hitsA = qa?.mean_hits != null ? qa.mean_hits.toFixed(2) : '—';
+  const hitsB = qb?.mean_hits != null ? qb.mean_hits.toFixed(2) : '—';
+  const impA  = qa?.improvement_pct != null ? `${qa.improvement_pct > 0 ? '+' : ''}${qa.improvement_pct.toFixed(1)}%` : '—';
+  const impB  = qb?.improvement_pct != null ? `${qb.improvement_pct > 0 ? '+' : ''}${qb.improvement_pct.toFixed(1)}%` : '—';
+  const pA    = qa?.p_value != null ? qa.p_value.toFixed(4) : '—';
+  const pB    = qb?.p_value != null ? qb.p_value.toFixed(4) : '—';
+  const hitsDelta = (qa?.mean_hits != null && qb?.mean_hits != null)
+    ? ((qa.mean_hits - qb.mean_hits) > 0 ? '+' : '') + (qa.mean_hits - qb.mean_hits).toFixed(2) : '—';
+  const hitsDeltaClass = (qa?.mean_hits != null && qb?.mean_hits != null)
+    ? (qa.mean_hits > qb.mean_hits ? 'delta-better' : qa.mean_hits < qb.mean_hits ? 'delta-worse' : '') : '';
+
   div.innerHTML = `
     <table class="pred-compare-table"><thead>
       <tr><th>Métrica</th><th>${esc(data.a.nome)}</th><th>${esc(data.b.nome)}</th><th>Delta (A−B)</th></tr>
@@ -2353,6 +2405,21 @@ function renderComparacao(data) {
         <td>${data.delta.epochs_trained!=null?(data.delta.epochs_trained>=0?'+':'')+data.delta.epochs_trained:'—'}</td>
       </tr>
       <tr>
+        <td style="color:var(--muted)">Hits médios</td>
+        <td style="font-weight:600">${hitsA}</td><td style="font-weight:600">${hitsB}</td>
+        <td class="${hitsDeltaClass}">${hitsDelta}</td>
+      </tr>
+      <tr>
+        <td style="color:var(--muted)">vs Baseline</td>
+        <td style="color:${qa?.improvement_pct>0?'var(--green)':qa?.improvement_pct<0?'var(--red)':'var(--muted)'}">${impA}</td>
+        <td style="color:${qb?.improvement_pct>0?'var(--green)':qb?.improvement_pct<0?'var(--red)':'var(--muted)'}">${impB}</td>
+        <td>—</td>
+      </tr>
+      <tr>
+        <td style="color:var(--muted)">p-value</td>
+        <td style="font-family:monospace">${pA}</td><td style="font-family:monospace">${pB}</td><td>—</td>
+      </tr>
+      <tr>
         <td style="color:var(--muted)">Criado em</td>
         <td style="color:var(--dim)">${data.a.criado_em?new Date(data.a.criado_em).toLocaleDateString('pt-BR'):'—'}</td>
         <td style="color:var(--dim)">${data.b.criado_em?new Date(data.b.criado_em).toLocaleDateString('pt-BR'):'—'}</td>
@@ -2360,7 +2427,8 @@ function renderComparacao(data) {
       </tr>
     </tbody></table>
     <div style="font-size:0.7rem;color:var(--dim);margin-top:0.5rem">
-      Val Loss menor = melhor. ▼ verde = Modelo A melhor que B.
+      Val Loss menor = melhor. Hits médios maior = melhor. ▼ verde = Modelo A melhor que B.
+      ${!qa && !qb ? '<br>Sem dados de backtest — execute via <b>📋 Lista</b> para ver hits.' : ''}
     </div>`;
 }
 
