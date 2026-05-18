@@ -367,6 +367,8 @@ def _build_quality_payload(window_size: int = 120) -> dict:
         var_hits = float(statistics.pvariance(model_hits)) if len(model_hits) > 1 else 0.0
         label, level = _classify_quality(baseline["improvement_pct"], sig.p_value)
 
+        hit_dist = LotofacilMetrics.distribution_of_hits(results)
+
         models.append({
             "model": approach,
             "mean_hits": round(baseline["model_mean"], 3),
@@ -374,6 +376,7 @@ def _build_quality_payload(window_size: int = 120) -> dict:
             "p_value": round(sig.p_value, 4),
             "stability": {"std_hits": round(std_hits, 3), "var_hits": round(var_hits, 3)},
             "sample_size": len(grp_sorted),
+            "hit_distribution": {str(k): v for k, v in hit_dist.items()},
             "window": {
                 "requested_last_n": configured_window,
                 "used_draws": len(rows),
@@ -1041,7 +1044,14 @@ def api_treino_deletar(treino_id: str):
     if not t:
         return jsonify({"error": "Não encontrado"}), 404
     if t.get("status") == "running":
-        return jsonify({"error": "Não é possível apagar um treino em execução"}), 409
+        # Cancel the running job before deleting
+        task_key = next((k for k in _procs if treino_id in k), None)
+        if task_key:
+            try:
+                _procs[task_key].terminate()
+            except Exception:
+                pass
+        _registry.atualizar_status(treino_id, "cancelled")
     arquivo = t.get("arquivo_modelo")
     if arquivo:
         keras_path = Path(arquivo)
@@ -1055,6 +1065,12 @@ def api_treino_deletar(treino_id: str):
     if not deleted:
         return jsonify({"error": "Falha ao remover"}), 500
     return jsonify({"ok": True})
+
+
+@app.route("/api/jogos-gerados")
+def api_jogos_gerados():
+    limit = request.args.get("limit", default=100, type=int)
+    return jsonify(_registry.listar_jogos(limit=max(1, min(limit, 500))))
 
 
 @app.route("/api/treinos/<treino_id>/gerar", methods=["POST"])
@@ -1072,6 +1088,7 @@ def api_treino_gerar(treino_id: str):
     body = request.get_json(force=True) or {}
     n_jogos = max(1, min(int(body.get("n_jogos", 1)), 20))
     n_numeros = max(11, min(int(body.get("n_numeros", 15)), 15))
+    concurso_alvo_raw = body.get("concurso_alvo")
 
     try:
         import sys as _sys
@@ -1100,9 +1117,12 @@ def api_treino_gerar(treino_id: str):
             top_idx = np.argsort(scores)[::-1][:n_numeros]
             jogos.append(sorted(int(i + 1) for i in top_idx))
 
-        next_concurso = draws[-1].concurso + 1
+        try:
+            next_concurso = int(concurso_alvo_raw) if concurso_alvo_raw and int(concurso_alvo_raw) >= 1 else draws[-1].concurso + 1
+        except (TypeError, ValueError):
+            next_concurso = draws[-1].concurso + 1
 
-        # Persist each game
+        # Persist each game to filesystem
         jogos_dir = SAIDA_DIR / "jogos"
         jogos_dir.mkdir(parents=True, exist_ok=True)
         for i, jogo in enumerate(jogos, 1):
@@ -1118,6 +1138,9 @@ def api_treino_gerar(treino_id: str):
                 }, ensure_ascii=False, indent=2),
                 encoding="utf-8",
             )
+
+        # Persist to registry for history tab
+        _registry.salvar_jogo(treino_id, t.get("nome", treino_id), next_concurso, jogos)
 
         return jsonify({
             "treino_id": treino_id,

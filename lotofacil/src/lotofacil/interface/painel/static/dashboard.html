@@ -1625,6 +1625,7 @@ const _predState = {
   modelos: [],
   gerarModeloId: null,
   pollingInterval: null,
+  lastConcurso: 0,
 };
 
 function _subTabLabel(t) {
@@ -1781,12 +1782,14 @@ async function iniciarTreino() {
 // ── Modelos ────────────────────────────────────────────────────
 async function loadModelosAndRender() {
   try {
-    const [treinosRes, qualRes] = await Promise.all([
+    const [treinosRes, qualRes, statusRes] = await Promise.all([
       fetch('/api/treinos').then(r => r.json()),
       fetch('/api/models/quality').then(r => r.json()).catch(() => ({ models: [] })),
+      fetch('/api/status').then(r => r.json()).catch(() => ({})),
     ]);
     _predState.modelos = Array.isArray(treinosRes) ? treinosRes : [];
     _predState.qualidade = qualRes.models || [];
+    _predState.lastConcurso = statusRes?.last_concurso?.concurso || 0;
     const t = _predState.activeSubTab;
     if (t === 'lista')    renderModLista();
     if (t === 'gerar')    renderPredGerar();
@@ -1936,8 +1939,8 @@ function renderPredGerar() {
   const completed = (_predState.modelos||[]).filter(m => m.status==='completed');
   const sel = _predState.gerarModeloId;
   panel.innerHTML = `
-    <h3 style="font-size:0.85rem;font-weight:600;margin-bottom:0.75rem">Gerar Próximo Concurso</h3>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.75rem;margin-bottom:1rem;align-items:end">
+    <h3 style="font-size:0.85rem;font-weight:600;margin-bottom:0.75rem">Gerar Jogo</h3>
+    <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:0.75rem;margin-bottom:1rem;align-items:end">
       <div class="pred-param">
         <label>Modelo treinado</label>
         <select id="gerarModeloSelect">
@@ -1951,6 +1954,12 @@ function renderPredGerar() {
         <select id="gerarNNumeros">
           ${[11,12,13,14,15].map(n=>`<option value="${n}"${n===15?' selected':''}>${n} números</option>`).join('')}
         </select>
+      </div>
+      <div class="pred-param">
+        <label>Concurso alvo</label>
+        <input type="number" id="gerarConcursoAlvo" min="1"
+          value="${(_predState.lastConcurso||0)+1}"
+          placeholder="próximo">
       </div>
     </div>
     <button class="action-btn" id="gerarBtn" onclick="gerarJogos()"
@@ -1966,11 +1975,12 @@ async function gerarJogos() {
   btn.disabled = true; btn.textContent = '⏳ Gerando...';
   const n_jogos   = parseInt(document.getElementById('gerarNJogos').value)   || 3;
   const n_numeros = parseInt(document.getElementById('gerarNNumeros').value)  || 15;
+  const concurso_alvo = parseInt(document.getElementById('gerarConcursoAlvo').value) || null;
   try {
     const r = await fetch(`/api/treinos/${modeloId}/gerar`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ n_jogos, n_numeros }),
+      body: JSON.stringify({ n_jogos, n_numeros, ...(concurso_alvo ? { concurso_alvo } : {}) }),
     });
     const data = await r.json();
     if (data.error) throw new Error(data.error);
