@@ -366,10 +366,6 @@
   .drift-alert { color: var(--red); font-weight: 600; }
   .health-meta { font-size: 0.72rem; color: var(--muted); margin-top: 0.35rem; }
 
-  /* ── Predição mode ── */
-  .content-split.pred-mode .numbers-section { flex: 1; border-bottom: none; max-height: none; }
-  .content-split.pred-mode .console-section { max-height: 220px; flex-shrink: 0; }
-
   /* Sub-nav inline na actionsBar */
   .pred-subnav-inline { display: flex; gap: 0.25rem; }
   .pred-tab-btn {
@@ -522,16 +518,47 @@
   }
 
   /* ── Modelos Tab ───────────────────────────────────────── */
-  .modelos-tab { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
+  .modelos-page { display:flex; flex-direction:column; height:100%; overflow:hidden; }
+  .modelos-page-header {
+    display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;
+    padding:0.75rem 1.25rem; border-bottom:1px solid var(--border);
+    flex-shrink:0; background:var(--surface);
+  }
+  .modelos-page-title { font-size:0.9rem; font-weight:700; letter-spacing:-0.01em; flex-shrink:0; }
+  .modelos-page-body { flex:1; overflow-y:auto; }
+  .modelos-page-panel { display:none; padding:1.25rem 1.5rem; }
+  .modelos-page-panel.active { display:block; }
 
-  .modelos-grid-section { flex: 1; overflow-y: auto; padding: 1.25rem 1.5rem 0.75rem; }
-  .modelos-grid-title {
-    font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em;
-    color: var(--dim); font-weight: 600; margin-bottom: 0.85rem;
+  .modelos-qualidade-section { margin-bottom:2rem; }
+  .modelos-section-title {
+    font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em;
+    color:var(--dim); font-weight:600; margin-bottom:0.85rem;
   }
-  .modelos-grid {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.75rem;
+  .modelos-qualidade-grid {
+    display:grid; grid-template-columns:repeat(auto-fill, minmax(180px, 1fr)); gap:0.75rem;
   }
+  .modelos-treinar-form { max-width:680px; }
+  .modelos-nome-row { margin-bottom:0.75rem; }
+  .modelos-nome-row label {
+    display:block; font-size:0.7rem; color:var(--muted);
+    text-transform:uppercase; letter-spacing:0.04em; margin-bottom:0.3rem;
+  }
+  .modelos-nome-row input {
+    width:100%; background:var(--surface-2); border:1px solid var(--border);
+    border-radius:var(--radius); padding:0.4rem 0.65rem;
+    color:var(--text); font-size:0.8rem;
+  }
+  .modelos-nome-row input:focus { outline:none; border-color:var(--accent); }
+  .modelos-treinar-actions { display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap; }
+  .modelos-treinar-btn {
+    padding:0.5rem 1.4rem; border-radius:var(--radius);
+    border:1px solid var(--accent); background:var(--accent-dim);
+    color:var(--accent); font-size:0.82rem; font-weight:700; cursor:pointer;
+    transition:all var(--transition);
+  }
+  .modelos-treinar-btn:hover { background:rgba(56,189,248,0.2); }
+  .modelos-treinar-btn:disabled { opacity:0.35; cursor:not-allowed; }
+  .modelos-treinar-status { font-size:0.72rem; color:var(--muted); }
 
   .modelo-card {
     background: var(--surface); border: 1px solid var(--border);
@@ -575,49 +602,6 @@
   }
 
   .modelos-untrained-msg { font-size: 0.75rem; color: var(--dim); margin-top: 0.25rem; }
-
-  /* ── Training Panel ─────────────────────────────────────── */
-  .treino-panel {
-    flex-shrink: 0; border-top: 1px solid var(--border);
-    background: var(--surface); padding: 1rem 1.5rem;
-  }
-  .treino-panel-title {
-    font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em;
-    color: var(--dim); font-weight: 600; margin-bottom: 0.75rem;
-  }
-  .treino-panel-row { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: flex-end; }
-
-  .treino-config-group { display: flex; flex-direction: column; gap: 0.3rem; }
-  .treino-config-label { font-size: 0.68rem; color: var(--muted); font-weight: 500; }
-  .treino-config-btns { display: flex; gap: 0.35rem; flex-wrap: wrap; }
-  .treino-config-btn {
-    padding: 0.3rem 0.65rem; border-radius: var(--radius); border: 1px solid var(--border);
-    background: var(--surface-2); color: var(--muted); font-size: 0.75rem; cursor: pointer;
-    transition: all var(--transition); font-weight: 500;
-  }
-  .treino-config-btn.active { border-color: var(--accent); background: var(--accent-dim); color: var(--accent); font-weight: 600; }
-  .treino-config-btn:hover:not(.active) { border-color: var(--border-light); color: var(--text); }
-
-  .treino-field { display: flex; flex-direction: column; gap: 0.3rem; }
-  .treino-field label { font-size: 0.68rem; color: var(--muted); font-weight: 500; }
-  .treino-field input[type="number"] {
-    width: 72px; padding: 0.3rem 0.5rem; background: var(--surface-2);
-    border: 1px solid var(--border); border-radius: var(--radius);
-    color: var(--text); font-size: 0.78rem;
-  }
-  .treino-field input:focus { outline: none; border-color: var(--accent); }
-
-  .treino-start-btn {
-    padding: 0.4rem 1.1rem; border-radius: var(--radius);
-    border: 1px solid var(--green); background: rgba(74,222,128,0.12);
-    color: var(--green); font-size: 0.8rem; font-weight: 700; cursor: pointer;
-    transition: all var(--transition); align-self: flex-end;
-  }
-  .treino-start-btn:hover { background: rgba(74,222,128,0.2); }
-  .treino-start-btn:disabled { opacity: 0.35; cursor: not-allowed; }
-
-  .treino-last-info { font-size: 0.7rem; color: var(--dim); margin-top: 0.5rem; }
-  .treino-error-msg { font-size: 0.72rem; color: var(--red); margin-top: 0.4rem; display: none; }
 
   /* ── Treino Modal ───────────────────────────────────────── */
   .treino-modal-overlay {
@@ -725,43 +709,8 @@
         </div>
       </div>
 
-      <!-- Modelos Tab -->
-      <div id="tab-modelos" style="display:none;flex:1;overflow:hidden">
-        <div class="modelos-tab">
-          <div class="modelos-grid-section">
-            <div class="modelos-grid-title">Modelos Treinados</div>
-            <div class="modelos-grid" id="modelosGrid">
-              <div class="empty-state"><span class="big-icon">🧠</span><p>Carregando modelos…</p></div>
-            </div>
-          </div>
-
-          <div class="treino-panel">
-            <div class="treino-panel-title">Iniciar Treino</div>
-            <div class="treino-panel-row">
-              <div class="treino-config-group">
-                <div class="treino-config-label">Configuração</div>
-                <div class="treino-config-btns" id="treinoConfigBtns">
-                  <button class="treino-config-btn active" data-config="base" onclick="selectTreinoConfig(this)">base</button>
-                  <button class="treino-config-btn" data-config="lua" onclick="selectTreinoConfig(this)">+ lua</button>
-                  <button class="treino-config-btn" data-config="clima" onclick="selectTreinoConfig(this)">+ clima</button>
-                  <button class="treino-config-btn" data-config="lua_clima" onclick="selectTreinoConfig(this)">+ lua+clima</button>
-                </div>
-              </div>
-              <div class="treino-field">
-                <label for="treinoEpochs">Epochs</label>
-                <input id="treinoEpochs" type="number" value="100" min="10" max="500">
-              </div>
-              <div class="treino-field">
-                <label for="treinoSeed">Seed</label>
-                <input id="treinoSeed" type="number" value="42" min="0">
-              </div>
-              <button class="treino-start-btn" id="treinoStartBtn" onclick="startTreino()">▶ Iniciar Treino</button>
-            </div>
-            <div class="treino-last-info" id="treinoLastInfo">—</div>
-            <div class="treino-error-msg" id="treinoErrorMsg"></div>
-          </div>
-        </div>
-      </div>
+      <!-- Modelos Tab — populado por renderModelosPage() -->
+      <div id="tab-modelos" style="display:none;flex:1;overflow:hidden;flex-direction:column"></div>
     </div>
   </div>
 </div>
@@ -927,7 +876,6 @@ function migrateLegacyConsoleSchema() {
 const CATEGORIES = [
   { id: 'coleta',    icon: '📥', label: 'Coleta' },
   { id: 'dados',     icon: '🗃️', label: 'Dados' },
-  { id: 'predicao',  icon: '🤖', label: 'Predição' },
   { id: 'modelos',   icon: '🧠', label: 'Modelos' },
   { id: 'validacao', icon: '✅', label: 'Validação' },
 ];
@@ -968,7 +916,6 @@ function switchTab(id) {
   });
   const cs = document.querySelector('.content-split');
   cs.classList.toggle('dados-mode', id === 'dados');
-  cs.classList.toggle('pred-mode', id === 'predicao');
 
   const numSec = document.getElementById('numbersSection');
   const bar = document.getElementById('actionsBar');
@@ -991,15 +938,10 @@ function switchTab(id) {
   } else if (id === 'coleta') {
     numSec.style.display = 'none';
     renderActions();
-  } else if (id === 'predicao') {
-    numSec.style.display = '';
-    renderPredicao();
   } else if (id === 'modelos') {
     numSec.style.display = 'none';
-    bar.innerHTML = `
-      <div class="section-title">🧠 Modelos Treinados</div>
-      <button class="action-btn" onclick="loadModelos()"><span class="icon">↻</span> Atualizar</button>`;
-    loadModelos();
+    bar.innerHTML = '';
+    renderModelosPage();
   } else {
     numSec.style.display = '';
     renderActions();
@@ -1030,26 +972,6 @@ function renderActions() {
     return;
   }
   const data = COMMANDS_DATA[cat];
-  if (cat === 'predicao') {
-    const treinar = data.items.filter(i => i.group === 'treinar');
-    const prever = data.items.filter(i => i.group === 'prever');
-    const btnHtml = (item) => {
-      const isRunning = STATE.runningTasks.has(item.id);
-      return `<button class="action-btn${isRunning ? ' running' : ''}" id="btn_${item.id}"
-        onclick="runCommand('${item.id}')" ${isRunning ? 'disabled' : ''}
-        data-label="${item.label}">
-        <span class="icon">${item.icon}</span> ${item.label}<span class="timer"></span>
-      </button>`;
-    };
-    bar.innerHTML =
-      `<div class="section-title" style="width:100%">── TREINAR ──</div>` +
-      treinar.map(btnHtml).join('') +
-      `<div class="separator"></div>` +
-      `<div class="section-title" style="width:100%;margin-top:0">── PREVER ──</div>` +
-      prever.map(btnHtml).join('');
-    loadPredictions();
-    return;
-  }
   let html = `<div class="section-title">${data.label}</div>`;
   for (const item of data.items) {
     const isRunning = STATE.runningTasks.has(item.id);
@@ -1122,7 +1044,7 @@ function pollJob(taskId, actionId, label) {
           addConsoleLine(`❌ ${label} falhou — veja o log acima`, 'error');
           showToast(`${label} falhou`, 'error');
         }
-        if (STATE.activeTab === 'predicao') { loadPredictions(); }
+        if (STATE.activeTab === 'modelos') { loadModelosAndRender(); }
         loadStatus();
       }
     } catch (e) {
@@ -1667,14 +1589,14 @@ function showToast(msg, type = 'info') {
 
 
 // ═══════════════════════════════════════════════════════════════
-// PREDIÇÃO — 4 sub-abas (Treinar · Modelos · Gerar · Comparar)
+// MODELOS — página unificada (Treinar · Lista · Gerar · Comparar)
 // ═══════════════════════════════════════════════════════════════
 
 const PRED_CONFIGS = [
-  { id: 'base',      label: 'Base',       tags: 'histórico + temporal + priors', icon: '📊' },
-  { id: 'lua',       label: '+ Lua',      tags: 'base + fase lunar',              icon: '🌙' },
-  { id: 'clima',     label: '+ Clima',    tags: 'base + clima SP',                icon: '🌤️' },
-  { id: 'lua_clima', label: '+ Lua+Clima',tags: 'base + lua + clima',             icon: '🔭' },
+  { id: 'base',      label: 'Base',        tags: 'histórico + temporal + priors', icon: '📊' },
+  { id: 'lua',       label: '+ Lua',       tags: 'base + fase lunar',             icon: '🌙' },
+  { id: 'clima',     label: '+ Clima',     tags: 'base + clima SP',               icon: '🌤️' },
+  { id: 'lua_clima', label: '+ Lua+Clima', tags: 'base + lua + clima',            icon: '🔭' },
 ];
 
 const _predState = {
@@ -1685,91 +1607,109 @@ const _predState = {
   pollingInterval: null,
 };
 
-function renderPredicao() {
-  const bar = document.getElementById('actionsBar');
-  const section = document.getElementById('numbersSection');
+function _subTabLabel(t) {
+  return { treinar: '▶ Treinar', lista: '📋 Lista', gerar: '⚡ Gerar', comparar: '⚖️ Comparar' }[t] || t;
+}
 
-  bar.innerHTML = `
-    <div class="section-title" style="margin-right:0.25rem">🤖 Predição</div>
-    <div class="pred-subnav-inline" id="predSubnav">
-      ${['treinar','modelos','gerar','comparar'].map(t =>
-        `<button class="pred-tab-btn${_predState.activeSubTab === t ? ' active' : ''}"
-           onclick="showPredSubTab('${t}')">${t.charAt(0).toUpperCase()+t.slice(1)}</button>`
-      ).join('')}
+function renderModelosPage() {
+  const container = document.getElementById('tab-modelos');
+  container.innerHTML = `
+    <div class="modelos-page">
+      <div class="modelos-page-header">
+        <span class="modelos-page-title">🧠 Modelos</span>
+        <div class="pred-subnav-inline" id="modelosSubnav">
+          ${['treinar','lista','gerar','comparar'].map(t =>
+            `<button class="pred-tab-btn${_predState.activeSubTab===t?' active':''}"
+               onclick="showModelosSubTab('${t}')">${_subTabLabel(t)}</button>`
+          ).join('')}
+        </div>
+        <button class="action-btn" onclick="loadModelosAndRender()"
+          style="margin-left:auto;font-size:0.72rem;padding:0.25rem 0.6rem">↻ Atualizar</button>
+      </div>
+      <div class="modelos-page-body">
+        <div id="mod-treinar"  class="modelos-page-panel${_predState.activeSubTab==='treinar' ?' active':''}"></div>
+        <div id="mod-lista"    class="modelos-page-panel${_predState.activeSubTab==='lista'   ?' active':''}"></div>
+        <div id="mod-gerar"    class="modelos-page-panel${_predState.activeSubTab==='gerar'   ?' active':''}"></div>
+        <div id="mod-comparar" class="modelos-page-panel${_predState.activeSubTab==='comparar'?' active':''}"></div>
+      </div>
     </div>`;
-
-  section.innerHTML = `
-    <div id="pred-treinar" class="pred-panel${_predState.activeSubTab==='treinar'?' active':''}"></div>
-    <div id="pred-modelos" class="pred-panel${_predState.activeSubTab==='modelos'?' active':''}"></div>
-    <div id="pred-gerar"   class="pred-panel${_predState.activeSubTab==='gerar'  ?' active':''}"></div>
-    <div id="pred-comparar"class="pred-panel${_predState.activeSubTab==='comparar'?' active':''}"></div>`;
-
-  renderPredTreinar();
+  _renderActiveModSubTab();
   loadModelosAndRender();
 }
 
-function showPredSubTab(name) {
+function showModelosSubTab(name) {
   _predState.activeSubTab = name;
-  document.querySelectorAll('.pred-tab-btn').forEach(btn => {
-    const t = btn.textContent.toLowerCase();
-    btn.classList.toggle('active', t === name);
+  document.querySelectorAll('#modelosSubnav .pred-tab-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.getAttribute('onclick').includes(`'${name}'`));
   });
-  document.querySelectorAll('.pred-panel').forEach(p => {
-    p.classList.toggle('active', p.id === `pred-${name}`);
+  document.querySelectorAll('.modelos-page-body .modelos-page-panel').forEach(p => {
+    p.classList.toggle('active', p.id === `mod-${name}`);
   });
-  if (name === 'gerar')    renderPredGerar();
-  if (name === 'comparar') renderPredComparar();
-  if (name === 'modelos')  renderPredModelos();
+  _renderActiveModSubTab();
+}
+
+function _renderActiveModSubTab() {
+  const t = _predState.activeSubTab;
+  if (t === 'treinar')  renderModTreinar();
+  if (t === 'lista')    renderModLista();
+  if (t === 'gerar')    renderPredGerar();
+  if (t === 'comparar') renderPredComparar();
 }
 
 // ── Treinar ────────────────────────────────────────────────────
-function renderPredTreinar() {
-  const panel = document.getElementById('pred-treinar');
+function renderModTreinar() {
+  const panel = document.getElementById('mod-treinar');
   if (!panel) return;
   panel.innerHTML = `
-    <h3 style="font-size:0.85rem;font-weight:600;margin-bottom:0.75rem">Configurar Treinamento</h3>
-    <div class="pred-config-cards" id="predConfigCards">
-      ${PRED_CONFIGS.map(c => `
-        <div class="pred-config-card${c.id===_predState.selectedConfig?' selected':''}"
-             onclick="selectPredConfig('${c.id}')">
-          <div class="card-title">${c.icon} ${c.label}</div>
-          <div class="card-tags">${c.tags}</div>
-        </div>`).join('')}
-    </div>
-    <div style="margin-bottom:0.75rem">
-      <label style="font-size:0.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.04em;display:block;margin-bottom:0.3rem">Nome do treino</label>
-      <input type="text" id="predNome" placeholder="ex: treino_lua_v1"
-        style="width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius);padding:0.4rem 0.65rem;color:var(--text);font-size:0.8rem">
-    </div>
-    <div class="pred-params">
-      <div class="pred-param"><label>Épocas</label><input type="number" id="predEpocas" value="40" min="1" max="500"></div>
-      <div class="pred-param"><label>Janela histórico</label><input type="number" id="predJanela" value="50" min="10" max="200"></div>
-      <div class="pred-param"><label>Seed</label><input type="number" id="predSeed" value="42" min="0"></div>
-      <div class="pred-param"><label>Concursos (0 = todos)</label><input type="number" id="predConcursos" value="0" min="0"></div>
-    </div>
-    <button class="action-btn" id="predTrainBtn" onclick="iniciarTreino()"
-      style="background:var(--accent-dim);border-color:var(--accent);color:var(--accent);font-weight:600">▶ Treinar</button>
-    <div id="predTrainStatus" style="margin-top:0.5rem;font-size:0.72rem;color:var(--muted)"></div>`;
+    <div class="modelos-treinar-form">
+      <h3 style="font-size:0.88rem;font-weight:700;margin-bottom:1rem;color:var(--text)">Configurar Treinamento</h3>
+      <div class="pred-config-cards" id="predConfigCards">
+        ${PRED_CONFIGS.map(c => `
+          <div class="pred-config-card${c.id===_predState.selectedConfig?' selected':''}"
+               onclick="selectPredConfig('${c.id}')">
+            <div class="card-title">${c.icon} ${c.label}</div>
+            <div class="card-tags">${c.tags}</div>
+          </div>`).join('')}
+      </div>
+      <div class="modelos-nome-row">
+        <label>Nome do treino</label>
+        <input type="text" id="predNome" placeholder="ex: treino_lua_v1">
+      </div>
+      <div class="pred-params" style="margin-bottom:1rem">
+        <div class="pred-param"><label>Épocas</label><input type="number" id="predEpocas" value="40" min="1" max="500"></div>
+        <div class="pred-param"><label>Janela histórico</label><input type="number" id="predJanela" value="50" min="10" max="200"></div>
+        <div class="pred-param"><label>Seed</label><input type="number" id="predSeed" value="42" min="0"></div>
+        <div class="pred-param"><label>Concursos (0 = todos)</label><input type="number" id="predConcursos" value="0" min="0"></div>
+      </div>
+      <div class="modelos-treinar-actions">
+        <button class="modelos-treinar-btn" id="modTreinoBtn" onclick="iniciarTreino()">▶ Iniciar Treino</button>
+        <span class="modelos-treinar-status" id="modTreinoStatus"></span>
+      </div>
+      <div class="pred-warning" style="margin-top:1rem">⚠️ Resultados experimentais — os modelos são treinados com dados históricos e não garantem acertos futuros.</div>
+    </div>`;
 }
 
 function selectPredConfig(id) {
   _predState.selectedConfig = id;
-  document.querySelectorAll('.pred-config-card').forEach(c => {
+  document.querySelectorAll('#predConfigCards .pred-config-card').forEach(c => {
     c.classList.toggle('selected', c.getAttribute('onclick').includes(`'${id}'`));
   });
 }
 
 async function iniciarTreino() {
-  const nome = (document.getElementById('predNome').value || '').trim();
+  const nome = (document.getElementById('predNome')?.value || '').trim();
   if (!nome) { alert('Informe um nome para o treino.'); return; }
-  const btn = document.getElementById('predTrainBtn');
-  btn.disabled = true; btn.textContent = '⏳ Iniciando...';
+  const btn = document.getElementById('modTreinoBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Iniciando...'; }
+  const statusEl = document.getElementById('modTreinoStatus');
+  if (statusEl) statusEl.textContent = '';
 
+  const epochs = parseInt(document.getElementById('predEpocas')?.value) || 40;
   const parametros = {
-    epochs: parseInt(document.getElementById('predEpocas').value) || 40,
-    window_size: parseInt(document.getElementById('predJanela').value) || 50,
-    seed: parseInt(document.getElementById('predSeed').value) || 42,
-    n_draws: parseInt(document.getElementById('predConcursos').value) || 0,
+    epochs,
+    window_size: parseInt(document.getElementById('predJanela')?.value) || 50,
+    seed: parseInt(document.getElementById('predSeed')?.value) || 42,
+    n_draws: parseInt(document.getElementById('predConcursos')?.value) || 0,
   };
   if (!parametros.n_draws) delete parametros.n_draws;
 
@@ -1781,25 +1721,27 @@ async function iniciarTreino() {
     });
     const data = await r.json();
     if (data.error) throw new Error(data.error);
-    document.getElementById('predTrainStatus').innerHTML =
-      `✅ Treino iniciado — <span style="color:var(--accent);font-family:monospace">${esc(data.treino_id)}</span>. Acompanhe o log no console abaixo.`;
-    pollJob(data.task_id, `treino_${data.treino_id}`, nome);
-    setTimeout(() => { loadModelosAndRender(); startModelosPolling(); }, 2000);
+    openTreinoModal(data.task_id, _predState.selectedConfig, epochs);
+    startModelosPolling();
   } catch (e) {
-    document.getElementById('predTrainStatus').textContent = `❌ Erro: ${e.message}`;
-  } finally {
-    btn.disabled = false; btn.textContent = '▶ Treinar';
+    if (statusEl) statusEl.textContent = `❌ ${e.message}`;
+    if (btn) { btn.disabled = false; btn.textContent = '▶ Iniciar Treino'; }
   }
 }
 
 // ── Modelos ────────────────────────────────────────────────────
 async function loadModelosAndRender() {
   try {
-    const r = await fetch('/api/treinos');
-    _predState.modelos = await r.json();
-    if (_predState.activeSubTab === 'modelos') renderPredModelos();
-    if (_predState.activeSubTab === 'gerar')   renderPredGerar();
-    if (_predState.activeSubTab === 'comparar') renderPredComparar();
+    const [treinosRes, qualRes] = await Promise.all([
+      fetch('/api/treinos').then(r => r.json()),
+      fetch('/api/models/quality').then(r => r.json()).catch(() => ({ models: [] })),
+    ]);
+    _predState.modelos = Array.isArray(treinosRes) ? treinosRes : [];
+    _predState.qualidade = qualRes.models || [];
+    const t = _predState.activeSubTab;
+    if (t === 'lista')    renderModLista();
+    if (t === 'gerar')    renderPredGerar();
+    if (t === 'comparar') renderPredComparar();
     const hasRunning = _predState.modelos.some(m => m.status === 'running');
     if (!hasRunning && _predState.pollingInterval) {
       clearInterval(_predState.pollingInterval); _predState.pollingInterval = null;
@@ -1810,55 +1752,110 @@ async function loadModelosAndRender() {
 function startModelosPolling() {
   if (_predState.pollingInterval) return;
   _predState.pollingInterval = setInterval(() => {
-    if (STATE.activeTab === 'predicao') loadModelosAndRender();
+    if (STATE.activeTab === 'modelos') loadModelosAndRender();
     else { clearInterval(_predState.pollingInterval); _predState.pollingInterval = null; }
   }, 5000);
 }
 
-function renderPredModelos() {
-  const panel = document.getElementById('pred-modelos');
+function renderModLista() {
+  const panel = document.getElementById('mod-lista');
   if (!panel) return;
-  const modelos = _predState.modelos;
-  if (!modelos || modelos.length === 0) {
-    panel.innerHTML = `<div style="padding:2rem 0;text-align:center;color:var(--muted)">
-      Nenhum treino encontrado.<br>Vá para <b>Treinar</b> para iniciar.</div>`;
-    return;
+  const modelos = _predState.modelos || [];
+  const qualidade = _predState.qualidade || [];
+
+  let html = '';
+
+  // ── Qualidade (backtest) ──────────────────────────────────
+  html += `<div class="modelos-qualidade-section">
+    <div class="modelos-section-title">Qualidade — Backtest</div>`;
+  if (qualidade.length === 0) {
+    html += `<div style="color:var(--dim);font-size:0.78rem">Sem dados de qualidade. Execute o backtest primeiro.</div>`;
+  } else {
+    const sorted = [...qualidade].sort((a, b) => (b.mean_hits ?? 0) - (a.mean_hits ?? 0));
+    html += `<div class="modelos-qualidade-grid">`;
+    sorted.forEach((m, i) => {
+      const rank = i + 1;
+      const rankClass = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : 'rank-other';
+      const hits = m.mean_hits != null ? m.mean_hits.toFixed(2) : '—';
+      const pval = m.p_value  != null ? m.p_value.toFixed(4)   : '—';
+      const std  = m.stability?.std_hits != null ? `±${m.stability.std_hits.toFixed(2)}` : '';
+      const configKey   = m.model?.split('_').slice(-1)[0] || 'base';
+      const configLabel = MODELO_CONFIG_LABELS[configKey] ?? m.model ?? '—';
+      html += `<div class="modelo-card ${rankClass}">
+        <span class="modelo-card-rank">#${rank}</span>
+        <div class="modelo-card-name">${m.model ?? '—'}</div>
+        <div class="modelo-hits">${hits}</div>
+        <div class="modelo-hits-label">hits médios</div>
+        <div class="modelo-meta">
+          <span class="modelo-meta-item">p=<strong>${pval}</strong></span>
+          ${std ? `<span class="modelo-meta-item"><strong>${std}</strong></span>` : ''}
+        </div>
+        <span class="modelo-config-badge">${configLabel}</span>
+      </div>`;
+    });
+    html += `</div>`;
   }
-  let html = `
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem">
-      <h3 style="font-size:0.85rem;font-weight:600">Versões Treinadas</h3>
-      <button class="action-btn" onclick="loadModelosAndRender()" style="font-size:0.72rem;padding:0.25rem 0.6rem">↻ Atualizar</button>
-    </div>
-    <table class="pred-table"><thead><tr>
+  html += `</div>`;
+
+  // ── Treinos registrados ───────────────────────────────────
+  html += `<div>
+    <div class="modelos-section-title">Treinos Registrados</div>`;
+  if (modelos.length === 0) {
+    html += `<div style="padding:2rem 0;text-align:center;color:var(--muted)">
+      Nenhum treino encontrado. Vá para <b>▶ Treinar</b> para iniciar.</div>`;
+  } else {
+    html += `<table class="pred-table"><thead><tr>
       <th>Nome</th><th>Tipo</th><th>Val Loss</th><th>Épocas</th><th>Data</th><th>Status</th><th></th>
     </tr></thead><tbody>`;
-  for (const m of modelos) {
-    const met = m.metricas || {};
-    const dt = m.criado_em ? new Date(m.criado_em).toLocaleDateString('pt-BR') : '—';
-    const loss = met.val_loss_final != null ? met.val_loss_final.toFixed(5) : '—';
-    const ep   = met.epochs_trained   != null ? met.epochs_trained   : '—';
-    html += `<tr>
-      <td style="font-weight:600">${esc(m.nome)}</td>
-      <td style="color:var(--muted)">${esc(m.tipo_config||'')}</td>
-      <td style="font-family:monospace">${loss}</td><td>${ep}</td>
-      <td style="color:var(--dim)">${dt}</td>
-      <td><span class="pred-status ${m.status||'running'}">${m.status||'?'}</span></td>
-      <td>${m.status==='completed'?`<button class="action-btn" onclick="usarModeloParaGerar('${m.id}')"
-        style="font-size:0.7rem;padding:0.2rem 0.5rem">⚡ Gerar</button>`:''}</td>
-    </tr>`;
+    for (const m of modelos) {
+      const met = m.metricas || {};
+      const dt   = m.criado_em ? new Date(m.criado_em).toLocaleDateString('pt-BR') : '—';
+      const loss = met.val_loss_final != null ? met.val_loss_final.toFixed(5) : '—';
+      const ep   = met.epochs_trained != null ? met.epochs_trained : '—';
+      const canDelete = m.status !== 'running';
+      html += `<tr>
+        <td style="font-weight:600">${esc(m.nome)}</td>
+        <td style="color:var(--muted)">${esc(m.tipo_config||'')}</td>
+        <td style="font-family:monospace">${loss}</td>
+        <td>${ep}</td>
+        <td style="color:var(--dim)">${dt}</td>
+        <td><span class="pred-status ${m.status||'running'}">${m.status||'?'}</span></td>
+        <td style="display:flex;gap:0.3rem;align-items:center">
+          ${m.status==='completed'?`<button class="action-btn" onclick="usarModeloParaGerar('${m.id}')"
+            style="font-size:0.7rem;padding:0.2rem 0.5rem">⚡ Gerar</button>`:''}
+          ${canDelete?`<button class="action-btn" onclick="deleteModelo('${m.id}','${esc(m.nome)}')"
+            style="font-size:0.7rem;padding:0.2rem 0.5rem;border-color:var(--red);color:var(--red)">🗑 Apagar</button>`:''}
+        </td>
+      </tr>`;
+    }
+    html += `</tbody></table>`;
   }
-  html += '</tbody></table>';
+  html += `</div>`;
+
   panel.innerHTML = html;
 }
 
 function usarModeloParaGerar(id) {
   _predState.gerarModeloId = id;
-  showPredSubTab('gerar');
+  showModelosSubTab('gerar');
+}
+
+async function deleteModelo(id, nome) {
+  if (!confirm(`Apagar o modelo "${nome}"?\nEsta ação remove o registro e o arquivo .keras do disco.`)) return;
+  try {
+    const r = await fetch(`/api/treinos/${id}`, { method: 'DELETE' });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'Erro ao apagar');
+    showToast(`Modelo "${nome}" apagado.`, 'success');
+    await loadModelosAndRender();
+  } catch (e) {
+    showToast(`Erro: ${e.message}`, 'error');
+  }
 }
 
 // ── Gerar ──────────────────────────────────────────────────────
 function renderPredGerar() {
-  const panel = document.getElementById('pred-gerar');
+  const panel = document.getElementById('mod-gerar');
   if (!panel) return;
   const completed = (_predState.modelos||[]).filter(m => m.status==='completed');
   const sel = _predState.gerarModeloId;
@@ -1929,7 +1926,7 @@ function renderJogos(data) {
 
 // ── Comparar ───────────────────────────────────────────────────
 function renderPredComparar() {
-  const panel = document.getElementById('pred-comparar');
+  const panel = document.getElementById('mod-comparar');
   if (!panel) return;
   const completed = (_predState.modelos||[]).filter(m => m.status==='completed');
   panel.innerHTML = `
@@ -2006,7 +2003,7 @@ function renderComparacao(data) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// MODELOS TAB
+// MODELOS — helpers
 // ═══════════════════════════════════════════════════════════════
 
 const MODELO_CONFIG_LABELS = {
@@ -2016,116 +2013,15 @@ const MODELO_CONFIG_LABELS = {
   lua_clima: '+lua+clima',
 };
 
-async function loadModelos() {
-  const grid = document.getElementById('modelosGrid');
-  grid.innerHTML = '<div class="empty-state"><span class="big-icon" style="font-size:1.5rem;opacity:0.5">⏳</span><p>Carregando…</p></div>';
-
-  try {
-    const [qualRes, lastRes] = await Promise.all([
-      fetch('/api/models/quality').then(r => r.json()),
-      fetch('/api/treinos').then(r => r.json()),
-    ]);
-    renderModelCards(qualRes.models || []);
-    updateTreinoLastInfo(Array.isArray(lastRes) ? lastRes : []);
-  } catch (e) {
-    logClient('error', 'Falha ao carregar modelos', { error: e.message });
-    grid.innerHTML = '<div class="empty-state"><span class="big-icon">⚠️</span><p>Erro ao carregar modelos</p></div>';
-  }
-}
-
-function renderModelCards(models) {
-  const grid = document.getElementById('modelosGrid');
-
-  if (!models || models.length === 0) {
-    grid.innerHTML = '<div class="empty-state"><span class="big-icon">🧠</span><p>Nenhum modelo treinado encontrado</p></div>';
-    return;
-  }
-
-  const sorted = [...models].sort((a, b) => (b.mean_hits ?? 0) - (a.mean_hits ?? 0));
-
-  grid.innerHTML = sorted.map((m, i) => {
-    const rank = i + 1;
-    const rankClass = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : 'rank-other';
-    const rankLabel = `#${rank}`;
-    const hits = m.mean_hits != null ? m.mean_hits.toFixed(2) : '—';
-    const pval = m.p_value != null ? m.p_value.toFixed(4) : '—';
-    const std = m.stability?.std_hits != null ? `±${m.stability.std_hits.toFixed(2)}` : '';
-    const configKey = m.model?.split('_').slice(-1)[0] || 'base';
-    const configLabel = MODELO_CONFIG_LABELS[configKey] ?? m.model ?? '—';
-
-    return `
-      <div class="modelo-card ${rankClass}">
-        <span class="modelo-card-rank">${rankLabel}</span>
-        <div class="modelo-card-name">${m.model ?? '—'}</div>
-        <div class="modelo-hits">${hits}</div>
-        <div class="modelo-hits-label">hits médios</div>
-        <div class="modelo-meta">
-          <span class="modelo-meta-item">p=<strong>${pval}</strong></span>
-          ${std ? `<span class="modelo-meta-item"><strong>${std}</strong></span>` : ''}
-        </div>
-        <span class="modelo-config-badge">${configLabel}</span>
-      </div>`;
-  }).join('');
-}
-
-function updateTreinoLastInfo(treinos) {
-  const el = document.getElementById('treinoLastInfo');
-  if (!el) return;
-  const done = treinos.find(t => t.status === 'completed');
-  if (!done) { el.textContent = 'Nenhum treino concluído ainda.'; return; }
-  const date = done.concluido_em ? new Date(done.concluido_em).toLocaleDateString('pt-BR') : '?';
-  el.textContent = `Último treino: ${done.nome} · ${done.tipo_config} · ${date}`;
-}
-
-function selectTreinoConfig(btn) {
-  document.querySelectorAll('#treinoConfigBtns .treino-config-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-}
-
-async function startTreino() {
-  const configBtn = document.querySelector('#treinoConfigBtns .treino-config-btn.active');
-  const tipo_config = configBtn ? configBtn.dataset.config : 'base';
-  const epochs = parseInt(document.getElementById('treinoEpochs').value) || 100;
-  const seed = parseInt(document.getElementById('treinoSeed').value) || 42;
-
-  const errEl = document.getElementById('treinoErrorMsg');
-  errEl.style.display = 'none';
-
-  const startBtn = document.getElementById('treinoStartBtn');
-  startBtn.disabled = true;
-
-  try {
-    const res = await fetch('/api/treinos/iniciar', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        nome: `treino_${tipo_config}`,
-        tipo_config,
-        parametros: { epochs, seed },
-      }),
-    });
-    const data = await res.json();
-    if (!res.ok || !data.task_id) {
-      throw new Error(data.error || 'Falha ao iniciar treino');
-    }
-    openTreinoModal(data.task_id, tipo_config);
-  } catch (e) {
-    logClient('error', 'Erro ao iniciar treino', { error: e.message });
-    errEl.textContent = `Erro: ${e.message}`;
-    errEl.style.display = '';
-    startBtn.disabled = false;
-  }
-}
-
 let _treinoPoller = null;
 let _treinoTaskId = null;
 let _treinoPollOffset = 0;
 let _treinoTotalEpochs = 100;
 
-function openTreinoModal(taskId, configLabel) {
+function openTreinoModal(taskId, configLabel, epochsHint) {
   _treinoTaskId = taskId;
   _treinoPollOffset = 0;
-  _treinoTotalEpochs = parseInt(document.getElementById('treinoEpochs').value) || 100;
+  _treinoTotalEpochs = epochsHint || parseInt(document.getElementById('predEpocas')?.value) || 100;
 
   document.getElementById('treinoModalTitle').textContent = `Treinando (${configLabel})…`;
   document.getElementById('treinoModalStatus').textContent = '';
@@ -2202,7 +2098,8 @@ function _finishTreinoModal(success) {
     status.textContent = 'Recarregando modelos…';
     setTimeout(() => {
       closeTreinoModal();
-      loadModelos();
+      loadModelosAndRender();
+      showModelosSubTab('lista');
     }, 1800);
   } else {
     title.textContent = '❌ Treino falhou';
@@ -2226,8 +2123,10 @@ async function cancelTreino() {
 
 function closeTreinoModal() {
   document.getElementById('treinoModalOverlay').classList.remove('visible');
-  document.getElementById('treinoStartBtn').disabled = false;
+  const btn = document.getElementById('modTreinoBtn');
+  if (btn) { btn.disabled = false; btn.textContent = '▶ Iniciar Treino'; }
   document.getElementById('treinoCancelBtn').onclick = cancelTreino;
+  document.getElementById('treinoCancelBtn').textContent = '✕ Cancelar';
   _treinoTaskId = null;
   _treinoPollOffset = 0;
 }

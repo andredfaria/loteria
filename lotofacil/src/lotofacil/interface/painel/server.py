@@ -1030,6 +1030,28 @@ def api_treino_detalhe(treino_id: str):
     return jsonify(t)
 
 
+@app.route("/api/treinos/<treino_id>", methods=["DELETE"])
+def api_treino_deletar(treino_id: str):
+    t = _registry.buscar(treino_id)
+    if not t:
+        return jsonify({"error": "Não encontrado"}), 404
+    if t.get("status") == "running":
+        return jsonify({"error": "Não é possível apagar um treino em execução"}), 409
+    arquivo = t.get("arquivo_modelo")
+    if arquivo:
+        keras_path = Path(arquivo)
+        for p in [keras_path, keras_path.with_suffix(".meta.json")]:
+            try:
+                if p.exists():
+                    p.unlink()
+            except Exception:
+                pass
+    deleted = _registry.deletar(treino_id)
+    if not deleted:
+        return jsonify({"error": "Falha ao remover"}), 500
+    return jsonify({"ok": True})
+
+
 @app.route("/api/treinos/<treino_id>/gerar", methods=["POST"])
 def api_treino_gerar(treino_id: str):
     t = _registry.buscar(treino_id)

@@ -122,6 +122,11 @@ class TreinoRegistry:
             ).fetchone()
         return _row_to_dict(row) if row else None
 
+    def deletar(self, treino_id: str) -> bool:
+        with self._conn() as conn:
+            cur = conn.execute("DELETE FROM treinos WHERE id = ?", (treino_id,))
+        return cur.rowcount > 0
+
     # ── Job output ───────────────────────────────────────────────
 
     def create_job(self, task_id: str) -> None:
