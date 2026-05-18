@@ -2143,6 +2143,23 @@ async function renderPredHistorico() {
   }
 }
 
+function _historicoStats(items) {
+  let totalJogos = 0, acertosAll = [], melhor = null;
+  for (const item of items) {
+    const arr = Array.isArray(item.jogos) ? item.jogos : [];
+    totalJogos += arr.length;
+    const ac = item.acertos_por_jogo || [];
+    for (const h of ac) {
+      acertosAll.push(h);
+      if (melhor === null || h > melhor) melhor = h;
+    }
+  }
+  const media = acertosAll.length
+    ? (acertosAll.reduce((s, v) => s + v, 0) / acertosAll.length).toFixed(2)
+    : null;
+  return { totalGeracoes: items.length, totalJogos, media, melhor, comResultado: acertosAll.length };
+}
+
 function _renderHistoricoPanel(panel) {
   const jogos = _historicoData;
   if (!Array.isArray(jogos) || jogos.length === 0) {
@@ -2157,8 +2174,18 @@ function _renderHistoricoPanel(panel) {
     ? jogos.filter(j => (j.treino_nome || j.treino_id) === _historicoFiltroModelo)
     : jogos;
 
+  const stats = _historicoStats(filtered);
+  const statsHtml = `
+    <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:0.75rem">
+      <div style="font-size:0.72rem;color:var(--muted)">Gerações: <b style="color:var(--text)">${stats.totalGeracoes}</b></div>
+      <div style="font-size:0.72rem;color:var(--muted)">Jogos: <b style="color:var(--text)">${stats.totalJogos}</b></div>
+      ${stats.media != null ? `<div style="font-size:0.72rem;color:var(--muted)">Média acertos: <b style="color:var(--accent)">${stats.media}</b></div>` : ''}
+      ${stats.melhor != null ? `<div style="font-size:0.72rem;color:var(--muted)">Melhor: <b style="color:var(--green)">${stats.melhor}/15</b></div>` : ''}
+      ${stats.comResultado > 0 ? `<div style="font-size:0.72rem;color:var(--dim)">${stats.comResultado} jogo${stats.comResultado>1?'s':''} com resultado</div>` : ''}
+    </div>`;
+
   let html = `
-    <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.75rem;flex-wrap:wrap">
+    <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.5rem;flex-wrap:wrap">
       <div class="modelos-section-title" style="margin:0">🗂 Histórico de Jogos Gerados</div>
       <select id="historicoFiltroModelo" onchange="_onHistoricoFiltro()"
         style="font-size:0.72rem;padding:0.2rem 0.4rem;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:4px">
@@ -2167,7 +2194,8 @@ function _renderHistoricoPanel(panel) {
       </select>
       <button class="action-btn" onclick="_exportHistoricoCSV()"
         style="font-size:0.72rem;padding:0.2rem 0.5rem;margin-left:auto">⬇ CSV</button>
-    </div>`;
+    </div>
+    ${statsHtml}`;
 
   if (filtered.length === 0) {
     html += `<div style="color:var(--muted);font-size:0.78rem">Nenhum jogo para o modelo selecionado.</div>`;
@@ -2198,9 +2226,12 @@ function _renderHistoricoPanel(panel) {
             return `<span class="ball${n>12?' high':''}" style="${isHit?'outline:1px solid var(--green);opacity:1':'opacity:0.75'}">${String(n).padStart(2,'0')}</span>`;
           }).join('')
         : '—';
+      const copyData = Array.isArray(jogo) ? jogo.join('-') : '';
+      const copyBtn = `<button onclick="navigator.clipboard.writeText('${copyData}').then(()=>showToast('Dezenas copiadas','success'))"
+        style="font-size:0.6rem;padding:1px 5px;background:none;border:1px solid var(--border);border-radius:3px;color:var(--muted);cursor:pointer;margin-left:5px" title="Copiar dezenas">⎘</button>`;
       return `<div style="margin-bottom:0.35rem;display:flex;align-items:center">
         <span style="font-size:0.65rem;color:var(--muted);margin-right:0.3rem;min-width:18px">J${i+1}</span>
-        <span class="pred-balls" style="display:inline-flex;gap:2px">${balls}</span>${badge}
+        <span class="pred-balls" style="display:inline-flex;gap:2px">${balls}</span>${badge}${copyBtn}
       </div>`;
     }).join('');
 
@@ -2338,6 +2369,9 @@ function _finishTreinoModal(success) {
     fill.style.width = '100%';
     fill.style.background = 'var(--green)';
     status.textContent = 'Recarregando modelos…';
+    if (STATE.activeTab !== 'modelos') {
+      showToast('✅ Treino concluído! Acesse a aba Modelos para ver o resultado.', 'success');
+    }
     setTimeout(() => {
       closeTreinoModal();
       loadModelosAndRender();
@@ -2349,6 +2383,9 @@ function _finishTreinoModal(success) {
     document.getElementById('treinoCancelBtn').textContent = 'Fechar';
     document.getElementById('treinoCancelBtn').disabled = false;
     document.getElementById('treinoCancelBtn').onclick = closeTreinoModal;
+    if (STATE.activeTab !== 'modelos') {
+      showToast('❌ Treino falhou. Verifique o log na aba Modelos.', 'error');
+    }
   }
 }
 
