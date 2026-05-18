@@ -1371,11 +1371,12 @@ async function renderDados() {
         const hot = f >= maxF * 0.9;
         const cold = f <= minF * 1.1 + (maxF - minF) * 0.1;
         const color = hot ? 'var(--green)' : cold ? 'var(--red)' : 'var(--accent)';
-        fHtml += `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex:1;min-width:24px" title="${n}: ${f}x">
-          <div style="width:100%;background:rgba(255,255,255,0.06);border-radius:3px;height:48px;display:flex;align-items:flex-end;overflow:hidden">
+        const isActive = STATE.dadosFilter === String(n);
+        fHtml += `<div onclick="_dadosFreqClick(${n})" style="display:flex;flex-direction:column;align-items:center;gap:2px;flex:1;min-width:24px;cursor:pointer;opacity:${isActive?1:0.85};transition:opacity 0.15s" title="${n}: ${f}x — clique para filtrar">
+          <div style="width:100%;background:rgba(255,255,255,0.06);border-radius:3px;height:48px;display:flex;align-items:flex-end;overflow:hidden;outline:${isActive?'2px solid '+color:'none'};border-radius:3px">
             <div style="width:100%;height:${Math.max(pct,2)}%;background:${color};opacity:0.8;border-radius:2px 2px 0 0;transition:height 0.3s"></div>
           </div>
-          <span style="font-size:0.58rem;color:var(--muted)">${n}</span>
+          <span style="font-size:0.58rem;color:${isActive?color:'var(--muted)'};font-weight:${isActive?700:400}">${n}</span>
           <span style="font-size:0.55rem;color:${color};font-weight:600">${f}</span>
         </div>`;
       }
@@ -1413,7 +1414,9 @@ async function renderDados() {
           style="width:90px;font-size:0.72rem;padding:0.2rem 0.4rem;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:4px">
         <button type="submit" class="action-btn" style="font-size:0.72rem;padding:0.2rem 0.4rem">Ir</button>
       </form>
-      <button class="action-btn" onclick="dadosExportCSV()" style="font-size:0.72rem;padding:0.2rem 0.5rem">⬇ CSV</button>
+      <button class="action-btn" onclick="dadosExportCSV()" style="font-size:0.72rem;padding:0.2rem 0.5rem">⬇ CSV pág</button>
+      <a href="/api/dados/export-csv" download="sorteios.csv" class="action-btn"
+        style="font-size:0.72rem;padding:0.2rem 0.5rem;text-decoration:none">⬇ CSV todos</a>
     `;
     section.appendChild(controlsDiv);
     bindDadosControls(d, totalPages);
@@ -1586,6 +1589,13 @@ async function dadosJumpTo(e) {
   } catch(e) { showToast('Erro ao buscar concurso.', 'error'); }
 }
 
+function _dadosFreqClick(n) {
+  // toggle: if already filtering by this number, clear; otherwise set
+  STATE.dadosFilter = STATE.dadosFilter === String(n) ? '' : String(n);
+  STATE.dadosPage = 1;
+  renderDados();
+}
+
 function dadosExportCSV() {
   // export current filtered data from the rendered table
   const rows = [['concurso','data','dezenas','temp_c','precip_mm','fase_lua']];
@@ -1649,6 +1659,13 @@ function _dismissAlert(key) {
 }
 function _clearDismissedAlerts() {
   localStorage.removeItem(_ALERT_DISMISS_KEY);
+  renderValidacao();
+}
+
+function _lbSortBy(key) {
+  if (!window._lbSort) window._lbSort = { key: 'mean_hits', dir: -1 };
+  if (window._lbSort.key === key) window._lbSort.dir *= -1;
+  else window._lbSort = { key, dir: key === 'p_value' ? 1 : -1 };
   renderValidacao();
 }
 
@@ -1747,13 +1764,24 @@ async function renderValidacao() {
       html += `</div></div>`;
     }
     if (leaderboard.length) {
+      // leaderboard sort state (session-local)
+      if (!window._lbSort) window._lbSort = { key: 'mean_hits', dir: -1 };
+      const lbs = window._lbSort;
+      const lbSorted = [...leaderboard].sort((a, b) => {
+        const va = a[lbs.key] ?? (lbs.dir > 0 ? Infinity : -Infinity);
+        const vb = b[lbs.key] ?? (lbs.dir > 0 ? Infinity : -Infinity);
+        return (va < vb ? -1 : va > vb ? 1 : 0) * lbs.dir;
+      });
+      const lbIco = k => lbs.key === k ? (lbs.dir > 0 ? ' ▲' : ' ▼') : '';
+      const lbTh = (k, label) => `<span onclick="_lbSortBy('${k}')" style="cursor:pointer;user-select:none;text-align:right">${label}${lbIco(k)}</span>`;
       html += `<div style="grid-column:1/-1;margin-top:0.75rem">
         <div class="health-title" style="margin-bottom:0.5rem">LEADERBOARD</div>
         <div class="game-card" style="padding:0;overflow:hidden">
           <div style="font-size:0.68rem;color:var(--dim);display:grid;grid-template-columns:2rem 1fr repeat(4,5.2rem);gap:0.5rem;padding:0.5rem 0.75rem;border-bottom:1px solid var(--border);font-weight:600;">
-            <span>#</span><span>Modelo</span><span style="text-align:right">Media</span><span style="text-align:right">Melh.</span><span style="text-align:right">p-val</span><span style="text-align:right">std</span>
+            <span>#</span><span>Modelo</span>
+            ${lbTh('mean_hits','Média')}${lbTh('improvement_pct','Melh.')}${lbTh('p_value','p-val')}${lbTh('std_hits','std')}
           </div>`;
-      leaderboard.forEach((m, i) => {
+      lbSorted.forEach((m, i) => {
         html += `<div style="font-size:0.76rem;display:grid;grid-template-columns:2rem 1fr repeat(4,5.2rem);gap:0.5rem;padding:0.45rem 0.75rem;border-bottom:1px solid var(--border-light)">
           <span style="color:var(--dim)">${i + 1}</span>
           <span style="font-weight:500">${esc(m.label)}</span>

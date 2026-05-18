@@ -36,6 +36,8 @@ _ANSI_RE = re.compile(r'\x1b(?:\[[0-9;]*[mGKHFABCDEFsuJKH]|[()][AB012])')
 _procs: dict[str, subprocess.Popen[str]] = {}
 _freq_cache: dict = {}           # {"data": {...}, "ts": float}
 _FREQ_TTL = 300                  # 5 minutes
+_quality_cache: dict = {}        # {last_n: {"data": {...}, "ts": float}}
+_QUALITY_TTL = 120               # 2 minutes
 _SRC = Path(__file__).resolve().parent.parent.parent.parent.parent / "src"
 _LOTOFACIL_BIN = str(Path(sys.executable).parent / "lotofacil")
 
@@ -729,7 +731,16 @@ def api_models_status():
 def api_models_quality():
     last_n = request.args.get("last_n", default=120, type=int)
     last_n = max(10, min(last_n or 120, 500))
-    return jsonify(_build_quality_payload(window_size=last_n))
+    cached = _quality_cache.get(last_n)
+    if cached and (time.time() - cached["ts"]) < _QUALITY_TTL:
+        return jsonify(cached["data"])
+    result = _build_quality_payload(window_size=last_n)
+    _quality_cache[last_n] = {"data": result, "ts": time.time()}
+    return jsonify(result)
+
+
+def _invalidate_quality_cache() -> None:
+    _quality_cache.clear()
 
 
 
@@ -823,6 +834,25 @@ def api_dados_frequencia():
     _freq_cache["data"] = result
     _freq_cache["ts"] = time.time()
     return jsonify(result)
+
+
+@app.route("/api/dados/export-csv")
+def api_dados_export_csv():
+    from flask import Response
+    files = sorted(DADOS_DIR.glob("concurso_*.json"), key=_concurso_num, reverse=True)
+    def generate():
+        yield "concurso,data,dezenas\n"
+        for f in files:
+            try:
+                data = json.loads(f.read_text())
+                c = data.get("concurso", "")
+                d = data.get("data", "")
+                dez = " ".join(str(n) for n in data.get("dezenas", []))
+                yield f"{c},{d},{dez}\n"
+            except Exception:
+                pass
+    return Response(generate(), mimetype="text/csv",
+                    headers={"Content-Disposition": "attachment; filename=sorteios.csv"})
 
 
 @app.route("/api/dados/page-for-concurso")
@@ -1008,6 +1038,7 @@ def api_treinos_iniciar():
             metricas = _read_meta_from_keras(keras_path)
             _registry.registrar_modelo(treino_id, keras_path, metricas)
             LOGGER.info("TREINO %s registered: %s", treino_id, keras_path)
+            _invalidate_quality_cache()
         else:
             _registry.marcar_falha(treino_id)
             LOGGER.warning("TREINO %s failed", treino_id)
