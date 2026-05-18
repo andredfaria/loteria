@@ -1627,8 +1627,10 @@ const _predState = {
   gerarModeloId: null,
   pollingInterval: null,
   lastConcurso: 0,
+  lastDraw: null,
   backtestLastN: 120,
   listaSort: { key: 'criado_em', dir: -1 },
+  listaFiltroStatus: '',
 };
 
 function _subTabLabel(t) {
@@ -1795,6 +1797,7 @@ async function loadModelosAndRender() {
     _predState.modelos = Array.isArray(treinosRes) ? treinosRes : [];
     _predState.qualidade = qualRes.models || [];
     _predState.lastConcurso = statusRes?.last_concurso?.concurso || 0;
+    _predState.lastDraw = statusRes?.last_concurso || null;
     const t = _predState.activeSubTab;
     if (t === 'lista')    renderModLista();
     if (t === 'gerar')    renderPredGerar();
@@ -1898,7 +1901,22 @@ function renderModLista() {
   // ── Treinos registrados ───────────────────────────────────
   const sk = _predState.listaSort.key;
   const sd = _predState.listaSort.dir;
-  const sortedModelos = [...modelos].sort((a, b) => {
+  const sf = _predState.listaFiltroStatus;
+
+  // count by status for badges
+  const statusCounts = {};
+  for (const m of modelos) statusCounts[m.status || 'running'] = (statusCounts[m.status || 'running'] || 0) + 1;
+  const statusOpts = ['completed','running','failed','cancelled'];
+  const badgesHtml = statusOpts
+    .filter(s => statusCounts[s])
+    .map(s => `<span onclick="_filtroLista('${s}')" style="cursor:pointer;font-size:0.62rem;padding:1px 6px;border-radius:10px;
+      background:${sf===s?'var(--accent-dim)':'rgba(255,255,255,0.06)'};
+      border:1px solid ${sf===s?'var(--accent)':'var(--border)'};color:${sf===s?'var(--accent)':'var(--muted)'}">
+      ${s} ${statusCounts[s]}
+    </span>`).join('');
+
+  const filteredModelos = sf ? modelos.filter(m => (m.status || 'running') === sf) : modelos;
+  const sortedModelos = [...filteredModelos].sort((a, b) => {
     let va, vb;
     if (sk === 'val_loss') { va = a.metricas?.val_loss_final ?? Infinity; vb = b.metricas?.val_loss_final ?? Infinity; }
     else if (sk === 'epochs') { va = a.metricas?.epochs_trained ?? 0; vb = b.metricas?.epochs_trained ?? 0; }
@@ -1911,10 +1929,14 @@ function renderModLista() {
   const sortIco = (k) => sk === k ? (sd > 0 ? ' ▲' : ' ▼') : '';
 
   html += `<div>
-    <div class="modelos-section-title">Treinos Registrados</div>`;
+    <div style="display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;margin-bottom:0.5rem">
+      <div class="modelos-section-title" style="margin:0">Treinos Registrados</div>
+      <div style="display:flex;gap:0.3rem;flex-wrap:wrap;margin-left:0.25rem">${badgesHtml}</div>
+      ${sf ? `<button onclick="_filtroLista('')" style="font-size:0.6rem;padding:1px 5px;background:none;border:1px solid var(--border);border-radius:3px;color:var(--muted);cursor:pointer;margin-left:auto">✕ limpar</button>` : ''}
+    </div>`;
   if (sortedModelos.length === 0) {
     html += `<div style="padding:2rem 0;text-align:center;color:var(--muted)">
-      Nenhum treino encontrado. Vá para <b>▶ Treinar</b> para iniciar.</div>`;
+      ${sf ? `Nenhum treino com status <b>${sf}</b>.` : 'Nenhum treino encontrado. Vá para <b>▶ Treinar</b> para iniciar.'}</div>`;
   } else {
     html += `<table class="pred-table"><thead><tr>
       <th style="${thStyle}" onclick="_sortLista('nome')">Nome${sortIco('nome')}</th>
@@ -1964,6 +1986,11 @@ function _sortLista(key) {
   renderModLista();
 }
 
+function _filtroLista(status) {
+  _predState.listaFiltroStatus = status;
+  renderModLista();
+}
+
 async function _recalcBacktest() {
   const input = document.getElementById('backtestLastN');
   const val = input ? parseInt(input.value) : 120;
@@ -1981,6 +2008,20 @@ async function _recalcBacktest() {
 function usarModeloParaGerar(id) {
   _predState.gerarModeloId = id;
   showModelosSubTab('gerar');
+}
+
+function _usarMelhorModelo() {
+  const qual = _predState.qualidade || [];
+  if (!qual.length) { showToast('Sem dados de backtest para comparar.', 'error'); return; }
+  const best = qual.reduce((a, b) => (b.mean_hits ?? 0) > (a.mean_hits ?? 0) ? b : a);
+  // best.model is the approach string like "neural_<treino_id>_<nome>"
+  const completed = (_predState.modelos || []).filter(m => m.status === 'completed');
+  // match by treino_id substring in approach name
+  const match = completed.find(m => best.model && best.model.includes(m.id)) || completed[0];
+  if (!match) { showToast('Nenhum modelo concluído encontrado.', 'error'); return; }
+  _predState.gerarModeloId = match.id;
+  showModelosSubTab('gerar');
+  showToast(`Modelo selecionado: ${match.nome} (${best.mean_hits?.toFixed(2)} hits médios)`, 'success');
 }
 
 function retreinarModelo(id) {
@@ -2056,8 +2097,12 @@ function renderPredGerar() {
           placeholder="próximo">
       </div>
     </div>
-    <button class="action-btn" id="gerarBtn" onclick="gerarJogos()"
-      style="background:var(--accent-dim);border-color:var(--accent);color:var(--accent);font-weight:600">⚡ Gerar Jogos</button>
+    <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap">
+      <button class="action-btn" id="gerarBtn" onclick="gerarJogos()"
+        style="background:var(--accent-dim);border-color:var(--accent);color:var(--accent);font-weight:600">⚡ Gerar Jogos</button>
+      ${(_predState.qualidade||[]).length > 0 ? `<button class="action-btn" onclick="_usarMelhorModelo()"
+        style="font-size:0.72rem;padding:0.2rem 0.5rem" title="Selecionar modelo com mais hits médios no backtest">🏆 Melhor modelo</button>` : ''}
+    </div>
     <div class="pred-warning">⚠️ Resultados experimentais e estatísticos — não garantem acertos.</div>
     <div id="gerarResultados"></div>
     <div id="gerarRecentes"></div>`;
@@ -2133,6 +2178,18 @@ function renderJogos(data) {
     </div>`;
   });
   html += '</div>';
+
+  // show last real draw for reference
+  const ld = _predState.lastDraw;
+  if (ld && Array.isArray(ld.dezenas) && ld.dezenas.length) {
+    html += `<div style="margin-top:0.75rem;padding:0.5rem 0.75rem;background:rgba(255,255,255,0.04);border-radius:6px;border:1px solid var(--border)">
+      <div style="font-size:0.65rem;color:var(--dim);margin-bottom:0.3rem">Último sorteio real — concurso ${ld.concurso}${ld.data ? ' · ' + ld.data : ''}</div>
+      <div class="pred-balls" style="display:inline-flex;gap:2px;opacity:0.75">
+        ${ld.dezenas.map(n=>`<span class="ball${n>12?' high':''}">${String(n).padStart(2,'0')}</span>`).join('')}
+      </div>
+    </div>`;
+  }
+
   div.innerHTML = html;
 }
 

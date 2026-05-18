@@ -681,8 +681,13 @@ def api_commands():
 @app.route("/api/status")
 def api_status():
     info = _last_concurso_info()
+    latest = info["latest"]
+    if latest and latest.get("concurso"):
+        dezenas = _get_draw_dezenas(int(latest["concurso"]))
+        if dezenas:
+            latest["dezenas"] = dezenas
     return jsonify({
-        "last_concurso": info["latest"],
+        "last_concurso": latest,
         "total_draws": info["total"],
         "games_count": len(_list_game_files()),
         "timestamp": datetime.now().isoformat(),
