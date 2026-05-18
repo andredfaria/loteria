@@ -1623,9 +1623,12 @@ const _predState = {
   activeSubTab: 'treinar',
   selectedConfig: 'base',
   modelos: [],
+  qualidade: [],
   gerarModeloId: null,
   pollingInterval: null,
   lastConcurso: 0,
+  backtestLastN: 120,
+  listaSort: { key: 'criado_em', dir: -1 },
 };
 
 function _subTabLabel(t) {
@@ -1786,7 +1789,7 @@ async function loadModelosAndRender() {
   try {
     const [treinosRes, qualRes, statusRes] = await Promise.all([
       fetch('/api/treinos').then(r => r.json()),
-      fetch('/api/models/quality').then(r => r.json()).catch(() => ({ models: [] })),
+      fetch(`/api/models/quality?last_n=${_predState.backtestLastN}`).then(r => r.json()).catch(() => ({ models: [] })),
       fetch('/api/status').then(r => r.json()).catch(() => ({})),
     ]);
     _predState.modelos = Array.isArray(treinosRes) ? treinosRes : [];
@@ -1821,7 +1824,17 @@ function renderModLista() {
 
   // ── Qualidade (backtest) ──────────────────────────────────
   html += `<div class="modelos-qualidade-section">
-    <div class="modelos-section-title">Qualidade — Backtest</div>`;
+    <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.5rem">
+      <div class="modelos-section-title" style="margin:0">Qualidade — Backtest</div>
+      <div style="display:flex;align-items:center;gap:0.3rem;margin-left:auto">
+        <label style="font-size:0.68rem;color:var(--muted)">Últimos</label>
+        <input type="number" id="backtestLastN" value="${_predState.backtestLastN}" min="10" max="500"
+          style="width:52px;font-size:0.68rem;padding:1px 4px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:3px">
+        <label style="font-size:0.68rem;color:var(--muted)">sorteios</label>
+        <button class="action-btn" onclick="_recalcBacktest()"
+          style="font-size:0.68rem;padding:0.15rem 0.4rem">↻</button>
+      </div>
+    </div>`;
   if (qualidade.length === 0) {
     html += `<div style="color:var(--dim);font-size:0.78rem">Sem dados de qualidade. Execute o backtest primeiro.</div>`;
   } else {
@@ -1883,16 +1896,36 @@ function renderModLista() {
   html += `</div>`;
 
   // ── Treinos registrados ───────────────────────────────────
+  const sk = _predState.listaSort.key;
+  const sd = _predState.listaSort.dir;
+  const sortedModelos = [...modelos].sort((a, b) => {
+    let va, vb;
+    if (sk === 'val_loss') { va = a.metricas?.val_loss_final ?? Infinity; vb = b.metricas?.val_loss_final ?? Infinity; }
+    else if (sk === 'epochs') { va = a.metricas?.epochs_trained ?? 0; vb = b.metricas?.epochs_trained ?? 0; }
+    else if (sk === 'status') { va = a.status || ''; vb = b.status || ''; }
+    else if (sk === 'nome') { va = a.nome || ''; vb = b.nome || ''; }
+    else { va = a.criado_em || ''; vb = b.criado_em || ''; }
+    if (va < vb) return -sd; if (va > vb) return sd; return 0;
+  });
+  const thStyle = 'cursor:pointer;user-select:none';
+  const sortIco = (k) => sk === k ? (sd > 0 ? ' ▲' : ' ▼') : '';
+
   html += `<div>
     <div class="modelos-section-title">Treinos Registrados</div>`;
-  if (modelos.length === 0) {
+  if (sortedModelos.length === 0) {
     html += `<div style="padding:2rem 0;text-align:center;color:var(--muted)">
       Nenhum treino encontrado. Vá para <b>▶ Treinar</b> para iniciar.</div>`;
   } else {
     html += `<table class="pred-table"><thead><tr>
-      <th>Nome</th><th>Tipo</th><th>Val Loss</th><th>Épocas</th><th>Data</th><th>Status</th><th></th>
+      <th style="${thStyle}" onclick="_sortLista('nome')">Nome${sortIco('nome')}</th>
+      <th>Tipo</th>
+      <th style="${thStyle}" onclick="_sortLista('val_loss')">Val Loss${sortIco('val_loss')}</th>
+      <th style="${thStyle}" onclick="_sortLista('epochs')">Épocas${sortIco('epochs')}</th>
+      <th style="${thStyle}" onclick="_sortLista('criado_em')">Data${sortIco('criado_em')}</th>
+      <th style="${thStyle}" onclick="_sortLista('status')">Status${sortIco('status')}</th>
+      <th></th>
     </tr></thead><tbody>`;
-    for (const m of modelos) {
+    for (const m of sortedModelos) {
       const met = m.metricas || {};
       const dt   = m.criado_em ? new Date(m.criado_em).toLocaleDateString('pt-BR') : '—';
       const loss = met.val_loss_final != null ? met.val_loss_final.toFixed(5) : '—';
@@ -1920,6 +1953,29 @@ function renderModLista() {
   html += `</div>`;
 
   panel.innerHTML = html;
+}
+
+function _sortLista(key) {
+  if (_predState.listaSort.key === key) {
+    _predState.listaSort.dir *= -1;
+  } else {
+    _predState.listaSort = { key, dir: key === 'val_loss' ? 1 : -1 };
+  }
+  renderModLista();
+}
+
+async function _recalcBacktest() {
+  const input = document.getElementById('backtestLastN');
+  const val = input ? parseInt(input.value) : 120;
+  if (!isNaN(val) && val >= 10 && val <= 500) {
+    _predState.backtestLastN = val;
+  }
+  try {
+    const res = await fetch(`/api/models/quality?last_n=${_predState.backtestLastN}`);
+    const data = await res.json();
+    _predState.qualidade = data.models || [];
+  } catch(e) { _predState.qualidade = []; }
+  renderModLista();
 }
 
 function usarModeloParaGerar(id) {
@@ -2003,7 +2059,8 @@ function renderPredGerar() {
     <button class="action-btn" id="gerarBtn" onclick="gerarJogos()"
       style="background:var(--accent-dim);border-color:var(--accent);color:var(--accent);font-weight:600">⚡ Gerar Jogos</button>
     <div class="pred-warning">⚠️ Resultados experimentais e estatísticos — não garantem acertos.</div>
-    <div id="gerarResultados"></div>`;
+    <div id="gerarResultados"></div>
+    <div id="gerarRecentes"></div>`;
 }
 
 async function gerarJogos() {
@@ -2023,10 +2080,41 @@ async function gerarJogos() {
     const data = await r.json();
     if (data.error) throw new Error(data.error);
     renderJogos(data);
+    _loadGerarRecentes();
   } catch (e) {
     document.getElementById('gerarResultados').innerHTML =
       `<div style="color:var(--red);margin-top:0.5rem">❌ ${esc(e.message)}</div>`;
   } finally { btn.disabled = false; btn.textContent = '⚡ Gerar Jogos'; }
+}
+
+async function _loadGerarRecentes() {
+  const div = document.getElementById('gerarRecentes');
+  if (!div) return;
+  try {
+    const r = await fetch('/api/jogos-gerados?limit=6');
+    const items = await r.json();
+    // skip the first item (just generated), show next 2
+    const prev = Array.isArray(items) ? items.slice(1, 3) : [];
+    if (prev.length === 0) { div.innerHTML = ''; return; }
+    let html = `<div style="margin-top:1rem;border-top:1px solid var(--border);padding-top:0.75rem">
+      <div style="font-size:0.72rem;color:var(--muted);margin-bottom:0.5rem">Gerações anteriores</div>`;
+    for (const item of prev) {
+      const dt = item.criado_em ? new Date(item.criado_em).toLocaleString('pt-BR') : '—';
+      const jogosArr = Array.isArray(item.jogos) ? item.jogos : [];
+      html += `<div style="margin-bottom:0.5rem">
+        <div style="font-size:0.65rem;color:var(--dim);margin-bottom:0.2rem">
+          ${esc(item.treino_nome||item.treino_id)} · concurso ${item.concurso} · ${dt}
+        </div>`;
+      for (const jogo of jogosArr) {
+        html += `<div class="pred-balls" style="display:inline-flex;gap:2px;margin-right:0.5rem;margin-bottom:2px">
+          ${jogo.map(n=>`<span class="ball${n>12?' high':''}" style="opacity:0.6">${String(n).padStart(2,'0')}</span>`).join('')}
+        </div>`;
+      }
+      html += `</div>`;
+    }
+    html += `</div>`;
+    div.innerHTML = html;
+  } catch(e) { div.innerHTML = ''; }
 }
 
 function renderJogos(data) {
