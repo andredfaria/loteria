@@ -212,6 +212,7 @@ class NeuralModular(BaseLabModel):
 
     def load(self, path: Path | None = None) -> None:
         from tensorflow.keras.models import load_model
+        from lotofacil.experimentos.data.feature_flags import FeatureConfig
         if path is None:
             path = MODELS_DIR / f"neural_{self.config.signature()}.keras"
         self._model = load_model(str(path), custom_objects={"loss": focal_loss()})
@@ -219,6 +220,10 @@ class NeuralModular(BaseLabModel):
         if meta_path.exists():
             meta = json.loads(meta_path.read_text())
             self._history = meta.get("history", {})
+            saved_cfg = meta.get("config")
+            if saved_cfg:
+                # Restore exact config used at training time (preserves window_size etc.)
+                self.config = FeatureConfig.from_dict(saved_cfg)
         self._fitted = True
 
     @property
