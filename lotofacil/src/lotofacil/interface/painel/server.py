@@ -830,7 +830,12 @@ def _run_command(
         else c
         for c in cmd
     ]
-    env = {**os.environ, "PYTHONPATH": str(_SRC)}
+    env = {
+        **os.environ,
+        "PYTHONPATH": str(_SRC),
+        "CUDA_VISIBLE_DEVICES": "-1",   # força CPU; evita erro cuInit em máquinas sem GPU
+        "TF_CPP_MIN_LOG_LEVEL": "2",    # suprime logs INFO/WARNING do TensorFlow
+    }
     output_lines: list[str] = []
     ret = -1
 
