@@ -917,6 +917,7 @@ function buildBottomNav() {
 
 function switchTab(id) {
   STATE.activeTab = id;
+  _updatePageTitle?.();
   document.querySelectorAll('.sidebar .tab').forEach((el, i) => {
     el.classList.toggle('active', CATEGORIES[i].id === id);
   });
@@ -1061,6 +1062,7 @@ function pollJob(taskId, actionId, label) {
           showToast(`${label} falhou`, 'error');
         }
         if (STATE.activeTab === 'modelos') { loadModelosAndRender(); }
+        if (STATE.activeTab === 'coleta') { _renderColetaStats(); }
         loadStatus();
       }
     } catch (e) {
@@ -1377,6 +1379,12 @@ async function renderDados() {
         <option value="50" ${perPage===50?'selected':''}>50/pag</option>
         <option value="100" ${perPage===100?'selected':''}>100/pag</option>
       </select>
+      <form onsubmit="dadosJumpTo(event)" style="display:flex;align-items:center;gap:0.25rem">
+        <input type="number" id="dadosJumpInput" placeholder="# concurso" min="1"
+          style="width:90px;font-size:0.72rem;padding:0.2rem 0.4rem;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:4px">
+        <button type="submit" class="action-btn" style="font-size:0.72rem;padding:0.2rem 0.4rem">Ir</button>
+      </form>
+      <button class="action-btn" onclick="dadosExportCSV()" style="font-size:0.72rem;padding:0.2rem 0.5rem">⬇ CSV</button>
     `;
     section.appendChild(controlsDiv);
     bindDadosControls(d, totalPages);
@@ -1530,6 +1538,46 @@ function dadosGoToPage(page) {
   renderDados();
 }
 
+async function dadosJumpTo(e) {
+  e.preventDefault();
+  const input = document.getElementById('dadosJumpInput');
+  const num = parseInt(input?.value);
+  if (!num || num < 1) return;
+  // find which page contains this concurso: fetch page 1 to know total, then binary search
+  try {
+    const r = await fetch('/api/dados?page=1&per_page=1');
+    const d = await r.json();
+    const perPage = STATE.dadosPerPage || 25;
+    // concursos are sorted descending, so page = ceil((total - rank + 1) / perPage)
+    // simpler: search by fetching increasingly large pages — instead, jump to page by index
+    // We don't know the rank, so just set filter to the concurso number and go to page 1
+    STATE.dadosFilter = String(num);
+    STATE.dadosPage = 1;
+    renderDados();
+    if (input) input.value = '';
+  } catch(e) { /* silencioso */ }
+}
+
+function dadosExportCSV() {
+  // export current filtered data from the rendered table
+  const rows = [['concurso','data','dezenas','temp_c','precip_mm','fase_lua']];
+  document.querySelectorAll('.dados-table-wrap tbody tr').forEach(tr => {
+    const tds = tr.querySelectorAll('td');
+    if (tds.length < 3) return;
+    const concurso = tds[0]?.textContent?.trim() || '';
+    const data = tds[1]?.textContent?.trim() || '';
+    const dezenas = [...tds[2]?.querySelectorAll('.ball,.num-ball') || []].map(s=>s.textContent.trim()).join(' ');
+    const clima = tds[3]?.textContent?.trim() || '';
+    const lua = tds[4]?.textContent?.trim().replace(/[🌑🌒🌕🌘]/g,'').trim() || '';
+    rows.push([concurso, data, dezenas, clima, lua]);
+  });
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = 'sorteios.csv'; a.click();
+  URL.revokeObjectURL(url);
+}
+
 
 // ═══════════════════════════════════════════════════════════════
 // VALIDAÇÃO
@@ -1560,6 +1608,22 @@ async function _renderColetaStats() {
   } catch(e) { /* silencioso */ }
 }
 
+const _ALERT_DISMISS_KEY = 'lotofacil_dismissed_alerts';
+function _alertKey(a) { return `${a.type||''}|${a.model_id||''}|${a.message||''}`; }
+function _getDismissedAlerts() {
+  try { return new Set(JSON.parse(localStorage.getItem(_ALERT_DISMISS_KEY) || '[]')); }
+  catch { return new Set(); }
+}
+function _dismissAlert(key) {
+  const s = _getDismissedAlerts(); s.add(key);
+  localStorage.setItem(_ALERT_DISMISS_KEY, JSON.stringify([...s]));
+  renderValidacao();
+}
+function _clearDismissedAlerts() {
+  localStorage.removeItem(_ALERT_DISMISS_KEY);
+  renderValidacao();
+}
+
 function _recalcValidacao() {
   const input = document.getElementById('validacaoLastNInput');
   const val = input ? parseInt(input.value) : 120;
@@ -1585,21 +1649,27 @@ async function renderValidacao() {
     if (trend.summary) {
       const series = trend.series || [];
       const tail = series.slice(-20).map(r => r.hits);
-      const chars = '▁▂▃▄▅▆▇█';
-      const min = Math.min(...tail, 0);
-      const max = Math.max(...tail, 1);
-      const spark = tail.map(v => {
-        const idx = max === min ? 0 : Math.round(((v - min) / (max - min)) * (chars.length - 1));
-        return chars[idx];
+      const minT = Math.min(...tail, 0);
+      const maxT = Math.max(...tail, 1);
+      const sparkBars = tail.map((v, i) => {
+        const pct = Math.round(((v - minT) / (maxT - minT)) * 100);
+        const isLast = i === tail.length - 1;
+        return `<div style="flex:1;display:flex;align-items:flex-end;height:36px" title="${v} hits">
+          <div style="width:100%;height:${Math.max(pct,4)}%;background:${isLast?'var(--accent)':'rgba(96,165,250,0.55)'};border-radius:2px 2px 0 0;transition:height 0.3s"></div>
+        </div>`;
       }).join('');
       const drift = trend.summary.drift || {};
       const driftCls = drift.alert ? 'drift-alert' : 'drift-ok';
+      const rm = series.at(-1);
       html += `<div class="health-card" style="grid-column:1/-1">
-        <div class="health-title">SAUDE</div>
-        <div class="sparkline" title="Tendencia dos ultimos concursos">${spark || '—'}</div>
-        <div class="health-meta">Media movel (20/50): ${series.at(-1)?.rolling_mean_20 ?? '—'} / ${series.at(-1)?.rolling_mean_50 ?? '—'}</div>
-        <div class="health-meta">Taxa ≥11 acertos (20/50): ${(trend.summary.hit_rate_ge_11_w20 * 100).toFixed(1)}% / ${(trend.summary.hit_rate_ge_11_w50 * 100).toFixed(1)}%</div>
-        <div class="health-meta ${driftCls}">Drift: ${drift.decline_streak ?? 0} concursos em queda ${drift.alert ? '(ALERTA)' : '(estavel)'}</div>
+        <div class="health-title">SAÚDE DO MODELO — últimos 20 concursos</div>
+        <div style="display:flex;align-items:flex-end;gap:2px;height:40px;margin:0.5rem 0;padding:2px 0;border-bottom:1px solid rgba(255,255,255,0.08)">${sparkBars}</div>
+        <div style="display:flex;justify-content:space-between;font-size:0.6rem;color:var(--dim);margin-bottom:0.5rem">
+          <span>← ${tail.length} concursos atrás</span><span>mais recente →</span>
+        </div>
+        <div class="health-meta">Média móvel 20/50: <b>${rm?.rolling_mean_20 ?? '—'}</b> / <b>${rm?.rolling_mean_50 ?? '—'}</b></div>
+        <div class="health-meta">Taxa ≥11 acertos: <b>${(trend.summary.hit_rate_ge_11_w20 * 100).toFixed(1)}%</b> (20) / <b>${(trend.summary.hit_rate_ge_11_w50 * 100).toFixed(1)}%</b> (50)</div>
+        <div class="health-meta ${driftCls}">Drift: ${drift.decline_streak ?? 0} concursos em queda ${drift.alert ? '⚠️ (ALERTA)' : '✓ (estável)'}</div>
       </div>`;
     }
     if (quality.models?.length) {
@@ -1638,18 +1708,26 @@ async function renderValidacao() {
       });
       html += `</div></div>`;
     }
+    const dismissed = _getDismissedAlerts();
+    const activeAlerts = (alerts.active || []).filter(a => !dismissed.has(_alertKey(a)));
     html += `<div style="grid-column:1/-1;margin-top:0.75rem">
-      <div class="health-title" style="margin-bottom:0.5rem">ALERTAS</div>`;
-    if (alerts.active?.length) {
-      for (const a of alerts.active) {
+      <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem">
+        <div class="health-title" style="margin:0">ALERTAS</div>
+        ${dismissed.size > 0 ? `<button onclick="_clearDismissedAlerts()" style="font-size:0.6rem;padding:1px 5px;background:none;border:1px solid var(--border);border-radius:3px;color:var(--dim);cursor:pointer">↺ mostrar dispensados (${dismissed.size})</button>` : ''}
+      </div>`;
+    if (activeAlerts.length) {
+      for (const a of activeAlerts) {
         const col = a.severity === 'error' ? 'red' : 'yellow';
-        html += `<div class="game-card" style="border-left:3px solid var(--${col});margin-bottom:0.25rem;padding:0.6rem 0.75rem">
-          <span style="font-size:0.8rem">${esc(a.message)}</span>
-          <span style="font-size:0.65rem;color:var(--dim);float:right">${a.severity === 'error' ? '🔴' : '🟡'}</span>
+        const key = _alertKey(a);
+        html += `<div class="game-card" style="border-left:3px solid var(--${col});margin-bottom:0.25rem;padding:0.5rem 0.75rem;display:flex;align-items:center;gap:0.5rem">
+          <span style="font-size:0.8rem;flex:1">${esc(a.message)}</span>
+          <span style="font-size:0.65rem;color:var(--dim)">${a.severity === 'error' ? '🔴' : '🟡'}</span>
+          <button onclick="_dismissAlert('${key.replace(/'/g,'\\\'')}')" title="Dispensar"
+            style="font-size:0.65rem;padding:1px 4px;background:none;border:1px solid var(--border);border-radius:3px;color:var(--dim);cursor:pointer;flex-shrink:0">✕</button>
         </div>`;
       }
     } else {
-      html += `<div class="empty-state" style="padding:0.75rem 0"><p>Nenhum alerta ativo</p></div>`;
+      html += `<div class="empty-state" style="padding:0.75rem 0"><p>Nenhum alerta ativo${dismissed.size ? ` · ${dismissed.size} dispensado(s)` : ''}</p></div>`;
     }
     html += `</div>`;
     grid.innerHTML = html;
@@ -2847,9 +2925,49 @@ function closeTreinoModal() {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// KEYBOARD SHORTCUTS + PAGE TITLE
+// ═══════════════════════════════════════════════════════════════
+const _TAB_KEYS = { 'c': 'coleta', 'd': 'dados', 'm': 'modelos', 'v': 'validacao' };
+const _SUBTAB_KEYS = { '1': 'treinar', '2': 'lista', '3': 'gerar', '4': 'comparar', '5': 'historico' };
+const _TAB_LABELS = { coleta: 'Coleta', dados: 'Dados', modelos: 'Modelos', validacao: 'Validação' };
+
+function _updatePageTitle() {
+  const tab = _TAB_LABELS[STATE.activeTab] || STATE.activeTab;
+  document.title = `${tab} — Lotofácil Dashboard`;
+}
+
+document.addEventListener('keydown', e => {
+  // ignore when focus is on input/select/textarea
+  const tag = document.activeElement?.tagName?.toLowerCase();
+  if (['input','select','textarea'].includes(tag)) return;
+
+  // Escape: close training modal if open
+  if (e.key === 'Escape') {
+    const overlay = document.getElementById('treinoModalOverlay');
+    if (overlay?.classList.contains('visible')) { closeTreinoModal(); return; }
+  }
+
+  // Tab shortcuts: C=Coleta, D=Dados, M=Modelos, V=Validação
+  const tabTarget = _TAB_KEYS[e.key.toLowerCase()];
+  if (tabTarget && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    switchTab(tabTarget);
+    return;
+  }
+
+  // Sub-tab shortcuts (only in Modelos): 1=Treinar, 2=Lista, 3=Gerar, 4=Comparar, 5=Histórico
+  if (STATE.activeTab === 'modelos' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    const subTarget = _SUBTAB_KEYS[e.key];
+    if (subTarget) { showModelosSubTab(subTarget); return; }
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════
 // START
 // ═══════════════════════════════════════════════════════════════
-document.addEventListener('DOMContentLoaded', init);
+document.addEventListener('DOMContentLoaded', () => {
+  init();
+  _updatePageTitle();
+});
 </script>
 </body>
 </html>
