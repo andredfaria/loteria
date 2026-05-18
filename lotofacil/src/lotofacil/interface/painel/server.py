@@ -834,7 +834,7 @@ def _run_command(
         **os.environ,
         "PYTHONPATH": str(_SRC),
         "CUDA_VISIBLE_DEVICES": "-1",   # força CPU; evita erro cuInit em máquinas sem GPU
-        "TF_CPP_MIN_LOG_LEVEL": "2",    # suprime logs INFO/WARNING do TensorFlow
+        "TF_CPP_MIN_LOG_LEVEL": "3",    # suprime INFO/WARNING/ERROR do TF (só FATAL)
     }
     output_lines: list[str] = []
     ret = -1
