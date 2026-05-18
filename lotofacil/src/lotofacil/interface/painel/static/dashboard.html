@@ -778,6 +778,7 @@ const STATE = {
   dadosFilter: '',
   dadosClimaFilter: 'todos',
   dadosLuaFilter: 'todos',
+  validacaoLastN: 120,
 };
 
 const CONSOLE_MAX = 150;
@@ -941,11 +942,18 @@ function switchTab(id) {
     numSec.style.display = '';
     bar.innerHTML = `
       <div class="section-title">✅ Validação do Modelo</div>
-      <button class="action-btn" onclick="renderValidacao()"><span class="icon">↻</span> Atualizar</button>`;
+      <div style="display:flex;align-items:center;gap:0.3rem">
+        <label style="font-size:0.68rem;color:var(--muted)">Últimos</label>
+        <input type="number" id="validacaoLastNInput" value="${STATE.validacaoLastN}" min="10" max="500"
+          style="width:52px;font-size:0.68rem;padding:1px 4px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:3px">
+        <label style="font-size:0.68rem;color:var(--muted)">sorteios</label>
+      </div>
+      <button class="action-btn" onclick="_recalcValidacao()"><span class="icon">↻</span> Recalcular</button>`;
     renderValidacao();
   } else if (id === 'coleta') {
     numSec.style.display = 'none';
     renderActions();
+    _renderColetaStats();
   } else if (id === 'modelos') {
     numSec.style.display = 'none';
     bar.innerHTML = '';
@@ -1279,8 +1287,12 @@ async function renderDados() {
   const perPage = STATE.dadosPerPage || 25;
 
   try {
-    const r = await fetch(`/api/dados?page=${page}&per_page=${perPage}`);
+    const [r, freqR] = await Promise.all([
+      fetch(`/api/dados?page=${page}&per_page=${perPage}`),
+      fetch('/api/dados/frequencia'),
+    ]);
     const d = await r.json();
+    const freqData = await freqR.json().catch(() => null);
     const totalPages = Math.max(1, Math.ceil(d.total / d.per_page));
 
     section.innerHTML = '';
@@ -1308,6 +1320,38 @@ async function renderDados() {
       </div>
     `;
     section.appendChild(headerDiv);
+
+    // ── Frequência dos números ──────────────────────────────────
+    if (freqData && freqData.frequency) {
+      const freq = freqData.frequency;
+      const vals = Object.values(freq);
+      const maxF = Math.max(...vals, 1);
+      const minF = Math.min(...vals);
+      const avgF = freqData.expected_avg || 0;
+      const freqDiv = document.createElement('div');
+      freqDiv.style.cssText = 'margin-bottom:0.75rem;padding:0.75rem;background:var(--surface);border-radius:8px;border:1px solid var(--border)';
+      let fHtml = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem">
+        <span style="font-size:0.72rem;font-weight:600;color:var(--text)">Frequência histórica — ${freqData.total_draws} sorteios</span>
+        <span style="font-size:0.65rem;color:var(--dim)">esperado: ${avgF}x · max: ${maxF}x · min: ${minF}x</span>
+      </div><div style="display:flex;gap:3px;flex-wrap:nowrap;overflow-x:auto">`;
+      for (let n = 1; n <= 25; n++) {
+        const f = freq[n] || 0;
+        const pct = Math.round((f / maxF) * 100);
+        const hot = f >= maxF * 0.9;
+        const cold = f <= minF * 1.1 + (maxF - minF) * 0.1;
+        const color = hot ? 'var(--green)' : cold ? 'var(--red)' : 'var(--accent)';
+        fHtml += `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex:1;min-width:24px" title="${n}: ${f}x">
+          <div style="width:100%;background:rgba(255,255,255,0.06);border-radius:3px;height:48px;display:flex;align-items:flex-end;overflow:hidden">
+            <div style="width:100%;height:${Math.max(pct,2)}%;background:${color};opacity:0.8;border-radius:2px 2px 0 0;transition:height 0.3s"></div>
+          </div>
+          <span style="font-size:0.58rem;color:var(--muted)">${n}</span>
+          <span style="font-size:0.55rem;color:${color};font-weight:600">${f}</span>
+        </div>`;
+      }
+      fHtml += '</div>';
+      freqDiv.innerHTML = fHtml;
+      section.appendChild(freqDiv);
+    }
 
     const controlsDiv = document.createElement('div');
     controlsDiv.className = 'dados-controls';
@@ -1490,12 +1534,45 @@ function dadosGoToPage(page) {
 // ═══════════════════════════════════════════════════════════════
 // VALIDAÇÃO
 // ═══════════════════════════════════════════════════════════════
+async function _renderColetaStats() {
+  const bar = document.getElementById('actionsBar');
+  if (!bar) return;
+  try {
+    const [statusR, freqR] = await Promise.all([
+      fetch('/api/status'),
+      fetch('/api/dados/frequencia'),
+    ]);
+    const status = await statusR.json();
+    const freq = await freqR.json().catch(() => null);
+    const lc = status.last_concurso;
+    const total = status.total_draws || freq?.total_draws || '—';
+    const statsHtml = `
+      <div style="margin-top:1rem;padding:0.75rem;background:var(--surface);border-radius:8px;border:1px solid var(--border);font-size:0.72rem">
+        <div style="font-weight:600;color:var(--text);margin-bottom:0.5rem">📊 Status da base</div>
+        <div style="display:flex;gap:1.5rem;flex-wrap:wrap">
+          <div><span style="color:var(--muted)">Total sorteios</span><br><b style="color:var(--accent);font-size:1rem">${fmt(total)}</b></div>
+          ${lc ? `<div><span style="color:var(--muted)">Último concurso</span><br><b style="color:var(--text)">#${lc.concurso}</b></div>` : ''}
+          ${lc?.data ? `<div><span style="color:var(--muted)">Data</span><br><b style="color:var(--text)">${lc.data}</b></div>` : ''}
+          ${lc?.dezenas?.length ? `<div><span style="color:var(--muted)">Dezenas sorteadas</span><br><div class="pred-balls" style="display:inline-flex;gap:2px;margin-top:2px">${lc.dezenas.map(n=>`<span class="ball${n>12?' high':''}" style="font-size:0.6rem;width:20px;height:20px;line-height:20px">${String(n).padStart(2,'0')}</span>`).join('')}</div></div>` : ''}
+        </div>
+      </div>`;
+    bar.insertAdjacentHTML('beforeend', statsHtml);
+  } catch(e) { /* silencioso */ }
+}
+
+function _recalcValidacao() {
+  const input = document.getElementById('validacaoLastNInput');
+  const val = input ? parseInt(input.value) : 120;
+  if (!isNaN(val) && val >= 10 && val <= 500) STATE.validacaoLastN = val;
+  renderValidacao();
+}
+
 async function renderValidacao() {
   const grid = document.getElementById('numbersSection');
   grid.innerHTML = '<div class="empty-state"><span class="big-icon">⏳</span><p>Carregando...</p></div>';
   try {
     const [qualityResp, trendResp, lbResp, alertsResp] = await Promise.all([
-      fetch('/api/models/quality?last_n=120'),
+      fetch(`/api/models/quality?last_n=${STATE.validacaoLastN}`),
       fetch('/api/models/trend'),
       fetch('/api/leaderboard'),
       fetch('/api/alerts'),

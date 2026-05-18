@@ -800,6 +800,24 @@ def api_dados():
     return jsonify(_build_dados_page(page, per_page))
 
 
+@app.route("/api/dados/frequencia")
+def api_dados_frequencia():
+    freq: dict[int, int] = {i: 0 for i in range(1, 26)}
+    total = 0
+    for f in sorted(DADOS_DIR.glob("concurso_*.json"), key=_concurso_num):
+        try:
+            data = json.loads(f.read_text())
+            for n in data.get("dezenas", []):
+                n = int(n)
+                if 1 <= n <= 25:
+                    freq[n] += 1
+            total += 1
+        except Exception:
+            pass
+    avg = round((total * 15) / 25, 1) if total else 0
+    return jsonify({"frequency": freq, "total_draws": total, "expected_avg": avg})
+
+
 @app.route("/api/generate", methods=["POST"])
 def api_generate():
     body = request.get_json(force=True) or {}
