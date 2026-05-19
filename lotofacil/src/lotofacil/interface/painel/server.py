@@ -100,8 +100,10 @@ def _last_concurso_info():
     try:
         with open(last) as f:
             data = json.load(f)
+        dezenas_raw = data.get("dezenas", [])
+        dezenas = [int(n) for n in dezenas_raw if str(n).strip().isdigit()] if dezenas_raw else []
         return {
-            "latest": {"concurso": data.get("concurso"), "data": data.get("data")},
+            "latest": {"concurso": data.get("concurso"), "data": data.get("data"), "dezenas": dezenas or None},
             "total": len(jsons),
         }
     except Exception:

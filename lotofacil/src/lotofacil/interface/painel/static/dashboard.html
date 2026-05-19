@@ -192,6 +192,19 @@
   .ball.warm { background: #2d2314; color: #d4a76a; border-color: rgba(212,167,106,0.28); }
   .ball.cold { background: #1e3a5f; color: #60a5fa; border-color: rgba(96,165,250,0.3); }
 
+  /* Last draw header strip */
+  .last-draw-strip {
+    height: 38px; display: flex; align-items: center;
+    padding: 0 1.5rem; background: var(--surface);
+    border-bottom: 1px solid var(--border); flex-shrink: 0; gap: 0.75rem;
+    font-size: 0.78rem;
+  }
+  .last-draw-label { color: var(--muted); font-weight: 500; white-space: nowrap; }
+  .last-draw-concurso { color: var(--accent); font-weight: 700; white-space: nowrap; }
+  .last-draw-date { color: var(--dim); white-space: nowrap; }
+  .last-draw-balls { display: flex; gap: 3px; align-items: center; flex-wrap: wrap; }
+  .ball-xs { width: 20px; height: 20px; font-size: 0.62rem; border-width: 1px; flex-shrink: 0; }
+
   /* Clima cell */
   .clima-wrap { display: flex; align-items: center; gap: 0.35rem; font-size: 0.78rem; }
   .clima-temp { color: var(--text); font-weight: 500; }
@@ -681,6 +694,14 @@
   </div>
 </nav>
 
+<!-- Last Draw Strip -->
+<div id="lastDrawStrip" class="last-draw-strip" style="display:none">
+  <span class="last-draw-label">📌 Último sorteio</span>
+  <span id="lastDrawConcurso" class="last-draw-concurso"></span>
+  <span id="lastDrawDate" class="last-draw-date"></span>
+  <div id="lastDrawBalls" class="last-draw-balls"></div>
+</div>
+
 <!-- Layout -->
 <div class="layout">
 
@@ -814,6 +835,7 @@ const STATE = {
 // ── Ball frequency coloring ────────────────────────────────────
 let _ballFreq = null;
 let _ballThresholds = null;
+let _lastDraw = null;
 
 async function _loadBallFreq() {
   try {
@@ -825,7 +847,17 @@ async function _loadBallFreq() {
       cold: vals[Math.floor(vals.length * 0.3)],  // bottom 30%
       hot:  vals[Math.floor(vals.length * 0.7)],  // top 30%
     };
+    _renderHeaderBalls();
   } catch(e) { /* fallback: no coloring */ }
+}
+
+function _renderHeaderBalls() {
+  const el = document.getElementById('lastDrawBalls');
+  if (!el || !_lastDraw || !_lastDraw.length) return;
+  el.innerHTML = _lastDraw.map(n =>
+    `<span class="ball ball-xs ${_ballClass(n)}">${String(n).padStart(2,'0')}</span>`
+  ).join('');
+  document.getElementById('lastDrawStrip').style.display = 'flex';
 }
 
 function _ballClass(n) {
@@ -1254,8 +1286,15 @@ async function loadStatus() {
     document.getElementById('statusTime').textContent = `⏱ ${data.timestamp ? new Date(data.timestamp).toLocaleTimeString() : '—'}`;
     document.querySelector('#statusDraws .val').textContent = data.total_draws || '0';
     if (data.last_concurso) {
-      const txt = data.last_concurso.concurso + (data.last_concurso.data ? ` (${data.last_concurso.data})` : '');
+      const lc = data.last_concurso;
+      const txt = lc.concurso + (lc.data ? ` (${lc.data})` : '');
       document.querySelector('#statusLatest .val').textContent = txt;
+      document.getElementById('lastDrawConcurso').textContent = `#${lc.concurso}`;
+      document.getElementById('lastDrawDate').textContent = lc.data ? `— ${lc.data}` : '';
+      if (Array.isArray(lc.dezenas) && lc.dezenas.length) {
+        _lastDraw = lc.dezenas.map(Number);
+        _renderHeaderBalls();
+      }
     }
     document.querySelector('#statusGames .val').textContent = data.games_count || '0';
   } catch (e) { logClient('warn', 'Falha ao carregar status', { error: e.message }); }
