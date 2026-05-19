@@ -187,9 +187,10 @@
     transition: transform 0.15s; flex-shrink: 0;
   }
   .ball:hover { transform: scale(1.15); z-index: 2; }
-  .ball.high { background: #2d1f00; color: var(--yellow); border-color: rgba(251,191,36,0.25); }
-  .ball.par { background: #1a3d3d; color: var(--green); border-color: rgba(74,222,128,0.2); }
-  .ball.impar { background: #3d1a2e; color: var(--purple); border-color: rgba(167,139,250,0.2); }
+  /* hot/warm/cold — frequência histórica */
+  .ball.hot  { background: #3d1a1a; color: #f87171; border-color: rgba(248,113,113,0.35); }
+  .ball.warm { background: #2d2314; color: #d4a76a; border-color: rgba(212,167,106,0.28); }
+  .ball.cold { background: #1e3a5f; color: #60a5fa; border-color: rgba(96,165,250,0.3); }
 
   /* Clima cell */
   .clima-wrap { display: flex; align-items: center; gap: 0.35rem; font-size: 0.78rem; }
@@ -810,6 +811,32 @@ const STATE = {
   validacaoLastN: 120,
 };
 
+// ── Ball frequency coloring ────────────────────────────────────
+let _ballFreq = null;
+let _ballThresholds = null;
+
+async function _loadBallFreq() {
+  try {
+    const r = await fetch('/api/dados/frequencia');
+    const data = await r.json();
+    _ballFreq = data.frequency;
+    const vals = Object.values(_ballFreq).sort((a, b) => a - b);
+    _ballThresholds = {
+      cold: vals[Math.floor(vals.length * 0.3)],  // bottom 30%
+      hot:  vals[Math.floor(vals.length * 0.7)],  // top 30%
+    };
+  } catch(e) { /* fallback: no coloring */ }
+}
+
+function _ballClass(n) {
+  if (!_ballFreq || !_ballThresholds) return 'cold'; // fallback = blue (default look)
+  const f = _ballFreq[n] ?? _ballFreq[String(n)] ?? 0;
+  if (f >= _ballThresholds.hot)  return 'hot';
+  if (f <= _ballThresholds.cold) return 'cold';
+  return 'warm';
+}
+// ──────────────────────────────────────────────────────────────
+
 const CONSOLE_MAX = 150;
 const CONSOLE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const LS_KEY = 'lotofacil_console_v2';
@@ -858,6 +885,7 @@ function init() {
   applyConsoleFilters();
   loadStatus();
   setInterval(loadStatus, 30000);
+  _loadBallFreq();
 }
 
 
@@ -1292,8 +1320,7 @@ function renderPredictions(groups) {
         <div class="balls" style="flex:1;display:flex;flex-wrap:wrap;gap:0.3rem;">
           ${(ab.dezenas || []).map(n => {
             const num = parseInt(n);
-            const high = num > 12;
-            return `<span class="ball${high ? ' high' : ''}">${String(num).padStart(2,'0')}</span>`;
+            return `<span class="ball ${_ballClass(num)}">${String(num).padStart(2,'0')}</span>`;
           }).join('')}
         </div>
         ${confBadge}
@@ -1457,9 +1484,7 @@ async function renderDados() {
         }
         const dezStr = (item.dezenas || []).map(n => {
           const num = parseInt(n);
-          const high = num > 12;
-          const par = num % 2 === 0;
-          return `<span class="ball${high ? ' high' : ''}${par ? ' par' : ' impar'}">${String(num).padStart(2,'0')}</span>`;
+          return `<span class="ball ${_ballClass(num)}">${String(num).padStart(2,'0')}</span>`;
         }).join('');
 
         tableHtml += `<tr>
@@ -1639,7 +1664,7 @@ async function _renderColetaStats() {
           <div><span style="color:var(--muted)">Total sorteios</span><br><b style="color:var(--accent);font-size:1rem">${fmt(total)}</b></div>
           ${lc ? `<div><span style="color:var(--muted)">Último concurso</span><br><b style="color:var(--text)">#${lc.concurso}</b></div>` : ''}
           ${lc?.data ? `<div><span style="color:var(--muted)">Data</span><br><b style="color:var(--text)">${lc.data}</b></div>` : ''}
-          ${lc?.dezenas?.length ? `<div><span style="color:var(--muted)">Dezenas sorteadas</span><br><div class="pred-balls" style="display:inline-flex;gap:2px;margin-top:2px">${lc.dezenas.map(n=>`<span class="ball${n>12?' high':''}" style="font-size:0.6rem;width:20px;height:20px;line-height:20px">${String(n).padStart(2,'0')}</span>`).join('')}</div></div>` : ''}
+          ${lc?.dezenas?.length ? `<div><span style="color:var(--muted)">Dezenas sorteadas</span><br><div class="pred-balls" style="display:inline-flex;gap:2px;margin-top:2px">${lc.dezenas.map(n=>`<span class="ball ${_ballClass(n)}" style="font-size:0.6rem;width:20px;height:20px;line-height:20px">${String(n).padStart(2,'0')}</span>`).join('')}</div></div>` : ''}
         </div>
       </div>`;
     bar.insertAdjacentHTML('beforeend', statsHtml);
@@ -2546,7 +2571,7 @@ async function _loadGerarRecentes() {
         </div>`;
       for (const jogo of jogosArr) {
         html += `<div class="pred-balls" style="display:inline-flex;gap:2px;margin-right:0.5rem;margin-bottom:2px">
-          ${jogo.map(n=>`<span class="ball${n>12?' high':''}" style="opacity:0.6">${String(n).padStart(2,'0')}</span>`).join('')}
+          ${jogo.map(n=>`<span class="ball ${_ballClass(n)}" style="opacity:0.6">${String(n).padStart(2,'0')}</span>`).join('')}
         </div>`;
       }
       html += `</div>`;
@@ -2568,7 +2593,7 @@ function renderJogos(data) {
   data.jogos.forEach((jogo, i) => {
     html += `<div class="pred-jogo-card">
       <div class="pred-jogo-title">Jogo ${i+1} — ${jogo.length} números</div>
-      <div class="pred-balls">${jogo.map(n=>`<span class="ball${n>12?' high':''}">${String(n).padStart(2,'0')}</span>`).join('')}</div>
+      <div class="pred-balls">${jogo.map(n=>`<span class="ball ${_ballClass(n)}">${String(n).padStart(2,'0')}</span>`).join('')}</div>
     </div>`;
   });
   html += '</div>';
@@ -2592,7 +2617,7 @@ function renderJogos(data) {
     html += `<div style="margin-top:0.75rem;padding:0.5rem 0.75rem;background:rgba(255,255,255,0.04);border-radius:6px;border:1px solid var(--border)">
       <div style="font-size:0.65rem;color:var(--dim);margin-bottom:0.3rem">Último sorteio real — concurso ${ld.concurso}${ld.data ? ' · ' + ld.data : ''}</div>
       <div class="pred-balls" style="display:inline-flex;gap:2px;opacity:0.75">
-        ${ld.dezenas.map(n=>`<span class="ball${n>12?' high':''}">${String(n).padStart(2,'0')}</span>`).join('')}
+        ${ld.dezenas.map(n=>`<span class="ball ${_ballClass(n)}">${String(n).padStart(2,'0')}</span>`).join('')}
       </div>
     </div>`;
   }
@@ -2807,7 +2832,7 @@ function _renderHistoricoPanel(panel) {
       const balls = Array.isArray(jogo)
         ? jogo.map(n => {
             const isHit = real && real.includes(n);
-            return `<span class="ball${n>12?' high':''}" style="${isHit?'outline:1px solid var(--green);opacity:1':'opacity:0.75'}">${String(n).padStart(2,'0')}</span>`;
+            return `<span class="ball ${_ballClass(n)}" style="${isHit?'outline:2px solid var(--green);opacity:1':'opacity:0.75'}">${String(n).padStart(2,'0')}</span>`;
           }).join('')
         : '—';
       const copyData = Array.isArray(jogo) ? jogo.join('-') : '';
