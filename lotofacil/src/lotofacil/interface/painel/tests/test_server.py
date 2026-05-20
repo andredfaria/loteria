@@ -145,3 +145,49 @@ def test_api_treinos_iniciar_returns_ids(client, monkeypatch):
     data = resp.get_json()
     assert "treino_id" in data
     assert "task_id" in data
+
+
+import sqlite3 as _sqlite3
+
+
+def test_compute_acertos_with_matching_numbers():
+    jogos = [[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]]
+    real = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+    result = server_module._compute_acertos(jogos, real)
+    assert result == [15]
+
+
+def test_compute_acertos_returns_none_when_no_real():
+    jogos = [[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]]
+    result = server_module._compute_acertos(jogos, None)
+    assert result is None
+
+
+def test_compute_acertos_partial_hits():
+    jogos = [[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+             [16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 1, 2, 3, 4, 5]]
+    real = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+    result = server_module._compute_acertos(jogos, real)
+    assert result == [15, 5]
+
+
+def test_get_draw_dezenas_returns_list(tmp_path, monkeypatch):
+    db = tmp_path / "test.db"
+    with _sqlite3.connect(str(db)) as conn:
+        conn.execute("CREATE TABLE concursos (concurso INTEGER, dezenas TEXT)")
+        conn.execute(
+            "INSERT INTO concursos VALUES (?, ?)",
+            (1000, '[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]'),
+        )
+    monkeypatch.setattr(server_module, "DB_PATH", db)
+    result = server_module._get_draw_dezenas(1000)
+    assert result == [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+
+
+def test_get_draw_dezenas_returns_none_for_missing(tmp_path, monkeypatch):
+    db = tmp_path / "test.db"
+    with _sqlite3.connect(str(db)) as conn:
+        conn.execute("CREATE TABLE concursos (concurso INTEGER, dezenas TEXT)")
+    monkeypatch.setattr(server_module, "DB_PATH", db)
+    result = server_module._get_draw_dezenas(9999)
+    assert result is None

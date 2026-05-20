@@ -1170,6 +1170,13 @@ def _get_draw_dezenas(concurso: int) -> list[int] | None:
     return None
 
 
+def _compute_acertos(jogos: list[list[int]], dezenas_reais: list[int] | None) -> list[int] | None:
+    if not dezenas_reais:
+        return None
+    real_set = set(dezenas_reais)
+    return [len(set(j) & real_set) for j in jogos]
+
+
 @app.route("/api/jogos-gerados")
 def api_jogos_gerados():
     limit = request.args.get("limit", default=100, type=int)
