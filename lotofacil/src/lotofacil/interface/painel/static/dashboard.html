@@ -867,6 +867,15 @@ function _ballClass(n) {
   if (f <= _ballThresholds.cold) return 'cold';
   return 'warm';
 }
+
+function _premioCat(hits) {
+  if (hits === 15) return { label: '15 pontos 🏆', color: 'var(--accent)' };
+  if (hits === 14) return { label: '14 pontos', color: 'var(--green)' };
+  if (hits === 13) return { label: '13 pontos', color: 'var(--green)' };
+  if (hits === 12) return { label: '12 pontos', color: 'var(--yellow)' };
+  if (hits === 11) return { label: '11 pontos', color: 'var(--yellow)' };
+  return { label: 'Sem prêmio', color: 'var(--red)' };
+}
 // ──────────────────────────────────────────────────────────────
 
 const CONSOLE_MAX = 150;
@@ -2625,19 +2634,63 @@ function renderJogos(data) {
   if (!data.jogos || !data.jogos.length) {
     div.innerHTML = '<div style="color:var(--muted);margin-top:0.5rem">Nenhum jogo retornado.</div>'; return;
   }
+
+  const dezReais = Array.isArray(data.dezenas_reais) ? data.dezenas_reais : null;
+  const acertos  = Array.isArray(data.acertos_por_jogo) ? data.acertos_por_jogo : null;
+  const realSet  = dezReais ? new Set(dezReais) : null;
+
   let html = `<div style="font-size:0.72rem;color:var(--muted);margin-top:0.5rem;margin-bottom:0.5rem">
     Concurso alvo: <b style="color:var(--text)">${data.concurso}</b> ·
     Modelo: <b style="color:var(--accent)">${esc(data.treino_nome||data.treino_id)}</b>
-  </div><div class="pred-jogos-grid">`;
+  </div>`;
+
+  // Banner sorteio real — só aparece quando concurso já aconteceu
+  if (dezReais) {
+    html += `<div style="margin-bottom:0.75rem;padding:0.5rem 0.75rem;background:rgba(255,255,255,0.04);border-radius:6px;border:1px solid var(--green);opacity:0.9">
+      <div style="font-size:0.65rem;color:var(--green);font-weight:600;margin-bottom:0.3rem">🎯 Concurso ${data.concurso} já aconteceu — sorteio real</div>
+      <div class="pred-balls" style="display:inline-flex;gap:2px">
+        ${dezReais.map(n=>`<span class="ball ${_ballClass(n)}">${String(n).padStart(2,'0')}</span>`).join('')}
+      </div>
+    </div>`;
+  }
+
+  html += `<div class="pred-jogos-grid">`;
   data.jogos.forEach((jogo, i) => {
+    const hits = acertos ? (acertos[i] ?? null) : null;
+    const premio = hits !== null ? _premioCat(hits) : null;
+    const badgeHtml = premio && jogo.length === 15
+      ? `<span style="font-size:0.62rem;font-weight:600;color:${premio.color};margin-left:0.35rem">${hits}/15 — ${premio.label}</span>`
+      : hits !== null
+        ? `<span style="font-size:0.62rem;color:var(--dim);margin-left:0.35rem">${hits}/${jogo.length}</span>`
+        : '';
+
+    const ballsHtml = jogo.map(n => {
+      const isHit = realSet && realSet.has(n);
+      const style = dezReais ? (isHit ? 'outline:2px solid var(--green);opacity:1' : 'opacity:0.35') : '';
+      return `<span class="ball ${_ballClass(n)}" style="${style}">${String(n).padStart(2,'0')}</span>`;
+    }).join('');
+
     html += `<div class="pred-jogo-card">
-      <div class="pred-jogo-title">Jogo ${i+1} — ${jogo.length} números</div>
-      <div class="pred-balls">${jogo.map(n=>`<span class="ball ${_ballClass(n)}">${String(n).padStart(2,'0')}</span>`).join('')}</div>
+      <div class="pred-jogo-title" style="display:flex;align-items:center;flex-wrap:wrap;gap:0.2rem">
+        <span>Jogo ${i+1} — ${jogo.length} números</span>${badgeHtml}
+      </div>
+      <div class="pred-balls">${ballsHtml}</div>
     </div>`;
   });
   html += '</div>';
 
-  // frequency heatmap across all generated games
+  // Resumo de prêmios por jogo
+  if (acertos) {
+    const chips = acertos.map((h, i) => {
+      const p = _premioCat(h);
+      return `<span style="font-size:0.62rem;padding:2px 7px;border-radius:10px;background:rgba(255,255,255,0.06);color:${p.color}">J${i+1}: ${p.label}</span>`;
+    }).join(' · ');
+    html += `<div style="margin-top:0.6rem;font-size:0.72rem;color:var(--dim);display:flex;flex-wrap:wrap;gap:0.3rem;align-items:center">
+      <span>Resultado:</span> ${chips}
+    </div>`;
+  }
+
+  // Heatmap de frequência (preservado intacto)
   const freq = {};
   data.jogos.forEach(jogo => jogo.forEach(n => { freq[n] = (freq[n] || 0) + 1; }));
   const maxFreq = Math.max(...Object.values(freq), 1);
@@ -2650,15 +2703,17 @@ function renderJogos(data) {
   heatHtml += '</div></div>';
   html += heatHtml;
 
-  // show last real draw for reference
-  const ld = _predState.lastDraw;
-  if (ld && Array.isArray(ld.dezenas) && ld.dezenas.length) {
-    html += `<div style="margin-top:0.75rem;padding:0.5rem 0.75rem;background:rgba(255,255,255,0.04);border-radius:6px;border:1px solid var(--border)">
-      <div style="font-size:0.65rem;color:var(--dim);margin-bottom:0.3rem">Último sorteio real — concurso ${ld.concurso}${ld.data ? ' · ' + ld.data : ''}</div>
-      <div class="pred-balls" style="display:inline-flex;gap:2px;opacity:0.75">
-        ${ld.dezenas.map(n=>`<span class="ball ${_ballClass(n)}">${String(n).padStart(2,'0')}</span>`).join('')}
-      </div>
-    </div>`;
+  // Último sorteio real — só quando concurso alvo ainda não aconteceu
+  if (!dezReais) {
+    const ld = _predState.lastDraw;
+    if (ld && Array.isArray(ld.dezenas) && ld.dezenas.length) {
+      html += `<div style="margin-top:0.75rem;padding:0.5rem 0.75rem;background:rgba(255,255,255,0.04);border-radius:6px;border:1px solid var(--border)">
+        <div style="font-size:0.65rem;color:var(--dim);margin-bottom:0.3rem">Último sorteio real — concurso ${ld.concurso}${ld.data ? ' · ' + ld.data : ''}</div>
+        <div class="pred-balls" style="display:inline-flex;gap:2px;opacity:0.75">
+          ${ld.dezenas.map(n=>`<span class="ball ${_ballClass(n)}">${String(n).padStart(2,'0')}</span>`).join('')}
+        </div>
+      </div>`;
+    }
   }
 
   div.innerHTML = html;
