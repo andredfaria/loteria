@@ -1266,6 +1266,9 @@ def api_treino_gerar(treino_id: str):
         # Persist to registry for history tab
         _registry.salvar_jogo(treino_id, t.get("nome", treino_id), next_concurso, jogos)
 
+        dezenas_reais = _get_draw_dezenas(next_concurso)
+        acertos_por_jogo = _compute_acertos(jogos, dezenas_reais)
+
         return jsonify({
             "treino_id": treino_id,
             "treino_nome": t.get("nome"),
@@ -1273,6 +1276,8 @@ def api_treino_gerar(treino_id: str):
             "n_jogos": n_jogos,
             "n_numeros": n_numeros,
             "jogos": jogos,
+            "dezenas_reais": dezenas_reais,
+            "acertos_por_jogo": acertos_por_jogo,
         })
 
     except Exception as exc:
