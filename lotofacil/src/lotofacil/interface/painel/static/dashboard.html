@@ -2832,6 +2832,7 @@ function renderComparacao(data) {
 // ── Histórico de jogos gerados ─────────────────────────────────
 let _historicoData = [];
 let _historicoFiltroModelo = '';
+let _historicoSoPremiados = false;
 
 async function renderPredHistorico() {
   const panel = document.getElementById('mod-historico');
@@ -2847,7 +2848,7 @@ async function renderPredHistorico() {
 }
 
 function _historicoStats(items) {
-  let totalJogos = 0, acertosAll = [], melhor = null;
+  let totalJogos = 0, acertosAll = [], melhor = null, premiados = 0;
   for (const item of items) {
     const arr = Array.isArray(item.jogos) ? item.jogos : [];
     totalJogos += arr.length;
@@ -2855,12 +2856,13 @@ function _historicoStats(items) {
     for (const h of ac) {
       acertosAll.push(h);
       if (melhor === null || h > melhor) melhor = h;
+      if (h >= 11) premiados++;
     }
   }
   const media = acertosAll.length
     ? (acertosAll.reduce((s, v) => s + v, 0) / acertosAll.length).toFixed(2)
     : null;
-  return { totalGeracoes: items.length, totalJogos, media, melhor, comResultado: acertosAll.length };
+  return { totalGeracoes: items.length, totalJogos, media, melhor, comResultado: acertosAll.length, premiados };
 }
 
 function _renderHistoricoPanel(panel) {
@@ -2873,9 +2875,12 @@ function _renderHistoricoPanel(panel) {
 
   // unique model names for filter
   const modelos = [...new Set(jogos.map(j => j.treino_nome || j.treino_id))].sort();
-  const filtered = _historicoFiltroModelo
+  const byModel = _historicoFiltroModelo
     ? jogos.filter(j => (j.treino_nome || j.treino_id) === _historicoFiltroModelo)
     : jogos;
+  const filtered = _historicoSoPremiados
+    ? byModel.filter(j => (j.acertos_por_jogo || []).some(h => h >= 11))
+    : byModel;
 
   const stats = _historicoStats(filtered);
   const statsHtml = `
@@ -2884,6 +2889,7 @@ function _renderHistoricoPanel(panel) {
       <div style="font-size:0.72rem;color:var(--muted)">Jogos: <b style="color:var(--text)">${stats.totalJogos}</b></div>
       ${stats.media != null ? `<div style="font-size:0.72rem;color:var(--muted)">Média acertos: <b style="color:var(--accent)">${stats.media}</b></div>` : ''}
       ${stats.melhor != null ? `<div style="font-size:0.72rem;color:var(--muted)">Melhor: <b style="color:var(--green)">${stats.melhor}/15</b></div>` : ''}
+      ${stats.premiados > 0 ? `<div style="font-size:0.72rem;color:var(--muted)">Premiados (11+): <b style="color:var(--green)">${stats.premiados}</b></div>` : ''}
       ${stats.comResultado > 0 ? `<div style="font-size:0.72rem;color:var(--dim)">${stats.comResultado} jogo${stats.comResultado>1?'s':''} com resultado</div>` : ''}
     </div>`;
 
@@ -2895,6 +2901,10 @@ function _renderHistoricoPanel(panel) {
         <option value="">Todos os modelos</option>
         ${modelos.map(m => `<option value="${esc(m)}"${_historicoFiltroModelo===m?' selected':''}>${esc(m)}</option>`).join('')}
       </select>
+      <label style="display:flex;align-items:center;gap:0.3rem;font-size:0.72rem;cursor:pointer;color:var(--muted)">
+        <input type="checkbox" id="historicoSoPremiados" onchange="_onHistoricoFiltro()"${_historicoSoPremiados?' checked':''}>
+        Só premiados
+      </label>
       <button class="action-btn" onclick="_exportHistoricoCSV()"
         style="font-size:0.72rem;padding:0.2rem 0.5rem;margin-left:auto">⬇ CSV</button>
     </div>
@@ -2920,8 +2930,9 @@ function _renderHistoricoPanel(panel) {
       const hits = acertos[i];
       const hasReal = hits != null;
       const hitColor = hasReal ? (hits >= 13 ? 'var(--green)' : hits >= 11 ? 'var(--yellow)' : 'var(--red)') : '';
+      const premioNome = hasReal && Array.isArray(jogo) && jogo.length === 15 ? ` — ${_premioCat(hits).label}` : '';
       const badge = hasReal
-        ? `<span style="font-size:0.6rem;font-weight:700;padding:1px 4px;border-radius:3px;background:rgba(255,255,255,0.07);color:${hitColor};margin-left:4px">${hits}/15 ✓</span>`
+        ? `<span style="font-size:0.6rem;font-weight:700;padding:1px 4px;border-radius:3px;background:rgba(255,255,255,0.07);color:${hitColor};margin-left:4px">${hits}/15${premioNome} ✓</span>`
         : '';
       const balls = Array.isArray(jogo)
         ? jogo.map(n => {
@@ -2952,6 +2963,8 @@ function _renderHistoricoPanel(panel) {
 function _onHistoricoFiltro() {
   const sel = document.getElementById('historicoFiltroModelo');
   _historicoFiltroModelo = sel ? sel.value : '';
+  const chk = document.getElementById('historicoSoPremiados');
+  _historicoSoPremiados = chk ? chk.checked : false;
   const panel = document.getElementById('mod-historico');
   if (panel) _renderHistoricoPanel(panel);
 }
