@@ -1,5 +1,6 @@
 """Tests for dashboard server API endpoints."""
 import json
+import sqlite3 as _sqlite3
 from pathlib import Path
 
 import pytest
@@ -147,9 +148,6 @@ def test_api_treinos_iniciar_returns_ids(client, monkeypatch):
     assert "task_id" in data
 
 
-import sqlite3 as _sqlite3
-
-
 def test_compute_acertos_with_matching_numbers():
     jogos = [[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]]
     real = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
@@ -191,3 +189,14 @@ def test_get_draw_dezenas_returns_none_for_missing(tmp_path, monkeypatch):
     monkeypatch.setattr(server_module, "DB_PATH", db)
     result = server_module._get_draw_dezenas(9999)
     assert result is None
+
+
+def test_compute_acertos_returns_none_when_empty_dezenas():
+    jogos = [[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]]
+    result = server_module._compute_acertos(jogos, [])
+    assert result is None
+
+
+def test_compute_acertos_returns_empty_list_when_no_jogos():
+    result = server_module._compute_acertos([], [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15])
+    assert result == []
