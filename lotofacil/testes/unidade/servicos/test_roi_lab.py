@@ -114,3 +114,55 @@ def test_valida_filtros_consecutivos_exato_limite():
     # min=2 should pass, min=consec+1 should fail
     assert _valida_filtros(nums, {"consecutivos": 2}, None) is True
     assert _valida_filtros(nums, {"consecutivos": consec + 1}, None) is False
+
+
+def test_rodar_backtest_roi_estrutura_do_resultado():
+    from unittest.mock import patch
+    from lotofacil.servicos.roi_lab import rodar_backtest_roi
+
+    fake_draws = [
+        {"concurso": i, "data": f"0{i}/01/2020", "dezenas": list(range(i, i + 15))}
+        for i in range(1, 6)
+    ]
+    with patch("lotofacil.servicos.roi_lab.DatabaseManager") as MockDB:
+        MockDB.return_value.get_all_concursos.return_value = fake_draws
+        result = rodar_backtest_roi({}, n_jogos_por_sorteio=2)
+
+    assert "estrategia" in result
+    assert "baseline" in result
+    for chave in ("roi_pct", "equity_curve", "n_games", "max_drawdown", "sharpe",
+                  "total_cost", "total_revenue", "net_profit", "hits_distribution", "rate_ge"):
+        assert chave in result["estrategia"], f"chave ausente: {chave}"
+    assert result["estrategia"]["n_games"] == 10  # 5 sorteios × 2 jogos
+
+
+def test_rodar_backtest_roi_janela_limita_sorteios():
+    from unittest.mock import patch
+    from lotofacil.servicos.roi_lab import rodar_backtest_roi
+
+    fake_draws = [
+        {"concurso": i, "data": "01/01/2020", "dezenas": list(range(i, i + 15))}
+        for i in range(1, 11)
+    ]
+    with patch("lotofacil.servicos.roi_lab.DatabaseManager") as MockDB:
+        MockDB.return_value.get_all_concursos.return_value = fake_draws
+        result = rodar_backtest_roi({}, n_jogos_por_sorteio=1, janela=3)
+
+    assert result["estrategia"]["n_games"] == 3  # apenas últimos 3 sorteios
+
+
+def test_rodar_backtest_roi_filtro_impossivel_nao_explode():
+    from unittest.mock import patch
+    from lotofacil.servicos.roi_lab import rodar_backtest_roi
+
+    fake_draws = [
+        {"concurso": 1, "data": "01/01/2020", "dezenas": list(range(1, 16))},
+    ]
+    with patch("lotofacil.servicos.roi_lab.DatabaseManager") as MockDB:
+        MockDB.return_value.get_all_concursos.return_value = fake_draws
+        # filtro impossível: soma > 300
+        result = rodar_backtest_roi({"soma": [300, 400]}, n_jogos_por_sorteio=3)
+
+    # todos os jogos resultam em hits=0 (jogo=None → 0)
+    assert result["estrategia"]["n_games"] == 3
+    assert result["estrategia"]["total_revenue"] == 0.0
