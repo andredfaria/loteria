@@ -68,22 +68,33 @@ def rodar_backtest_roi(
     filtros: dict[str, Any],
     n_jogos_por_sorteio: int = 5,
     janela: int | None = None,
+    holdout_pct: float = 0.0,
 ) -> dict[str, Any]:
     """Simula ROI histórico para os filtros dados vs. baseline aleatório.
 
     Returns:
-        {"estrategia": FinancialResult dict, "baseline": FinancialResult dict}
+        {
+          "estrategia": FinancialResult dict,
+          "baseline": FinancialResult dict,
+          "meta": {total_sorteios, sorteios_treino, sorteios_teste, holdout_pct, concurso_corte}
+        }
     """
     db = DatabaseManager()
-    sorteios = db.get_all_concursos()  # [{concurso, data, dezenas}] ordenado por concurso
+    sorteios = db.get_all_concursos()
     if janela is not None:
         sorteios = sorteios[-janela:]
+
+    total = len(sorteios)
+    holdout_pct = max(0.0, min(holdout_pct, 0.9))
+    n_teste = max(1, round(total * holdout_pct)) if holdout_pct > 0.0 else total
+    sorteios_teste = sorteios[-n_teste:] if holdout_pct > 0.0 else sorteios
+    concurso_corte = sorteios_teste[0]["concurso"] if sorteios_teste else None
 
     def _simular(filtros_ativos: dict[str, Any]) -> dict[str, Any]:
         rng = random.Random(42)
         resultados: list[dict] = []
         anterior: list[int] | None = None
-        for sorteio in sorteios:
+        for sorteio in sorteios_teste:
             dezenas_reais = sorteio["dezenas"]
             for _ in range(n_jogos_por_sorteio):
                 jogo = _gerar_jogo_filtrado(filtros_ativos, anterior, rng)
@@ -99,4 +110,11 @@ def rodar_backtest_roi(
     return {
         "estrategia": _simular(filtros),
         "baseline": _simular({}),
+        "meta": {
+            "total_sorteios": total,
+            "sorteios_treino": total - n_teste,
+            "sorteios_teste": n_teste,
+            "holdout_pct": holdout_pct,
+            "concurso_corte": concurso_corte,
+        },
     }

@@ -1314,7 +1314,17 @@ def api_roi_backtest():
     if janela is not None:
         janela = max(10, min(int(janela), 5000))
     try:
-        result = _rodar_backtest_roi(filtros, n_jogos_por_sorteio=n_jogos, janela=janela)
+        holdout_pct = float(body.get("holdout_pct", 0.0))
+        holdout_pct = max(0.0, min(holdout_pct, 0.9))
+    except (TypeError, ValueError):
+        holdout_pct = 0.0
+    try:
+        result = _rodar_backtest_roi(
+            filtros,
+            n_jogos_por_sorteio=n_jogos,
+            janela=janela,
+            holdout_pct=holdout_pct,
+        )
         return jsonify(result)
     except Exception as exc:
         LOGGER.exception("roi backtest error")
