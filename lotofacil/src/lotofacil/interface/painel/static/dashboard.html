@@ -675,6 +675,14 @@
     transition: all var(--transition);
   }
   .treino-cancel-btn:hover { background: rgba(248,113,113,0.2); }
+  .treino-close-btn {
+    padding: 0.35rem 0.9rem; border-radius: var(--radius);
+    border: 1px solid var(--green); background: rgba(74,222,128,0.1);
+    color: var(--green); font-size: 0.78rem; cursor: pointer;
+    transition: all var(--transition); margin-left: 0.5rem;
+  }
+  .treino-close-btn:hover:not(:disabled) { background: rgba(74,222,128,0.2); }
+  .treino-close-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 /* ── ROI Lab ───────────────────────────────────────────────── */
 .roi-layout {
   display: grid;
@@ -826,6 +834,7 @@
     <div class="treino-log" id="treinoLog"></div>
     <div class="treino-modal-footer">
       <button class="treino-cancel-btn" id="treinoCancelBtn" onclick="cancelTreino()">✕ Cancelar</button>
+      <button class="treino-close-btn" id="treinoCloseBtn" onclick="closeTreinoModal()" disabled>✓ Fechar</button>
     </div>
   </div>
 </div>
@@ -3114,12 +3123,23 @@ function openTreinoModal(taskId, configLabel, epochsHint) {
   _treinoEpochLog = [];
 
   document.getElementById('treinoModalTitle').textContent = `Treinando (${configLabel})…`;
-  document.getElementById('treinoModalStatus').textContent = '';
+  document.getElementById('treinoModalStatus').textContent = 'Em andamento · 00:00';
   document.getElementById('treinoProgressFill').style.width = '0%';
+  document.getElementById('treinoProgressFill').style.background = '';
   document.getElementById('treinoEpochLabel').textContent = 'Iniciando…';
   document.getElementById('treinoLog').innerHTML = '';
   document.getElementById('treinoCancelBtn').disabled = false;
+  document.getElementById('treinoCloseBtn').disabled = true;
   document.getElementById('treinoModalOverlay').classList.add('visible');
+
+  const _modalStart = Date.now();
+  window._treinoElapsedTimer = setInterval(() => {
+    if (!_treinoPoller) { clearInterval(window._treinoElapsedTimer); return; }
+    const sec = Math.floor((Date.now() - _modalStart) / 1000);
+    const mm = String(Math.floor(sec / 60)).padStart(2, '0');
+    const ss = String(sec % 60).padStart(2, '0');
+    document.getElementById('treinoModalStatus').textContent = `Em andamento · ${mm}:${ss}`;
+  }, 1000);
 
   _treinoPoller = setInterval(() => _pollTreino(), 2000);
 }
@@ -3163,59 +3183,51 @@ function _appendTreinoLog(lines) {
 
 function _updateEpochFromLog(lines) {
   for (const line of [...lines].reverse()) {
-    const m = line.match(/[Ee]poch[\s:]+(\d+)[\s\/\\]+(\d+)/);
-    if (m) {
-      const cur = parseInt(m[1]);
-      const total = parseInt(m[2]) || _treinoTotalEpochs;
-      const pct = Math.min(100, Math.round((cur / total) * 100));
-      document.getElementById('treinoProgressFill').style.width = `${pct}%`;
+    const m = line.match(
+      /EPOCH_PROGRESS:\s*(\d+)\/(\d+)\s+loss=([\d.]+)\s+val_loss=([\d.]+)/
+    );
+    if (!m) continue;
+    const cur = parseInt(m[1]), total = parseInt(m[2]);
+    const valLoss = parseFloat(m[4]);
+    const pct = Math.min(100, Math.round((cur / total) * 100));
 
-      // ETA calculation using last 5 epoch intervals
-      _treinoEpochLog.push({ epoch: cur, ts: Date.now() });
-      if (_treinoEpochLog.length > 6) _treinoEpochLog.shift();
-      let etaStr = '';
-      if (_treinoEpochLog.length >= 2) {
-        const samples = _treinoEpochLog;
-        const msPerEpoch = (samples[samples.length-1].ts - samples[0].ts) / (samples[samples.length-1].epoch - samples[0].epoch);
-        if (msPerEpoch > 0 && cur < total) {
-          const remSec = Math.round(((total - cur) * msPerEpoch) / 1000);
-          etaStr = remSec < 60 ? ` · ETA ${remSec}s` : ` · ETA ${Math.ceil(remSec/60)}min`;
-        }
+    document.getElementById('treinoProgressFill').style.width = `${pct}%`;
+
+    _treinoEpochLog.push({ epoch: cur, ts: Date.now() });
+    if (_treinoEpochLog.length > 6) _treinoEpochLog.shift();
+    let etaStr = '';
+    if (_treinoEpochLog.length >= 2) {
+      const s = _treinoEpochLog;
+      const msPerEpoch = (s.at(-1).ts - s[0].ts) / (s.at(-1).epoch - s[0].epoch);
+      if (msPerEpoch > 0 && cur < total) {
+        const remSec = Math.round(((total - cur) * msPerEpoch) / 1000);
+        etaStr = remSec < 60 ? ` · ETA ${remSec}s` : ` · ETA ${Math.ceil(remSec/60)}min`;
       }
-      document.getElementById('treinoEpochLabel').textContent = `Epoch ${cur}/${total} · ${pct}%${etaStr}`;
-      return;
     }
+    document.getElementById('treinoEpochLabel').textContent =
+      `Epoch ${cur}/${total} · ${pct}% · val_loss: ${valLoss.toFixed(4)}${etaStr}`;
+    return;
   }
 }
 
 function _finishTreinoModal(success) {
+  clearInterval(window._treinoElapsedTimer);
   const title = document.getElementById('treinoModalTitle');
   const status = document.getElementById('treinoModalStatus');
   const fill = document.getElementById('treinoProgressFill');
   document.getElementById('treinoCancelBtn').disabled = true;
+  document.getElementById('treinoCloseBtn').disabled = false;
 
   if (success) {
     title.textContent = '✅ Treino concluído';
     fill.style.width = '100%';
     fill.style.background = 'var(--green)';
-    status.textContent = 'Recarregando modelos…';
-    if (STATE.activeTab !== 'modelos') {
-      showToast('✅ Treino concluído! Acesse a aba Modelos para ver o resultado.', 'success');
-    }
-    setTimeout(() => {
-      closeTreinoModal();
-      loadModelosAndRender();
-      showModelosSubTab('lista');
-    }, 1800);
+    status.textContent = 'Modelo salvo. Clique Fechar para continuar.';
+    showToast('✅ Treino concluído! Veja o resultado e clique Fechar.', 'success');
   } else {
     title.textContent = '❌ Treino falhou';
-    status.textContent = 'Veja o log para detalhes';
-    document.getElementById('treinoCancelBtn').textContent = 'Fechar';
-    document.getElementById('treinoCancelBtn').disabled = false;
-    document.getElementById('treinoCancelBtn').onclick = closeTreinoModal;
-    if (STATE.activeTab !== 'modelos') {
-      showToast('❌ Treino falhou. Verifique o log na aba Modelos.', 'error');
-    }
+    status.textContent = 'Veja o log para detalhes.';
+    showToast('❌ Treino falhou. Verifique o log no modal.', 'error');
   }
 }
 
@@ -3231,13 +3243,20 @@ async function cancelTreino() {
 }
 
 function closeTreinoModal() {
+  clearInterval(window._treinoElapsedTimer);
+  const wasSuccess = document.getElementById('treinoModalTitle').textContent.includes('✅');
   document.getElementById('treinoModalOverlay').classList.remove('visible');
   const btn = document.getElementById('modTreinoBtn');
   if (btn) { btn.disabled = false; btn.textContent = '▶ Iniciar Treino'; }
-  document.getElementById('treinoCancelBtn').onclick = cancelTreino;
+  document.getElementById('treinoCancelBtn').disabled = false;
   document.getElementById('treinoCancelBtn').textContent = '✕ Cancelar';
+  document.getElementById('treinoCloseBtn').disabled = true;
   _treinoTaskId = null;
   _treinoPollOffset = 0;
+  if (wasSuccess) {
+    loadModelosAndRender();
+    showModelosSubTab('lista');
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════
