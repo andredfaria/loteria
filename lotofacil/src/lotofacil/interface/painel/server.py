@@ -14,7 +14,12 @@ from pathlib import Path
 from datetime import datetime
 
 import numpy as np
-from flask import Flask, jsonify, request, send_from_directory, Response
+import secrets
+from functools import wraps
+from flask import (
+    Flask, jsonify, request, send_from_directory, Response,
+    session, redirect, url_for, render_template_string,
+)
 
 from lotofacil.interface.painel.commands import COMMANDS, BASE  # noqa: E402
 from lotofacil.interface.painel.treino_registry import TreinoRegistry
@@ -48,6 +53,9 @@ def _strip_ansi(text: str) -> str:
 
 
 app = Flask(__name__, static_folder=None)
+app.secret_key = os.environ.get("DASHBOARD_AUTH_SECRET") or secrets.token_hex(32)
+from datetime import timedelta as _td
+app.permanent_session_lifetime = _td(days=30)
 
 BASE_DIR = BASE
 DADOS_DIR = _DADOS_DIR
@@ -674,6 +682,75 @@ def _handle_uncaught_exception(exc):
     LOGGER.exception("Unhandled server error on %s %s", request.method, request.path)
     return jsonify({"error": "Erro interno no servidor", "details": str(exc)}), 500
 
+_LOGIN_HTML = """<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Login — Lotofácil Dashboard</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0f1117;color:#e2e8f0;font-family:monospace;display:flex;
+     align-items:center;justify-content:center;height:100vh}
+.card{background:#1a1f2e;border:1px solid #2d3748;border-radius:10px;padding:2rem;width:320px}
+h1{font-size:1.1rem;margin-bottom:1.5rem;color:#60a5fa}
+label{font-size:0.78rem;color:#94a3b8;display:block;margin-bottom:0.3rem}
+input[type=password]{width:100%;padding:0.5rem 0.75rem;background:#0f1117;color:#e2e8f0;
+  border:1px solid #2d3748;border-radius:5px;font-family:monospace;font-size:0.9rem;margin-bottom:1rem}
+input[type=password]:focus{outline:none;border-color:#60a5fa}
+button{width:100%;padding:0.55rem;background:#1e3a5f;color:#60a5fa;border:1px solid #60a5fa;
+  border-radius:5px;font-family:monospace;font-size:0.9rem;cursor:pointer}
+button:hover{background:#2d4a6f}
+.error{color:#f87171;font-size:0.78rem;margin-bottom:0.75rem}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>🎰 Lotofácil Dashboard</h1>
+  {% if error %}<div class="error">{{ error }}</div>{% endif %}
+  <form method="post">
+    <label>Senha</label>
+    <input type="password" name="password" autofocus autocomplete="current-password">
+    <button type="submit">Entrar</button>
+  </form>
+</div>
+</body>
+</html>"""
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login_page():
+    password = os.environ.get("DASHBOARD_PASSWORD", "")
+    if not password:
+        return redirect(url_for("index"))
+    if request.method == "POST":
+        if request.form.get("password") == password:
+            session.permanent = True
+            session["authenticated"] = True
+            return redirect(url_for("index"))
+        return render_template_string(_LOGIN_HTML, error="Senha incorreta.")
+    return render_template_string(_LOGIN_HTML, error=None)
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("login_page"))
+
+
+@app.before_request
+def _check_auth():
+    password = os.environ.get("DASHBOARD_PASSWORD", "")
+    if not password:
+        return None
+    if session.get("authenticated"):
+        return None
+    if request.endpoint in ("login_page", "logout", "static"):
+        return None
+    if request.path.startswith("/api/"):
+        return jsonify({"error": "unauthorized"}), 401
+    return redirect(url_for("login_page"))
+
+
 @app.route("/")
 def index():
     return send_from_directory(
@@ -699,6 +776,7 @@ def api_status():
         "total_draws": info["total"],
         "games_count": len(_list_game_files()),
         "timestamp": datetime.now().isoformat(),
+        "auth_enabled": bool(os.environ.get("DASHBOARD_PASSWORD", "")),
     })
 
 

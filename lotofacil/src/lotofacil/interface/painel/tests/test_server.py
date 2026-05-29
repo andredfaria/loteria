@@ -299,3 +299,53 @@ def test_api_job_stream_job_inexistente_retorna_done(client, tmp_path, monkeypat
     resp = client.get("/api/jobs/nao_existe/stream")
     assert resp.status_code == 200
     assert b"event: done" in resp.data
+
+
+# ── Autenticação ───────────────────────────────────────────────
+
+def test_sem_password_nao_requer_auth(client):
+    """Sem DASHBOARD_PASSWORD configurada, dashboard abre sem login."""
+    resp = client.get("/")
+    assert resp.status_code == 200
+
+
+def test_com_password_redireciona_para_login(client, monkeypatch):
+    """Com DASHBOARD_PASSWORD definida, GET / sem sessão → 302 para /login."""
+    monkeypatch.setenv("DASHBOARD_PASSWORD", "teste123")
+    resp = client.get("/")
+    assert resp.status_code == 302
+    assert "/login" in resp.headers["Location"]
+
+
+def test_login_correto_cria_sessao(client, monkeypatch):
+    """POST /login com senha correta → redireciona para /."""
+    monkeypatch.setenv("DASHBOARD_PASSWORD", "teste123")
+    resp = client.post("/login", data={"password": "teste123"}, follow_redirects=False)
+    assert resp.status_code == 302
+
+
+def test_login_errado_retorna_erro(client, monkeypatch):
+    """POST /login com senha errada → 200 com mensagem de erro."""
+    monkeypatch.setenv("DASHBOARD_PASSWORD", "teste123")
+    resp = client.post("/login", data={"password": "errada"})
+    assert resp.status_code == 200
+    assert b"incorreta" in resp.data.lower() or b"senha" in resp.data.lower()
+
+
+def test_api_sem_sessao_retorna_401(client, monkeypatch):
+    """Com auth ativa, GET /api/status sem sessão → 401 JSON."""
+    monkeypatch.setenv("DASHBOARD_PASSWORD", "teste123")
+    resp = client.get("/api/status")
+    assert resp.status_code == 401
+    data = json.loads(resp.data)
+    assert "error" in data
+
+
+def test_logout_limpa_sessao(client, monkeypatch):
+    """Após login + logout, GET / redireciona novamente para /login."""
+    monkeypatch.setenv("DASHBOARD_PASSWORD", "teste123")
+    client.post("/login", data={"password": "teste123"})
+    client.get("/logout")
+    resp = client.get("/")
+    assert resp.status_code == 302
+    assert "/login" in resp.headers["Location"]
