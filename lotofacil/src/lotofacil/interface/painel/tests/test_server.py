@@ -267,3 +267,33 @@ def test_api_roi_strategies_deletar(client, tmp_path, monkeypatch):
     assert r.status_code == 200
     lista = json.loads(client.get("/api/roi/strategies").data)
     assert lista == []
+
+
+# ── SSE streaming ──────────────────────────────────────────────
+
+def test_api_job_stream_emite_linhas_e_done(client, tmp_path, monkeypatch):
+    """SSE endpoint emite linhas de output e finaliza com event: done."""
+    from lotofacil.interface.painel.treino_registry import TreinoRegistry
+    reg = TreinoRegistry(tmp_path / "test.db")
+    reg.create_job("test_sse")
+    reg.write_line("test_sse", "linha 1")
+    reg.write_line("test_sse", "linha 2")
+    reg.finish_job("test_sse", success=True)
+    monkeypatch.setattr(server_module, "_registry", reg)
+
+    resp = client.get("/api/jobs/test_sse/stream")
+    assert resp.status_code == 200
+    assert b"linha 1" in resp.data
+    assert b"linha 2" in resp.data
+    assert b"event: done" in resp.data
+
+
+def test_api_job_stream_job_inexistente_retorna_done(client, tmp_path, monkeypatch):
+    """SSE com task_id desconhecido emite event: done imediatamente."""
+    from lotofacil.interface.painel.treino_registry import TreinoRegistry
+    reg = TreinoRegistry(tmp_path / "test.db")
+    monkeypatch.setattr(server_module, "_registry", reg)
+
+    resp = client.get("/api/jobs/nao_existe/stream")
+    assert resp.status_code == 200
+    assert b"event: done" in resp.data

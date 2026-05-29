@@ -14,7 +14,7 @@ from pathlib import Path
 from datetime import datetime
 
 import numpy as np
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, jsonify, request, send_from_directory, Response
 
 from lotofacil.interface.painel.commands import COMMANDS, BASE  # noqa: E402
 from lotofacil.interface.painel.treino_registry import TreinoRegistry
@@ -842,7 +842,6 @@ def api_dados_frequencia():
 
 @app.route("/api/dados/export-csv")
 def api_dados_export_csv():
-    from flask import Response
     files = sorted(DADOS_DIR.glob("concurso_*.json"), key=_concurso_num, reverse=True)
     def generate():
         yield "concurso,data,dezenas\n"
@@ -1358,6 +1357,30 @@ def api_roi_strategies_delete(nome: str):
     strategies = [s for s in _load_roi_strategies() if s.get("nome") != nome]
     _save_roi_strategies(strategies)
     return jsonify({"ok": True})
+
+
+@app.route("/api/jobs/<task_id>/stream")
+def api_job_stream(task_id: str):
+    def generate():
+        offset = 0
+        while True:
+            result = _registry.poll_job(task_id, offset)
+            for line in result["lines"]:
+                yield f"data: {json.dumps({'text': line})}\n\n"
+            offset = result["next_offset"]
+            if result["done"]:
+                yield "event: done\ndata: {}\n\n"
+                return
+            time.sleep(0.15)
+
+    return Response(
+        generate(),
+        mimetype="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 # ─── Main ──────────────────────────────────────────────────────
