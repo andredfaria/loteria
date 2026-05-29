@@ -1,19 +1,11 @@
 """ROI Lab: statistical filter backtest service."""
 from __future__ import annotations
 
-import dataclasses
-import json
 import random
-from pathlib import Path
 from typing import Any
 
-from lotofacil.infra.avaliacao.financeiro import FinancialSimulator
-from lotofacil.infra.config import SAIDA_DIR
-from lotofacil.infra.dados.banco import DatabaseManager
+from lotofacil.dominio.regras import FIBONACCI, MOLDURA, PRIMOS
 
-MOLDURA: frozenset[int] = frozenset({1, 2, 3, 4, 5, 6, 10, 11, 15, 16, 20, 21, 22, 23, 24, 25})
-PRIMOS: frozenset[int] = frozenset({2, 3, 5, 7, 11, 13, 17, 19, 23})
-FIBONACCI: frozenset[int] = frozenset({1, 2, 3, 5, 8, 13, 21})
 _TODOS_NUMEROS: list[int] = list(range(1, 26))
 _MAX_TENTATIVAS: int = 200
 

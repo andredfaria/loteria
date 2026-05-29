@@ -90,3 +90,27 @@ def test_gerar_jogo_filtrado_impossivel_retorna_none():
     # soma > 300 é impossível (máximo é 25+24+...+11 = 270)
     jogo = _gerar_jogo_filtrado({"soma": [300, 400]}, None, rng)
     assert jogo is None
+
+
+def test_valida_filtros_fibonacci_fora_rejeita():
+    from lotofacil.servicos.roi_lab import _valida_filtros, FIBONACCI
+    # Use a game with 0 fibonacci numbers to test rejection
+    # Fibonacci numbers in 1-25: {1,2,3,5,8,13,21}
+    # Pick 15 numbers with none from fibonacci set
+    nums = [4, 6, 7, 9, 10, 11, 12, 14, 15, 16, 17, 18, 19, 20, 22]
+    fib_count = sum(1 for n in nums if n in FIBONACCI)
+    assert fib_count == 0
+    assert _valida_filtros(nums, {"fibonacci": [3, 5]}, None) is False
+
+
+def test_valida_filtros_consecutivos_exato_limite():
+    from lotofacil.servicos.roi_lab import _valida_filtros
+    # Game with exactly 2 consecutive pairs: (1,2) and (4,5)
+    nums = [1, 2, 4, 5, 7, 9, 11, 13, 15, 17, 19, 21, 22, 23, 24]
+    s = sorted(nums)
+    consec = sum(1 for i in range(len(s)-1) if s[i+1] - s[i] == 1)
+    # verify our expectation
+    assert consec >= 2
+    # min=2 should pass, min=consec+1 should fail
+    assert _valida_filtros(nums, {"consecutivos": 2}, None) is True
+    assert _valida_filtros(nums, {"consecutivos": consec + 1}, None) is False
