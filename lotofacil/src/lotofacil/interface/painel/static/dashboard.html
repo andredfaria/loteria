@@ -1214,13 +1214,20 @@ function listenJob(taskId, actionId, label) {
     } catch (_) {}
   };
 
-  es.addEventListener('done', () => {
+  es.addEventListener('done', (e) => {
     es.close();
     STATE.runningTasks.delete(actionId);
     updateButtonState(actionId, false);
     addConsoleLine('', 'sep');
-    addConsoleLine(`✅ ${label} concluído`, 'success');
-    showToast(`${label} concluído com sucesso`, 'success');
+    let success = true;
+    try { success = JSON.parse(e.data).success !== false; } catch (_) {}
+    if (success) {
+      addConsoleLine(`✅ ${label} concluído`, 'success');
+      showToast(`${label} concluído com sucesso`, 'success');
+    } else {
+      addConsoleLine(`❌ ${label} falhou — veja o log acima`, 'error');
+      showToast(`${label} falhou`, 'error');
+    }
     if (STATE.activeTab === 'modelos') { loadModelosAndRender(); }
     if (STATE.activeTab === 'coleta') { _renderColetaStats(); }
     loadStatus();

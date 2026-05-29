@@ -286,6 +286,8 @@ def test_api_job_stream_emite_linhas_e_done(client, tmp_path, monkeypatch):
     assert b"linha 1" in resp.data
     assert b"linha 2" in resp.data
     assert b"event: done" in resp.data
+    assert b'"success": true' in resp.data or b'"success":true' in resp.data
+    assert resp.content_type.startswith("text/event-stream")
 
 
 def test_api_job_stream_job_inexistente_retorna_done(client, tmp_path, monkeypatch):

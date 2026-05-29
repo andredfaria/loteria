@@ -1369,7 +1369,8 @@ def api_job_stream(task_id: str):
                 yield f"data: {json.dumps({'text': line})}\n\n"
             offset = result["next_offset"]
             if result["done"]:
-                yield "event: done\ndata: {}\n\n"
+                success = result.get("success", False)
+                yield f"event: done\ndata: {json.dumps({'success': bool(success)})}\n\n"
                 return
             time.sleep(0.15)
 
