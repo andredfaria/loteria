@@ -77,7 +77,7 @@ class TreinoRegistry:
                     "ALTER TABLE job_status ADD COLUMN created_at TEXT"
                 )
                 conn.commit()
-            except Exception:
+            except sqlite3.OperationalError:
                 pass  # column already exists
 
     def _conn(self) -> sqlite3.Connection:
@@ -187,14 +187,17 @@ class TreinoRegistry:
                 "SELECT task_id FROM job_status WHERE done = 1 AND finished_at < ?",
                 (cutoff,),
             ).fetchall()
-            excess = conn.execute(
-                """SELECT task_id FROM job_status WHERE done = 1
-                   ORDER BY COALESCE(created_at, '0000-00-00') ASC
-                   LIMIT MAX(0,
-                     (SELECT COUNT(*) FROM job_status WHERE done = 1) - ?
-                   )""",
-                (max_jobs,),
-            ).fetchall()
+            total_done = conn.execute(
+                "SELECT COUNT(*) FROM job_status WHERE done = 1"
+            ).fetchone()[0]
+            excess_count = max(0, total_done - max_jobs)
+            excess = []
+            if excess_count > 0:
+                excess = conn.execute(
+                    "SELECT task_id FROM job_status WHERE done = 1 "
+                    "ORDER BY COALESCE(created_at, '0000-00-00') ASC LIMIT ?",
+                    (excess_count,),
+                ).fetchall()
             to_delete = list({r[0] for r in old + excess})
             if not to_delete:
                 return
