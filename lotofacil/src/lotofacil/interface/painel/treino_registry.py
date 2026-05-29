@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 
@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS job_status (
     task_id     TEXT PRIMARY KEY,
     done        INTEGER NOT NULL DEFAULT 0,
     success     INTEGER,
+    created_at  TEXT,
     finished_at TEXT
 );
 
@@ -71,6 +72,13 @@ class TreinoRegistry:
         with self._conn() as conn:
             conn.executescript(_SCHEMA)
             conn.executescript(_INDEXES)
+            try:
+                conn.execute(
+                    "ALTER TABLE job_status ADD COLUMN created_at TEXT"
+                )
+                conn.commit()
+            except Exception:
+                pass  # column already exists
 
     def _conn(self) -> sqlite3.Connection:
         conn = sqlite3.connect(str(self._db))
@@ -172,11 +180,35 @@ class TreinoRegistry:
 
     # ── Job output ───────────────────────────────────────────────
 
+    def _purge_old_jobs(self, max_age_days: int = 7, max_jobs: int = 200) -> None:
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=max_age_days)).isoformat()
+        with self._conn() as conn:
+            old = conn.execute(
+                "SELECT task_id FROM job_status WHERE done = 1 AND finished_at < ?",
+                (cutoff,),
+            ).fetchall()
+            excess = conn.execute(
+                """SELECT task_id FROM job_status WHERE done = 1
+                   ORDER BY COALESCE(created_at, '0000-00-00') ASC
+                   LIMIT MAX(0,
+                     (SELECT COUNT(*) FROM job_status WHERE done = 1) - ?
+                   )""",
+                (max_jobs,),
+            ).fetchall()
+            to_delete = list({r[0] for r in old + excess})
+            if not to_delete:
+                return
+            ph = ",".join("?" * len(to_delete))
+            conn.execute(f"DELETE FROM job_output WHERE task_id IN ({ph})", to_delete)
+            conn.execute(f"DELETE FROM job_status WHERE task_id IN ({ph})", to_delete)
+            conn.commit()
+
     def create_job(self, task_id: str) -> None:
+        self._purge_old_jobs()
         with self._conn() as conn:
             conn.execute(
-                "INSERT OR IGNORE INTO job_status (task_id, done) VALUES (?, 0)",
-                (task_id,),
+                "INSERT OR IGNORE INTO job_status (task_id, done, created_at) VALUES (?, 0, ?)",
+                (task_id, _now()),
             )
 
     def write_line(self, task_id: str, text: str) -> None:
