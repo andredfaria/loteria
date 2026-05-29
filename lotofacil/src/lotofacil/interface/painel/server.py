@@ -24,7 +24,10 @@ from flask import (
 
 from lotofacil.interface.painel.commands import COMMANDS, BASE  # noqa: E402
 from lotofacil.interface.painel.treino_registry import TreinoRegistry
-from lotofacil.servicos.roi_lab import rodar_backtest_roi as _rodar_backtest_roi
+from lotofacil.servicos.roi_lab import (
+    rodar_backtest_roi as _rodar_backtest_roi,
+    auto_descobrir_roi as _auto_descobrir_roi,
+)
 from lotofacil.infra.avaliacao.metricas import LotofacilMetrics
 from lotofacil.infra.avaliacao.significancia import compare_vs_baseline
 from lotofacil.infra.config import (
@@ -1485,6 +1488,23 @@ def api_roi_strategies_delete(nome: str):
     strategies = [s for s in _load_roi_strategies() if s.get("nome") != nome]
     _save_roi_strategies(strategies)
     return jsonify({"ok": True})
+
+
+@app.route("/api/roi/autodiscover", methods=["POST"])
+def api_roi_autodiscover():
+    body = request.get_json(force=True) or {}
+    try:
+        n_jogos = max(1, min(int(body.get("n_jogos", 3)), 10))
+        holdout_pct = float(body.get("holdout_pct", 0.2))
+        holdout_pct = max(0.05, min(holdout_pct, 0.5))
+    except (TypeError, ValueError):
+        n_jogos, holdout_pct = 3, 0.2
+    try:
+        result = _auto_descobrir_roi(n_jogos_por_sorteio=n_jogos, holdout_pct=holdout_pct)
+        return jsonify(result)
+    except Exception as exc:
+        LOGGER.exception("roi autodiscover error")
+        return jsonify({"error": str(exc)}), 500
 
 
 @app.route("/api/jobs/<task_id>/stream")

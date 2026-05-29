@@ -3362,6 +3362,16 @@ function renderRoiLab() {
     </div>
 
     <div class="roi-comparison">
+      <div style="font-size:0.82rem;font-weight:700;margin-bottom:0.5rem">🔍 Auto-Descobrir</div>
+      <div style="font-size:0.72rem;color:var(--muted);margin-bottom:0.5rem">
+        Varre 8 combinações de filtros predefinidas e ranqueia por ROI% usando holdout automático.
+      </div>
+      <button id="roiAutoDiscoverBtn" class="action-btn" style="font-size:0.78rem;margin-bottom:0.6rem"
+              onclick="runRoiAutoDiscover()">🔍 Auto-Descobrir</button>
+      <div id="roiAutoDiscoverResult"></div>
+    </div>
+
+    <div class="roi-comparison" style="border-top:1px solid var(--border)">
       <div style="font-size:0.82rem;font-weight:700;margin-bottom:0.5rem">📊 Estratégias Salvas</div>
       <div id="roiStrategyTable"></div>
     </div>`;
@@ -3608,6 +3618,59 @@ async function saveRoiStrategy() {
 async function deleteRoiStrategy(nome) {
   await fetch(`/api/roi/strategies/${encodeURIComponent(nome)}`, { method: 'DELETE' });
   loadRoiStrategies();
+}
+
+async function runRoiAutoDiscover() {
+  const btn = document.getElementById('roiAutoDiscoverBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Analisando 8 estratégias…'; }
+  const nJogos = parseInt(document.getElementById('roiNJogos')?.value) || 3;
+  const holdout_pct = parseFloat(document.getElementById('roiHoldout')?.value) || 0.2;
+  const el = document.getElementById('roiAutoDiscoverResult');
+  if (el) el.innerHTML = '';
+  try {
+    const resp = await fetch('/api/roi/autodiscover', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ n_jogos: nJogos, holdout_pct }),
+    });
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+    _renderAutoDiscoverResult(data);
+  } catch (e) {
+    if (el) el.innerHTML = `<div style="color:var(--error,#f44);font-size:0.75rem">Erro: ${esc(e.message)}</div>`;
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🔍 Auto-Descobrir'; }
+  }
+}
+
+function _renderAutoDiscoverResult(data) {
+  const el = document.getElementById('roiAutoDiscoverResult');
+  if (!el) return;
+  const meta = data.meta || {};
+  const pct = v => `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`;
+  const rows = (data.resultados || []).map((r, i) => {
+    const isWinner = i === 0;
+    const color = r.roi_pct >= 0 ? 'var(--success,#4caf50)' : r.roi_pct > (data.resultados[data.resultados.length - 1]?.roi_pct ?? -99) ? 'var(--accent)' : 'var(--muted)';
+    return `<tr style="${isWinner ? 'background:rgba(96,165,250,0.08)' : ''}">
+      <td style="padding:3px 6px;font-size:0.72rem">${isWinner ? '🏆 ' : ''}${esc(r.nome)}</td>
+      <td style="padding:3px 6px;font-size:0.75rem;text-align:right;font-weight:${isWinner ? 700 : 400};color:${color}">${pct(r.roi_pct)}</td>
+      <td style="padding:3px 6px;font-size:0.72rem;text-align:right">${r.sharpe.toFixed(3)}</td>
+      <td style="padding:3px 6px;font-size:0.72rem;text-align:right">${((r.rate_ge_13 || 0) * 100).toFixed(2)}%</td>
+    </tr>`;
+  }).join('');
+  el.innerHTML = `
+    <div style="font-size:0.68rem;color:var(--muted);margin-bottom:0.4rem">
+      ⚠️ Avaliado nos últimos ${meta.sorteios_teste} sorteios (holdout ${(meta.holdout_pct * 100).toFixed(0)}%)
+    </div>
+    <table style="width:100%;border-collapse:collapse">
+      <tr>
+        <th style="font-size:0.68rem;text-align:left;padding:3px 6px">Estratégia</th>
+        <th style="font-size:0.68rem;text-align:right;padding:3px 6px">ROI%</th>
+        <th style="font-size:0.68rem;text-align:right;padding:3px 6px">Sharpe</th>
+        <th style="font-size:0.68rem;text-align:right;padding:3px 6px">Hit≥13</th>
+      </tr>
+      ${rows}
+    </table>`;
 }
 
 // ═══════════════════════════════════════════════════════════════

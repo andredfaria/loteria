@@ -118,3 +118,74 @@ def rodar_backtest_roi(
             "concurso_corte": concurso_corte,
         },
     }
+
+
+_PRESETS_AUTO_DISCOVER: list[dict[str, Any]] = [
+    {"nome": "Baseline (aleatório)", "filtros": {}},
+    {"nome": "Soma [171–220]", "filtros": {"soma": [171, 220]}},
+    {"nome": "Soma + Pares [6–9]", "filtros": {"soma": [171, 220], "pares": [6, 9]}},
+    {"nome": "Soma + Repetições [8–10]", "filtros": {"soma": [171, 220], "repeticoes": [8, 10]}},
+    {"nome": "Soma + Consecutivos ≥2", "filtros": {"soma": [171, 220], "consecutivos": 2}},
+    {"nome": "Soma + Pares + Repetições", "filtros": {"soma": [171, 220], "pares": [6, 9], "repeticoes": [8, 10]}},
+    {"nome": "Soma + Pares + Moldura [8–11]", "filtros": {"soma": [171, 220], "pares": [6, 9], "moldura": [8, 11]}},
+    {"nome": "Todos os filtros", "filtros": {
+        "soma": [171, 220], "pares": [6, 9], "primos": [4, 7],
+        "fibonacci": [3, 5], "moldura": [8, 11], "repeticoes": [8, 10], "consecutivos": 2,
+    }},
+]
+
+
+def auto_descobrir_roi(
+    n_jogos_por_sorteio: int = 3,
+    holdout_pct: float = 0.2,
+) -> dict[str, Any]:
+    """Roda backtest para presets de filtros predefinidos e retorna ranking por ROI%.
+
+    Returns:
+        {"resultados": [{"nome", "filtros", "roi_pct", "sharpe", "rate_ge_13", "max_drawdown"}, ...],
+         "meta": {total_sorteios, sorteios_teste, holdout_pct}}
+    """
+    db = DatabaseManager()
+    sorteios = db.get_all_concursos()
+    total = len(sorteios)
+    holdout_pct = max(0.05, min(holdout_pct, 0.5))
+    n_teste = max(1, round(total * holdout_pct))
+    sorteios_teste = sorteios[-n_teste:]
+    concurso_corte = sorteios_teste[0]["concurso"] if sorteios_teste else None
+
+    def _simular_preset(filtros: dict[str, Any]) -> dict[str, Any]:
+        rng = random.Random(42)
+        resultados: list[dict] = []
+        anterior: list[int] | None = None
+        for sorteio in sorteios_teste:
+            dezenas_reais = sorteio["dezenas"]
+            for _ in range(n_jogos_por_sorteio):
+                jogo = _gerar_jogo_filtrado(filtros, anterior, rng)
+                resultados.append({"hits": len(set(jogo) & set(dezenas_reais)) if jogo else 0})
+            anterior = dezenas_reais
+        return dataclasses.asdict(FinancialSimulator().simulate(resultados))
+
+    resultados_ranking = []
+    for preset in _PRESETS_AUTO_DISCOVER:
+        r = _simular_preset(preset["filtros"])
+        resultados_ranking.append({
+            "nome": preset["nome"],
+            "filtros": preset["filtros"],
+            "roi_pct": r["roi_pct"],
+            "sharpe": r["sharpe"],
+            "rate_ge_13": r["rate_ge"].get(13, 0),
+            "max_drawdown": r["max_drawdown"],
+            "n_games": r["n_games"],
+        })
+
+    resultados_ranking.sort(key=lambda x: x["roi_pct"], reverse=True)
+    return {
+        "resultados": resultados_ranking,
+        "meta": {
+            "total_sorteios": total,
+            "sorteios_teste": n_teste,
+            "holdout_pct": holdout_pct,
+            "concurso_corte": concurso_corte,
+            "n_jogos_por_sorteio": n_jogos_por_sorteio,
+        },
+    }
