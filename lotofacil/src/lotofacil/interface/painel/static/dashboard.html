@@ -1194,7 +1194,7 @@ async function runCommand(actionId) {
       updateButtonState(actionId, false);
       return;
     }
-    pollJob(data.task_id, actionId, label);
+    listenJob(data.task_id, actionId, label);
   } catch (e) {
     logClient('error', 'Erro de conexão ao gerar comando', { actionId, error: e.message });
     addConsoleLine(`❌ Erro de conexão: ${e.message}`, 'error');
@@ -1204,36 +1204,36 @@ async function runCommand(actionId) {
   }
 }
 
-function pollJob(taskId, actionId, label) {
-  let offset = 0;
-  const interval = setInterval(async () => {
+function listenJob(taskId, actionId, label) {
+  const es = new EventSource(`/api/jobs/${taskId}/stream`);
+
+  es.onmessage = (e) => {
     try {
-      const res = await fetch(`/api/jobs/${taskId}/poll?offset=${offset}`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      data.lines.forEach(l => addConsoleLine(l));
-      offset = data.next_offset;
-      if (data.done) {
-        clearInterval(interval);
-        STATE.runningTasks.delete(actionId);
-        updateButtonState(actionId, false);
-        addConsoleLine('', 'sep');
-        if (data.success) {
-          addConsoleLine(`✅ ${label} concluído`, 'success');
-          showToast(`${label} concluído com sucesso`, 'success');
-        } else {
-          addConsoleLine(`❌ ${label} falhou — veja o log acima`, 'error');
-          showToast(`${label} falhou`, 'error');
-        }
-        if (STATE.activeTab === 'modelos') { loadModelosAndRender(); }
-        if (STATE.activeTab === 'coleta') { _renderColetaStats(); }
-        loadStatus();
-      }
-    } catch (e) {
-      logClient('error', 'Erro ao buscar output do job', { taskId, actionId, offset, error: e.message });
-      addConsoleLine(`⚠️ Falha ao buscar output: ${e.message}`, 'warn');
-    }
-  }, 2000);
+      const { text } = JSON.parse(e.data);
+      if (text) addConsoleLine(text);
+    } catch (_) {}
+  };
+
+  es.addEventListener('done', () => {
+    es.close();
+    STATE.runningTasks.delete(actionId);
+    updateButtonState(actionId, false);
+    addConsoleLine('', 'sep');
+    addConsoleLine(`✅ ${label} concluído`, 'success');
+    showToast(`${label} concluído com sucesso`, 'success');
+    if (STATE.activeTab === 'modelos') { loadModelosAndRender(); }
+    if (STATE.activeTab === 'coleta') { _renderColetaStats(); }
+    loadStatus();
+  });
+
+  es.onerror = () => {
+    es.close();
+    STATE.runningTasks.delete(actionId);
+    updateButtonState(actionId, false);
+    addConsoleLine(`⚠️ Conexão SSE interrompida para ${taskId}`, 'warn');
+    showToast(`${label} — conexão interrompida`, 'warn');
+    loadStatus();
+  };
 }
 
 function updateButtonState(actionId, running) {
