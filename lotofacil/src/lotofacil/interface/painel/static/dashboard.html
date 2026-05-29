@@ -3378,7 +3378,7 @@ async function runRoiBacktest() {
     _renderRoiResults(data);
   } catch (e) {
     document.getElementById('roiResults').innerHTML =
-      `<div style="color:var(--error,#f44);padding:1rem">Erro: ${e.message}</div>`;
+      `<div style="color:var(--error,#f44);padding:1rem">Erro: ${esc(e.message)}</div>`;
   } finally {
     btn.disabled = false;
     btn.textContent = '▶ Rodar Backtest';
@@ -3507,14 +3507,14 @@ async function loadRoiStrategies() {
     const rows = data.map(s => {
       const r = s.resumo || {};
       return `<tr>
-        <td style="padding:3px 6px;font-size:0.75rem">${s.nome}</td>
+        <td style="padding:3px 6px;font-size:0.75rem">${esc(s.nome)}</td>
         <td style="padding:3px 6px;font-size:0.75rem;text-align:right">${r.roi_pct != null ? r.roi_pct.toFixed(1)+'%' : '—'}</td>
         <td style="padding:3px 6px;font-size:0.75rem;text-align:right">${r.sharpe != null ? r.sharpe.toFixed(3) : '—'}</td>
         <td style="padding:3px 6px;font-size:0.75rem;text-align:right">${r.rate_ge_13 != null ? (r.rate_ge_13*100).toFixed(2)+'%' : '—'}</td>
         <td style="padding:3px 6px;font-size:0.75rem;text-align:right">${r.max_drawdown != null ? 'R$'+r.max_drawdown.toFixed(2) : '—'}</td>
         <td style="padding:3px 6px">
           <button class="action-btn" style="padding:1px 5px;font-size:0.65rem"
-                  onclick="deleteRoiStrategy('${s.nome.replace(/'/g,"\\'")}')">🗑</button>
+                  onclick="deleteRoiStrategy(${JSON.stringify(s.nome)})">🗑</button>
         </td>
       </tr>`;
     }).join('');
