@@ -18,6 +18,7 @@ from flask import Flask, jsonify, request, send_from_directory
 
 from lotofacil.interface.painel.commands import COMMANDS, BASE  # noqa: E402
 from lotofacil.interface.painel.treino_registry import TreinoRegistry
+from lotofacil.servicos.roi_lab import rodar_backtest_roi as _rodar_backtest_roi
 from lotofacil.infra.avaliacao.metricas import LotofacilMetrics
 from lotofacil.infra.avaliacao.significancia import compare_vs_baseline
 from lotofacil.infra.config import (
@@ -51,6 +52,7 @@ app = Flask(__name__, static_folder=None)
 BASE_DIR = BASE
 DADOS_DIR = _DADOS_DIR
 SAIDA_DIR = _SAIDA_DIR
+_ROI_STRATEGIES_PATH: Path = _SAIDA_DIR / "roi_strategies.json"
 MODELS_CORE_DIR = MODELOS_DIR
 MODELS_LAB_DIR = SAIDA_DIR / "experimentos"
 
@@ -1283,6 +1285,69 @@ def api_treino_gerar(treino_id: str):
     except Exception as exc:
         LOGGER.exception("Erro ao gerar jogos para treino %s", treino_id)
         return jsonify({"error": str(exc)}), 500
+
+
+# ─── ROI Lab ──────────────────────────────────────────────────
+
+
+def _load_roi_strategies() -> list[dict]:
+    if not _ROI_STRATEGIES_PATH.exists():
+        return []
+    try:
+        return json.loads(_ROI_STRATEGIES_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+
+
+def _save_roi_strategies(strategies: list[dict]) -> None:
+    _ROI_STRATEGIES_PATH.write_text(
+        json.dumps(strategies, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+
+
+@app.route("/api/roi/backtest", methods=["POST"])
+def api_roi_backtest():
+    body = request.get_json(force=True) or {}
+    filtros: dict = {k: v for k, v in (body.get("filtros") or {}).items() if v is not None}
+    n_jogos = max(1, min(int(body.get("n_jogos", 5)), 20))
+    janela = body.get("janela")
+    if janela is not None:
+        janela = max(10, min(int(janela), 5000))
+    try:
+        result = _rodar_backtest_roi(filtros, n_jogos_por_sorteio=n_jogos, janela=janela)
+        return jsonify(result)
+    except Exception as exc:
+        LOGGER.exception("roi backtest error")
+        return jsonify({"error": str(exc)}), 500
+
+
+@app.route("/api/roi/strategies", methods=["GET"])
+def api_roi_strategies_list():
+    return jsonify(_load_roi_strategies())
+
+
+@app.route("/api/roi/strategies", methods=["POST"])
+def api_roi_strategies_save():
+    body = request.get_json(force=True) or {}
+    nome = (body.get("nome") or "").strip()
+    if not nome:
+        return jsonify({"error": "nome é obrigatório"}), 400
+    strategies = _load_roi_strategies()
+    strategies = [s for s in strategies if s.get("nome") != nome]
+    strategies.append({
+        "nome": nome,
+        "filtros": body.get("filtros") or {},
+        "resumo": body.get("resumo") or {},
+    })
+    _save_roi_strategies(strategies)
+    return jsonify({"ok": True})
+
+
+@app.route("/api/roi/strategies/<nome>", methods=["DELETE"])
+def api_roi_strategies_delete(nome: str):
+    strategies = [s for s in _load_roi_strategies() if s.get("nome") != nome]
+    _save_roi_strategies(strategies)
+    return jsonify({"ok": True})
 
 
 # ─── Main ──────────────────────────────────────────────────────

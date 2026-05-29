@@ -200,3 +200,70 @@ def test_compute_acertos_returns_none_when_empty_dezenas():
 def test_compute_acertos_returns_empty_list_when_no_jogos():
     result = server_module._compute_acertos([], [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15])
     assert result == []
+
+
+# ── ROI Lab endpoints ──────────────────────────────────────────
+
+def test_api_roi_backtest_retorna_200(client):
+    from unittest.mock import patch
+
+    fake_draws = [
+        {"concurso": i, "data": "01/01/2020", "dezenas": list(range(i, i + 15))}
+        for i in range(1, 4)
+    ]
+    with patch("lotofacil.servicos.roi_lab.DatabaseManager") as MockDB:
+        MockDB.return_value.get_all_concursos.return_value = fake_draws
+        resp = client.post(
+            "/api/roi/backtest",
+            json={"filtros": {"soma": [171, 220]}, "n_jogos": 2, "janela": None},
+        )
+    assert resp.status_code == 200
+
+
+def test_api_roi_backtest_chaves_resposta(client):
+    from unittest.mock import patch
+
+    fake_draws = [{"concurso": 1, "data": "01/01/2020", "dezenas": list(range(1, 16))}]
+    with patch("lotofacil.servicos.roi_lab.DatabaseManager") as MockDB:
+        MockDB.return_value.get_all_concursos.return_value = fake_draws
+        data = json.loads(client.post("/api/roi/backtest", json={"filtros": {}, "n_jogos": 1}).data)
+    assert "estrategia" in data
+    assert "baseline" in data
+    assert "roi_pct" in data["estrategia"]
+
+
+def test_api_roi_strategies_vazio(client, tmp_path, monkeypatch):
+    monkeypatch.setattr(server_module, "_ROI_STRATEGIES_PATH", tmp_path / "roi.json")
+    resp = client.get("/api/roi/strategies")
+    assert resp.status_code == 200
+    assert json.loads(resp.data) == []
+
+
+def test_api_roi_strategies_salvar_e_listar(client, tmp_path, monkeypatch):
+    monkeypatch.setattr(server_module, "_ROI_STRATEGIES_PATH", tmp_path / "roi.json")
+    payload = {"nome": "teste-a", "filtros": {"soma": [171, 220]}, "resumo": {"roi_pct": -15.0}}
+    r = client.post("/api/roi/strategies", json=payload)
+    assert r.status_code == 200
+    lista = json.loads(client.get("/api/roi/strategies").data)
+    assert len(lista) == 1
+    assert lista[0]["nome"] == "teste-a"
+
+
+def test_api_roi_strategies_salvar_sobrescreve_mesmo_nome(client, tmp_path, monkeypatch):
+    monkeypatch.setattr(server_module, "_ROI_STRATEGIES_PATH", tmp_path / "roi.json")
+    payload = {"nome": "teste-a", "filtros": {}, "resumo": {"roi_pct": -10.0}}
+    client.post("/api/roi/strategies", json=payload)
+    payload["resumo"]["roi_pct"] = -5.0
+    client.post("/api/roi/strategies", json=payload)
+    lista = json.loads(client.get("/api/roi/strategies").data)
+    assert len(lista) == 1
+    assert lista[0]["resumo"]["roi_pct"] == -5.0
+
+
+def test_api_roi_strategies_deletar(client, tmp_path, monkeypatch):
+    monkeypatch.setattr(server_module, "_ROI_STRATEGIES_PATH", tmp_path / "roi.json")
+    client.post("/api/roi/strategies", json={"nome": "teste-a", "filtros": {}, "resumo": {}})
+    r = client.delete("/api/roi/strategies/teste-a")
+    assert r.status_code == 200
+    lista = json.loads(client.get("/api/roi/strategies").data)
+    assert lista == []
