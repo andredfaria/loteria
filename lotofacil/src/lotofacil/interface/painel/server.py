@@ -43,6 +43,9 @@ import random
 import statistics
 
 _ANSI_RE = re.compile(r'\x1b(?:\[[0-9;]*[mGKHFABCDEFsuJKH]|[()][AB012])')
+_TF_NOISE_RE = re.compile(
+    r"^(WARNING: All log messages|I\d{4} |W\d{4} |Skipping registering)"
+)
 _procs: dict[str, subprocess.Popen[str]] = {}
 _freq_cache: dict = {}           # {"data": {...}, "ts": float}
 _FREQ_TTL = 300                  # 5 minutes
@@ -1070,7 +1073,8 @@ def _run_command(
             clean = _strip_ansi(line.rstrip("\n"))
             LOGGER.info("TASK %s output: %s", task_id, clean)
             output_lines.append(clean)
-            registry.write_line(task_id, clean)
+            if not _TF_NOISE_RE.match(clean):
+                registry.write_line(task_id, clean)
         proc.stdout.close()
         ret = proc.wait()
         LOGGER.info("TASK %s finished exit_code=%s", task_id, ret)
@@ -1113,9 +1117,14 @@ def _slug(text: str) -> str:
 
 
 def _extract_model_path_from_output(lines: list[str]) -> str | None:
-    for line in lines:
+    for i, line in enumerate(lines):
         if line.startswith("TREINO_MODELO_PATH:"):
-            return line.split(":", 1)[1].strip()
+            rest = line.split(":", 1)[1].strip()
+            if rest:
+                return rest
+            # path is on the next line (line wrapping)
+            if i + 1 < len(lines):
+                return lines[i + 1].strip()
     return None
 
 

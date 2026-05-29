@@ -366,3 +366,27 @@ def test_logout_limpa_sessao(client, monkeypatch):
     resp = client.get("/")
     assert resp.status_code == 302
     assert "/login" in resp.headers["Location"]
+
+
+# ── _extract_model_path_from_output ──────────────────────────────
+
+def test_extract_path_same_line():
+    lines = ["TREINO_MODELO_PATH: /home/user/models/neural_abc.keras"]
+    result = server_module._extract_model_path_from_output(lines)
+    assert result == "/home/user/models/neural_abc.keras"
+
+
+def test_extract_path_next_line():
+    lines = [
+        "Saved: neural_test.keras",
+        "TREINO_MODELO_PATH: ",
+        "/home/user/models/neural_test.keras",
+    ]
+    result = server_module._extract_model_path_from_output(lines)
+    assert result == "/home/user/models/neural_test.keras"
+
+
+def test_extract_path_not_found():
+    lines = ["Config: base", "Training... (this may take a while)"]
+    result = server_module._extract_model_path_from_output(lines)
+    assert result is None
