@@ -3304,6 +3304,13 @@ function renderRoiLab() {
             <option value="1000">Últ. 1000</option>
             <option value="2000">Últ. 2000</option>
           </select>
+          <span style="font-size:0.7rem;color:var(--muted)">Holdout</span>
+          <select id="roiHoldout" style="font-size:0.72rem;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:3px;padding:2px 4px">
+            <option value="0">Nenhum</option>
+            <option value="0.1">10%</option>
+            <option value="0.2">20%</option>
+            <option value="0.3">30%</option>
+          </select>
         </div>
         <button id="roiRunBtn" class="action-btn" style="margin-top:0.8rem;width:100%;font-size:0.78rem"
                 onclick="runRoiBacktest()">▶ Rodar Backtest</button>
@@ -3365,11 +3372,12 @@ async function runRoiBacktest() {
   const nJogos = parseInt(document.getElementById('roiNJogos').value) || 5;
   const janelaVal = document.getElementById('roiJanela').value;
   const janela = janelaVal ? parseInt(janelaVal) : null;
+  const holdout_pct = parseFloat(document.getElementById('roiHoldout').value) || 0;
   try {
     const resp = await fetch('/api/roi/backtest', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ filtros, n_jogos: nJogos, janela }),
+      body: JSON.stringify({ filtros, n_jogos: nJogos, janela, holdout_pct }),
     });
     const data = await resp.json();
     if (data.error) throw new Error(data.error);
@@ -3392,7 +3400,16 @@ function _renderRoiResults(data) {
   const brl = v => `${v >= 0 ? '+' : '-'}R$${Math.abs(v).toFixed(2)}`;
   const good = (ev, bv) => ev > bv ? 'var(--success,#4caf50)' : 'var(--error,#f44336)';
 
-  document.getElementById('roiResults').innerHTML = `
+  const meta = data.meta || {};
+  const badgeHtml = (meta.holdout_pct > 0)
+    ? `<div style="font-size:0.72rem;color:var(--yellow,#f59e0b);background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:4px;padding:4px 8px;margin-bottom:0.6rem">
+        ⚠️ Métricas calculadas sobre os últimos ${meta.sorteios_teste} sorteios
+        (corte no concurso #${meta.concurso_corte}).
+        Os filtros devem ter sido escolhidos usando os ${meta.sorteios_treino} sorteios anteriores.
+       </div>`
+    : '';
+
+  document.getElementById('roiResults').innerHTML = badgeHtml + `
     <div style="display:flex;gap:0.6rem;flex-wrap:wrap;margin-bottom:0.8rem">
       <div class="roi-card">
         <div class="roi-card-label">ROI%</div>
