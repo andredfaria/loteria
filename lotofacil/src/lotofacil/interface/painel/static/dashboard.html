@@ -675,6 +675,64 @@
     transition: all var(--transition);
   }
   .treino-cancel-btn:hover { background: rgba(248,113,113,0.2); }
+/* ── ROI Lab ───────────────────────────────────────────────── */
+.roi-layout {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 0.8rem;
+  padding: 0.8rem;
+  min-height: 0;
+  flex: 1;
+}
+@media (max-width: 600px) {
+  .roi-layout { grid-template-columns: 1fr; }
+}
+.roi-builder {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.8rem;
+  overflow-y: auto;
+}
+.roi-results {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.8rem;
+  overflow-y: auto;
+}
+.roi-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.5rem 0.8rem;
+  min-width: 100px;
+}
+.roi-card-label { font-size: 0.65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.roi-card-value { font-size: 1.2rem; font-weight: 700; margin: 0.1rem 0; }
+.roi-card-base  { font-size: 0.65rem; color: var(--muted); }
+.roi-comparison {
+  border-top: 1px solid var(--border);
+  padding: 0.8rem;
+}
+.roi-filter-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.35rem;
+  font-size: 0.75rem;
+}
+.roi-filter-row label { width: 85px; display: flex; align-items: center; gap: 0.3rem; cursor: pointer; }
+.roi-num-input {
+  width: 44px;
+  font-size: 0.72rem;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 2px 4px;
+}
+.roi-num-input:disabled { opacity: 0.4; }
 </style>
 </head>
 <body>
@@ -743,6 +801,8 @@
 
       <!-- Modelos Tab — populado por renderModelosPage() -->
       <div id="tab-modelos" style="display:none;flex:1;overflow:hidden;flex-direction:column"></div>
+      <!-- ROI Lab Tab — populado por renderRoiLab() -->
+      <div id="tab-roi-lab" style="display:none;flex:1;overflow:auto;flex-direction:column"></div>
     </div>
   </div>
 </div>
@@ -985,6 +1045,7 @@ const CATEGORIES = [
   { id: 'dados',     icon: '🗃️', label: 'Dados' },
   { id: 'modelos',   icon: '🧠', label: 'Modelos' },
   { id: 'validacao', icon: '✅', label: 'Validação' },
+  { id: 'roi_lab',   icon: '🧪', label: 'ROI Lab' },
 ];
 
 function buildSidebar() {
@@ -1030,7 +1091,8 @@ function switchTab(id) {
   const tabModelos = document.getElementById('tab-modelos');
 
   tabModelos.style.display = id === 'modelos' ? 'flex' : 'none';
-  document.getElementById('consoleSection').style.display = id === 'modelos' ? 'none' : '';
+  document.getElementById('tab-roi-lab').style.display = id === 'roi_lab' ? 'flex' : 'none';
+  document.getElementById('consoleSection').style.display = (id === 'modelos' || id === 'roi_lab') ? 'none' : '';
 
   if (id === 'dados') {
     numSec.style.display = '';
@@ -1057,6 +1119,10 @@ function switchTab(id) {
     numSec.style.display = 'none';
     bar.innerHTML = '';
     renderModelosPage();
+  } else if (id === 'roi_lab') {
+    numSec.style.display = 'none';
+    bar.innerHTML = '<div class="section-title">🧪 ROI Lab</div>';
+    renderRoiLab();
   } else {
     numSec.style.display = '';
     renderActions();
@@ -3185,6 +3251,314 @@ document.addEventListener('keydown', e => {
     if (subTarget) { showModelosSubTab(subTarget); return; }
   }
 });
+
+// ═══════════════════════════════════════════════════════════════
+// ROI LAB
+// ═══════════════════════════════════════════════════════════════
+
+let _roiLastResult = null;
+let _roiLastFiltros = null;
+
+function _roiFilterRow(key, label, defMin, defMax) {
+  return `
+    <div class="roi-filter-row">
+      <label>
+        <input type="checkbox" class="roi-filter-cb" data-filter="${key}" checked>
+        ${label}
+      </label>
+      <input type="number" class="roi-num-input" data-fkey="${key}" data-bound="min"
+             value="${defMin}" min="0" max="999">
+      <span style="color:var(--muted)">–</span>
+      <input type="number" class="roi-num-input" data-fkey="${key}" data-bound="max"
+             value="${defMax}" min="0" max="999">
+    </div>`;
+}
+
+function renderRoiLab() {
+  const tab = document.getElementById('tab-roi-lab');
+  tab.innerHTML = `
+    <div class="roi-layout">
+      <div class="roi-builder">
+        <div style="font-size:0.8rem;font-weight:700;margin-bottom:0.7rem">⚙️ Filtros</div>
+        ${_roiFilterRow('soma',       'Soma',        171, 220)}
+        ${_roiFilterRow('pares',      'Pares',         6,   9)}
+        ${_roiFilterRow('primos',     'Primos',        4,   7)}
+        ${_roiFilterRow('fibonacci',  'Fibonacci',     3,   5)}
+        ${_roiFilterRow('moldura',    'Moldura',        8,  11)}
+        ${_roiFilterRow('repeticoes', 'Repetições',    8,  10)}
+        <div class="roi-filter-row">
+          <label>
+            <input type="checkbox" class="roi-filter-cb" data-filter="consecutivos">
+            Consec. mín.
+          </label>
+          <input type="number" class="roi-num-input" id="roiConsecVal"
+                 value="2" min="0" max="14" disabled>
+        </div>
+        <div style="margin-top:0.8rem;display:flex;gap:0.4rem;align-items:center;flex-wrap:wrap">
+          <span style="font-size:0.7rem;color:var(--muted)">Jogos/sorteio</span>
+          <input type="number" id="roiNJogos" class="roi-num-input" value="5" min="1" max="20" style="width:38px">
+          <span style="font-size:0.7rem;color:var(--muted)">Janela</span>
+          <select id="roiJanela" style="font-size:0.72rem;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:3px;padding:2px 4px">
+            <option value="">Todos</option>
+            <option value="500">Últ. 500</option>
+            <option value="1000">Últ. 1000</option>
+            <option value="2000">Últ. 2000</option>
+          </select>
+        </div>
+        <button id="roiRunBtn" class="action-btn" style="margin-top:0.8rem;width:100%;font-size:0.78rem"
+                onclick="runRoiBacktest()">▶ Rodar Backtest</button>
+        <div style="margin-top:0.8rem;display:flex;gap:0.4rem">
+          <input id="roiStrategyName" type="text" placeholder="Nome…"
+                 style="flex:1;font-size:0.72rem;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:3px;padding:3px 6px">
+          <button class="action-btn" style="font-size:0.72rem" onclick="saveRoiStrategy()">💾</button>
+        </div>
+      </div>
+
+      <div class="roi-results" id="roiResults">
+        <div style="color:var(--muted);font-size:0.8rem">
+          Configure os filtros e clique em <b>▶ Rodar Backtest</b>.
+        </div>
+      </div>
+    </div>
+
+    <div class="roi-comparison">
+      <div style="font-size:0.82rem;font-weight:700;margin-bottom:0.5rem">📊 Estratégias Salvas</div>
+      <div id="roiStrategyTable"></div>
+    </div>`;
+
+  tab.querySelectorAll('.roi-filter-cb').forEach(cb => {
+    cb.addEventListener('change', function () {
+      const key = this.dataset.filter;
+      if (key === 'consecutivos') {
+        document.getElementById('roiConsecVal').disabled = !this.checked;
+        return;
+      }
+      tab.querySelectorAll(`[data-fkey="${key}"]`).forEach(el => { el.disabled = !this.checked; });
+    });
+  });
+
+  loadRoiStrategies();
+}
+
+function _collectRoiFilters() {
+  const filtros = {};
+  document.querySelectorAll('.roi-filter-cb').forEach(cb => {
+    if (!cb.checked) return;
+    const key = cb.dataset.filter;
+    if (key === 'consecutivos') {
+      const v = parseInt(document.getElementById('roiConsecVal').value);
+      if (!isNaN(v)) filtros[key] = v;
+      return;
+    }
+    const minEl = document.querySelector(`[data-fkey="${key}"][data-bound="min"]`);
+    const maxEl = document.querySelector(`[data-fkey="${key}"][data-bound="max"]`);
+    if (minEl && maxEl) filtros[key] = [parseInt(minEl.value), parseInt(maxEl.value)];
+  });
+  return filtros;
+}
+
+async function runRoiBacktest() {
+  const btn = document.getElementById('roiRunBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Calculando…';
+  const filtros = _collectRoiFilters();
+  const nJogos = parseInt(document.getElementById('roiNJogos').value) || 5;
+  const janelaVal = document.getElementById('roiJanela').value;
+  const janela = janelaVal ? parseInt(janelaVal) : null;
+  try {
+    const resp = await fetch('/api/roi/backtest', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filtros, n_jogos: nJogos, janela }),
+    });
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+    _roiLastResult = data;
+    _roiLastFiltros = filtros;
+    _renderRoiResults(data);
+  } catch (e) {
+    document.getElementById('roiResults').innerHTML =
+      `<div style="color:var(--error,#f44);padding:1rem">Erro: ${e.message}</div>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '▶ Rodar Backtest';
+  }
+}
+
+function _renderRoiResults(data) {
+  const e = data.estrategia;
+  const b = data.baseline;
+  const pct = v => `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`;
+  const brl = v => `${v >= 0 ? '+' : '-'}R$${Math.abs(v).toFixed(2)}`;
+  const good = (ev, bv) => ev > bv ? 'var(--success,#4caf50)' : 'var(--error,#f44336)';
+
+  document.getElementById('roiResults').innerHTML = `
+    <div style="display:flex;gap:0.6rem;flex-wrap:wrap;margin-bottom:0.8rem">
+      <div class="roi-card">
+        <div class="roi-card-label">ROI%</div>
+        <div class="roi-card-value" style="color:${good(e.roi_pct, b.roi_pct)}">${pct(e.roi_pct)}</div>
+        <div class="roi-card-base">base ${pct(b.roi_pct)}</div>
+      </div>
+      <div class="roi-card">
+        <div class="roi-card-label">Sharpe</div>
+        <div class="roi-card-value" style="color:${good(e.sharpe, b.sharpe)}">${e.sharpe.toFixed(3)}</div>
+        <div class="roi-card-base">base ${b.sharpe.toFixed(3)}</div>
+      </div>
+      <div class="roi-card">
+        <div class="roi-card-label">Drawdown</div>
+        <div class="roi-card-value" style="color:${good(-e.max_drawdown,-b.max_drawdown)}">${brl(e.max_drawdown)}</div>
+        <div class="roi-card-base">base ${brl(b.max_drawdown)}</div>
+      </div>
+      <div class="roi-card">
+        <div class="roi-card-label">Hit ≥13</div>
+        <div class="roi-card-value" style="color:${good(e.rate_ge['13']||0, b.rate_ge['13']||0)}">
+          ${((e.rate_ge['13']||0)*100).toFixed(2)}%
+        </div>
+        <div class="roi-card-base">base ${((b.rate_ge['13']||0)*100).toFixed(2)}%</div>
+      </div>
+    </div>
+    <canvas id="roiEquityCanvas" width="800" height="180"
+            style="width:100%;border:1px solid var(--border);border-radius:4px;background:var(--surface)"></canvas>
+    <div id="roiHitsDist" style="margin-top:0.6rem"></div>
+    <div style="font-size:0.68rem;color:var(--muted);margin-top:0.4rem">
+      ${e.n_games} jogos · custo R$${e.total_cost.toFixed(2)} · receita R$${e.total_revenue.toFixed(2)} · lucro ${brl(e.net_profit)}
+    </div>`;
+
+  requestAnimationFrame(() => {
+    _drawEquityCurve(e.equity_curve, b.equity_curve);
+    _renderHitsDist(e.hits_distribution, b.hits_distribution);
+  });
+}
+
+function _drawEquityCurve(strat, base) {
+  const canvas = document.getElementById('roiEquityCanvas');
+  if (!canvas || !strat.length) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height, PAD = 28;
+
+  const allVals = [...strat, ...base, 0];
+  const minV = Math.min(...allVals);
+  const maxV = Math.max(...allVals);
+  const range = maxV - minV || 1;
+  const toX = i => PAD + (i / (strat.length - 1 || 1)) * (W - PAD * 2);
+  const toY = v => H - PAD - ((v - minV) / range) * (H - PAD * 2);
+
+  ctx.clearRect(0, 0, W, H);
+
+  ctx.save();
+  ctx.strokeStyle = 'rgba(128,128,128,0.25)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath(); ctx.moveTo(PAD, toY(0)); ctx.lineTo(W - PAD, toY(0)); ctx.stroke();
+  ctx.restore();
+
+  ctx.save();
+  ctx.strokeStyle = 'rgba(160,160,160,0.6)';
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([5, 3]);
+  ctx.beginPath();
+  base.forEach((v, i) => i === 0 ? ctx.moveTo(toX(i), toY(v)) : ctx.lineTo(toX(i), toY(v)));
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.save();
+  ctx.strokeStyle = '#4fc3f7';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  strat.forEach((v, i) => i === 0 ? ctx.moveTo(toX(i), toY(v)) : ctx.lineTo(toX(i), toY(v)));
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.font = '10px monospace';
+  ctx.fillStyle = '#4fc3f7'; ctx.fillText('── Estratégia', PAD, 14);
+  ctx.fillStyle = 'rgba(160,160,160,0.8)'; ctx.fillText('- - Baseline', PAD + 100, 14);
+}
+
+function _renderHitsDist(stratDist, baseDist) {
+  const el = document.getElementById('roiHitsDist');
+  if (!el) return;
+  const keys = ['11', '12', '13', '14', '15'];
+  const rows = keys.map(k => {
+    const sv = stratDist[k] || 0;
+    const bv = baseDist[k] || 0;
+    return `<tr>
+      <td style="padding:2px 6px;font-size:0.72rem">${k} acertos</td>
+      <td style="padding:2px 6px;font-size:0.72rem;text-align:right">${sv}</td>
+      <td style="padding:2px 6px;font-size:0.72rem;text-align:right;color:var(--muted)">${bv}</td>
+    </tr>`;
+  }).join('');
+  el.innerHTML = `<table style="width:auto;border-collapse:collapse">
+    <tr>
+      <th style="font-size:0.7rem;text-align:left;padding:2px 6px">Acertos</th>
+      <th style="font-size:0.7rem;text-align:right;padding:2px 6px">Estratégia</th>
+      <th style="font-size:0.7rem;text-align:right;padding:2px 6px;color:var(--muted)">Baseline</th>
+    </tr>${rows}</table>`;
+}
+
+async function loadRoiStrategies() {
+  const el = document.getElementById('roiStrategyTable');
+  if (!el) return;
+  try {
+    const data = await fetch('/api/roi/strategies').then(r => r.json());
+    if (!data.length) {
+      el.innerHTML = '<div style="color:var(--muted);font-size:0.75rem">Nenhuma estratégia salva.</div>';
+      return;
+    }
+    const rows = data.map(s => {
+      const r = s.resumo || {};
+      return `<tr>
+        <td style="padding:3px 6px;font-size:0.75rem">${s.nome}</td>
+        <td style="padding:3px 6px;font-size:0.75rem;text-align:right">${r.roi_pct != null ? r.roi_pct.toFixed(1)+'%' : '—'}</td>
+        <td style="padding:3px 6px;font-size:0.75rem;text-align:right">${r.sharpe != null ? r.sharpe.toFixed(3) : '—'}</td>
+        <td style="padding:3px 6px;font-size:0.75rem;text-align:right">${r.rate_ge_13 != null ? (r.rate_ge_13*100).toFixed(2)+'%' : '—'}</td>
+        <td style="padding:3px 6px;font-size:0.75rem;text-align:right">${r.max_drawdown != null ? 'R$'+r.max_drawdown.toFixed(2) : '—'}</td>
+        <td style="padding:3px 6px">
+          <button class="action-btn" style="padding:1px 5px;font-size:0.65rem"
+                  onclick="deleteRoiStrategy('${s.nome.replace(/'/g,"\\'")}')">🗑</button>
+        </td>
+      </tr>`;
+    }).join('');
+    el.innerHTML = `<table style="width:100%;border-collapse:collapse">
+      <tr>
+        <th style="font-size:0.7rem;text-align:left;padding:3px 6px">Nome</th>
+        <th style="font-size:0.7rem;text-align:right;padding:3px 6px">ROI%</th>
+        <th style="font-size:0.7rem;text-align:right;padding:3px 6px">Sharpe</th>
+        <th style="font-size:0.7rem;text-align:right;padding:3px 6px">Hit≥13</th>
+        <th style="font-size:0.7rem;text-align:right;padding:3px 6px">Drawdown</th>
+        <th></th>
+      </tr>${rows}</table>`;
+  } catch (e) {
+    el.innerHTML = `<div style="color:var(--error,#f44);font-size:0.75rem">Erro ao carregar.</div>`;
+  }
+}
+
+async function saveRoiStrategy() {
+  if (!_roiLastResult) { alert('Rode o backtest primeiro.'); return; }
+  const nome = (document.getElementById('roiStrategyName').value || '').trim();
+  if (!nome) { alert('Digite um nome para a estratégia.'); return; }
+  const e = _roiLastResult.estrategia;
+  await fetch('/api/roi/strategies', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      nome,
+      filtros: _roiLastFiltros,
+      resumo: {
+        roi_pct: e.roi_pct,
+        sharpe: e.sharpe,
+        rate_ge_13: e.rate_ge['13'] || 0,
+        max_drawdown: e.max_drawdown,
+      },
+    }),
+  });
+  document.getElementById('roiStrategyName').value = '';
+  loadRoiStrategies();
+}
+
+async function deleteRoiStrategy(nome) {
+  await fetch(`/api/roi/strategies/${encodeURIComponent(nome)}`, { method: 'DELETE' });
+  loadRoiStrategies();
+}
 
 // ═══════════════════════════════════════════════════════════════
 // START
