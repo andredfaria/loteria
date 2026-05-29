@@ -749,6 +749,11 @@
     <span><span class="online"></span>Online</span>
     <button onclick="_openShortcuts()" title="Atalhos de teclado (?)"
       style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--muted);cursor:pointer;font-size:0.72rem;padding:2px 7px;line-height:1.4">⌨</button>
+    <span id="logoutBtn" style="display:none">
+      <a href="/logout" style="font-size:0.7rem;color:var(--muted);text-decoration:none;
+         border:1px solid var(--border);border-radius:4px;padding:2px 8px;
+         margin-left:0.5rem">Sair</a>
+    </span>
   </div>
 </nav>
 
@@ -870,6 +875,14 @@
 <nav class="bottom-nav" id="bottomNav"></nav>
 
 <script>
+// ═══════════════════════════════════════════════════════════════
+// AUTH HELPERS
+// ═══════════════════════════════════════════════════════════════
+function _handle401(resp) {
+  if (resp && resp.status === 401) { window.location.href = '/login'; return true; }
+  return false;
+}
+
 // ═══════════════════════════════════════════════════════════════
 // STATE
 // ═══════════════════════════════════════════════════════════════
@@ -1364,6 +1377,7 @@ function clearConsole() {
 async function loadStatus() {
   try {
     const r = await fetch('/api/status');
+    if (_handle401(r)) return;
     const data = await r.json();
     document.getElementById('statusTime').textContent = `⏱ ${data.timestamp ? new Date(data.timestamp).toLocaleTimeString() : '—'}`;
     document.querySelector('#statusDraws .val').textContent = data.total_draws || '0';
@@ -1379,6 +1393,8 @@ async function loadStatus() {
       }
     }
     document.querySelector('#statusGames .val').textContent = data.games_count || '0';
+    const logoutBtn = document.getElementById('logoutBtn');
+    if (logoutBtn) logoutBtn.style.display = data.auth_enabled ? 'inline' : 'none';
   } catch (e) { logClient('warn', 'Falha ao carregar status', { error: e.message }); }
 }
 
