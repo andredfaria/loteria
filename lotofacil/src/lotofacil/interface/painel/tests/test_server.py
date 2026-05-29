@@ -202,6 +202,23 @@ def test_compute_acertos_returns_empty_list_when_no_jogos():
     assert result == []
 
 
+# ── Atraso das dezenas ────────────────────────────────────────
+
+def test_api_dados_atraso_retorna_200(client):
+    resp = client.get("/api/dados/atraso")
+    assert resp.status_code == 200
+
+
+def test_api_dados_atraso_chaves(client):
+    data = json.loads(client.get("/api/dados/atraso").data)
+    assert "atraso" in data
+    assert "total_sorteios" in data
+    # each number should have atraso key
+    for n in range(1, 26):
+        assert str(n) in data["atraso"]
+        assert "atraso" in data["atraso"][str(n)]
+
+
 # ── ROI Lab endpoints ──────────────────────────────────────────
 
 def test_api_roi_backtest_retorna_200(client):

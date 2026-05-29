@@ -1482,12 +1482,14 @@ async function renderDados() {
   const perPage = STATE.dadosPerPage || 25;
 
   try {
-    const [r, freqR] = await Promise.all([
+    const [r, freqR, atrasoR] = await Promise.all([
       fetch(`/api/dados?page=${page}&per_page=${perPage}`),
       fetch('/api/dados/frequencia'),
+      fetch('/api/dados/atraso'),
     ]);
     const d = await r.json();
     const freqData = await freqR.json().catch(() => null);
+    const atrasoData = await atrasoR.json().catch(() => null);
     const totalPages = Math.max(1, Math.ceil(d.total / d.per_page));
 
     section.innerHTML = '';
@@ -1536,12 +1538,20 @@ async function renderDados() {
         const cold = f <= minF * 1.1 + (maxF - minF) * 0.1;
         const color = hot ? 'var(--green)' : cold ? 'var(--red)' : 'var(--accent)';
         const isActive = STATE.dadosFilter === String(n);
+        const atrInfo = atrasoData?.atraso?.[String(n)];
+        const atraso = atrInfo?.atraso ?? '—';
+        const atrasoColor = atraso === 0 ? 'var(--success,#4caf50)' :
+                            atraso >= 10 ? 'var(--error,#f44336)' :
+                            atraso >= 5  ? 'var(--yellow,#f59e0b)' : 'var(--muted)';
         fHtml += `<div onclick="_dadosFreqClick(${n})" style="display:flex;flex-direction:column;align-items:center;gap:2px;flex:1;min-width:24px;cursor:pointer;opacity:${isActive?1:0.85};transition:opacity 0.15s" title="${n}: ${f}x — clique para filtrar">
           <div style="width:100%;background:rgba(255,255,255,0.06);border-radius:3px;height:48px;display:flex;align-items:flex-end;overflow:hidden;outline:${isActive?'2px solid '+color:'none'};border-radius:3px">
             <div style="width:100%;height:${Math.max(pct,2)}%;background:${color};opacity:0.8;border-radius:2px 2px 0 0;transition:height 0.3s"></div>
           </div>
           <span style="font-size:0.58rem;color:${isActive?color:'var(--muted)'};font-weight:${isActive?700:400}">${n}</span>
           <span style="font-size:0.55rem;color:${color};font-weight:600">${f}</span>
+          <div style="font-size:0.55rem;text-align:center;color:${atrasoColor};margin-top:1px" title="Atraso: ${atraso} sorteios sem sair">
+            ${atraso === 0 ? '✓' : atraso}
+          </div>
         </div>`;
       }
       fHtml += '</div>';

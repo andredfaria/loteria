@@ -919,6 +919,55 @@ def api_dados_frequencia():
     return jsonify(result)
 
 
+@app.route("/api/dados/atraso")
+def api_dados_atraso():
+    """Return delay (atraso) for each number 1-25: draws since last appearance."""
+    try:
+        from lotofacil.infra.dados.banco import DatabaseManager
+        db = DatabaseManager()
+        sorteios = db.get_all_concursos()  # ordered by concurso ASC
+        if not sorteios:
+            return jsonify({"atraso": {}, "total_sorteios": 0})
+
+        ultimo_concurso = sorteios[-1]["concurso"]
+        total = len(sorteios)
+
+        # For each number, find the most recent draw where it appeared
+        # Scan from newest to oldest
+        ultimo_sorteio: dict[int, int] = {}  # number -> concurso
+        ultimo_data: dict[int, str] = {}
+
+        for sorteio in reversed(sorteios):
+            for n in sorteio["dezenas"]:
+                if n not in ultimo_sorteio:
+                    ultimo_sorteio[n] = sorteio["concurso"]
+                    ultimo_data[n] = sorteio.get("data", "")
+
+        # Compute atraso: how many draws after last_concurso until now
+        # Get the position of each number's last draw in the sorted list
+        concurso_to_pos = {s["concurso"]: i for i, s in enumerate(sorteios)}
+        atraso: dict[int, int] = {}
+        for n in range(1, 26):
+            if n in ultimo_sorteio:
+                last_pos = concurso_to_pos.get(ultimo_sorteio[n], 0)
+                atraso[n] = total - 1 - last_pos  # 0 = drawn in last concurso
+            else:
+                atraso[n] = total  # never drawn (edge case)
+
+        result = {
+            str(n): {
+                "atraso": atraso.get(n, total),
+                "ultimo_concurso": ultimo_sorteio.get(n),
+                "ultimo_data": ultimo_data.get(n, ""),
+            }
+            for n in range(1, 26)
+        }
+        return jsonify({"atraso": result, "total_sorteios": total, "ultimo_concurso": ultimo_concurso})
+    except Exception as e:
+        LOGGER.exception("atraso error")
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/api/dados/export-csv")
 def api_dados_export_csv():
     files = sorted(DADOS_DIR.glob("concurso_*.json"), key=_concurso_num, reverse=True)
