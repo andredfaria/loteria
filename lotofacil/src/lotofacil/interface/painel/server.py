@@ -9,9 +9,10 @@ import time
 import re
 import logging
 import uuid
+import hmac
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import numpy as np
 import secrets
@@ -54,8 +55,7 @@ def _strip_ansi(text: str) -> str:
 
 app = Flask(__name__, static_folder=None)
 app.secret_key = os.environ.get("DASHBOARD_AUTH_SECRET") or secrets.token_hex(32)
-from datetime import timedelta as _td
-app.permanent_session_lifetime = _td(days=30)
+app.permanent_session_lifetime = timedelta(days=30)
 
 BASE_DIR = BASE
 DADOS_DIR = _DADOS_DIR
@@ -723,7 +723,8 @@ def login_page():
     if not password:
         return redirect(url_for("index"))
     if request.method == "POST":
-        if request.form.get("password") == password:
+        if hmac.compare_digest(request.form.get("password", ""), password):
+            session.clear()
             session.permanent = True
             session["authenticated"] = True
             return redirect(url_for("index"))
