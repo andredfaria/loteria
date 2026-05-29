@@ -101,6 +101,23 @@ class NeuralModular(BaseLabModel):
             metrics=["binary_accuracy"],
         )
 
+        class _EpochProgressCallback(tf.keras.callbacks.Callback):
+            """Emits parseable epoch progress to stdout for the dashboard modal."""
+            def __init__(self, total_epochs: int) -> None:
+                super().__init__()
+                self._total = total_epochs
+
+            def on_epoch_end(self, epoch, logs=None) -> None:
+                logs = logs or {}
+                e = epoch + 1
+                loss = logs.get("loss", 0.0)
+                val_loss = logs.get("val_loss", 0.0)
+                print(
+                    f"EPOCH_PROGRESS: {e}/{self._total} "
+                    f"loss={loss:.4f} val_loss={val_loss:.4f}",
+                    flush=True,
+                )
+
         callbacks = [
             tf.keras.callbacks.EarlyStopping(
                 monitor="val_loss", patience=self._hp_val("LSTM_PATIENCE"),
@@ -111,6 +128,7 @@ class NeuralModular(BaseLabModel):
                 patience=self._hp_val("LSTM_LR_PATIENCE"),
                 min_lr=self._hp_val("LSTM_LR_MIN"), verbose=0,
             ),
+            _EpochProgressCallback(self._hp_val("LSTM_EPOCHS")),
         ]
 
         history = model.fit(
