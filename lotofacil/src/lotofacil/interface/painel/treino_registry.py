@@ -79,6 +79,32 @@ class TreinoRegistry:
                 conn.commit()
             except sqlite3.OperationalError:
                 pass  # column already exists
+        self._recover_orphans()
+
+    def _recover_orphans(self) -> None:
+        """Mark treinos stuck as 'running' from a previous server instance as failed."""
+        now = _now()
+        with self._conn() as conn:
+            conn.execute(
+                "UPDATE treinos SET status = 'failed', concluido_em = ? "
+                "WHERE status = 'running'",
+                (now,),
+            )
+            # Find all incomplete jobs so we can write a recovery message to each
+            orphan_jobs = conn.execute(
+                "SELECT task_id FROM job_status WHERE done = 0"
+            ).fetchall()
+            for row in orphan_jobs:
+                conn.execute(
+                    "INSERT INTO job_output (task_id, text) VALUES (?, ?)",
+                    (row[0], "⚠️  Treino interrompido: servidor reiniciado durante o treinamento."),
+                )
+            conn.execute(
+                "UPDATE job_status SET done = 1, success = 0, finished_at = ? "
+                "WHERE done = 0",
+                (now,),
+            )
+            conn.commit()
 
     def _conn(self) -> sqlite3.Connection:
         conn = sqlite3.connect(str(self._db))

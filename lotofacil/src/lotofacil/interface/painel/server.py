@@ -1074,7 +1074,8 @@ def _run_command(
             LOGGER.info("TASK %s output: %s", task_id, clean)
             output_lines.append(clean)
             if not _TF_NOISE_RE.match(clean):
-                registry.write_line(task_id, clean)
+                ts = datetime.now().strftime("%H:%M:%S")
+                registry.write_line(task_id, f"[{ts}] {clean}" if clean else clean)
         proc.stdout.close()
         ret = proc.wait()
         LOGGER.info("TASK %s finished exit_code=%s", task_id, ret)
@@ -1153,6 +1154,23 @@ def api_treinos_iniciar():
     tipo_config = body.get("tipo_config", "base")
     params = body.get("parametros") or {}
 
+    window_size = int(params.get("window_size") or 50)
+    n_draws = int(params.get("n_draws") or 0)
+    epochs = int(params.get("epochs") or 40)
+    seed = int(params.get("seed") or 42)
+    fast_mode = bool(params.get("fast", False))
+
+    min_draws_needed = window_size + 20
+    if n_draws and n_draws < min_draws_needed:
+        return jsonify({"error": (
+            f"n_draws={n_draws} é insuficiente para window_size={window_size}. "
+            f"Mínimo: {min_draws_needed} concursos."
+        )}), 400
+    if window_size < 5 or window_size > 500:
+        return jsonify({"error": "window_size deve estar entre 5 e 500."}), 400
+    if epochs < 1 or epochs > 1000:
+        return jsonify({"error": "epochs deve estar entre 1 e 1000."}), 400
+
     config_sig = _CONFIG_SIG_MAP.get(tipo_config, tipo_config)
     treino_id = uuid.uuid4().hex[:8]
     nome_slug = _slug(nome)
@@ -1160,15 +1178,12 @@ def api_treinos_iniciar():
 
     _registry.criar(treino_id, nome, tipo_config, params)
 
-    cmd = ["lotofacil", "lab", "train", "--config", config_sig, "--name", model_name]
-    if params.get("epochs"):
-        cmd += ["--epochs", str(params["epochs"])]
-    if params.get("n_draws"):
-        cmd += ["--n-draws", str(params["n_draws"])]
-    if params.get("seed"):
-        cmd += ["--seed", str(params["seed"])]
-    if params.get("window_size"):
-        cmd += ["--window-size", str(params["window_size"])]
+    cmd = ["lotofacil", "lab", "train", "--config", config_sig, "--name", model_name,
+           "--epochs", str(epochs), "--seed", str(seed), "--window-size", str(window_size)]
+    if n_draws:
+        cmd += ["--n-draws", str(n_draws)]
+    if fast_mode:
+        cmd.append("--fast")
 
     task_id = f"treino_{int(time.time() * 1000)}_{treino_id}"
     _registry.create_job(task_id)
@@ -1295,6 +1310,82 @@ def api_treino_deletar(treino_id: str):
     if not deleted:
         return jsonify({"error": "Falha ao remover"}), 500
     return jsonify({"ok": True})
+
+
+@app.route("/api/treinos/<treino_id>/retry", methods=["POST"])
+def api_treinos_retry(treino_id: str):
+    """Re-run a failed or cancelled training with the same parameters."""
+    t = _registry.buscar(treino_id)
+    if not t:
+        return jsonify({"error": "Treino não encontrado"}), 404
+    if t["status"] not in ("failed", "cancelled"):
+        return jsonify({"error": (
+            f"Só é possível refazer treinos com status failed/cancelled. "
+            f"Status atual: {t['status']}"
+        )}), 400
+
+    params = t.get("parametros") or {}
+    tipo_config = t.get("tipo_config", "base")
+    nome = t.get("nome", "retry")
+
+    # Extract original parameters
+    window_size = int(params.get("window_size") or 50)
+    n_draws = int(params.get("n_draws") or 0)
+    epochs = int(params.get("epochs") or 40)
+    seed = int(params.get("seed") or 42)
+    fast_mode = bool(params.get("fast", False))
+
+    # Validate (same rules as api_treinos_iniciar)
+    min_draws_needed = window_size + 20
+    if n_draws and n_draws < min_draws_needed:
+        return jsonify({"error": (
+            f"n_draws={n_draws} é insuficiente para window_size={window_size}. "
+            f"Mínimo: {min_draws_needed} concursos."
+        )}), 400
+    if window_size < 5 or window_size > 500:
+        return jsonify({"error": "window_size deve estar entre 5 e 500."}), 400
+    if epochs < 1 or epochs > 1000:
+        return jsonify({"error": "epochs deve estar entre 1 e 1000."}), 400
+
+    config_sig = _CONFIG_SIG_MAP.get(tipo_config, tipo_config)
+    novo_treino_id = uuid.uuid4().hex[:8]
+    novo_nome = nome + "_retry"
+    nome_slug = _slug(novo_nome)
+    model_name = f"{novo_treino_id}_{nome_slug}"
+
+    _registry.criar(novo_treino_id, novo_nome, tipo_config, params)
+
+    cmd = ["lotofacil", "lab", "train", "--config", config_sig, "--name", model_name,
+           "--epochs", str(epochs), "--seed", str(seed), "--window-size", str(window_size)]
+    if n_draws:
+        cmd += ["--n-draws", str(n_draws)]
+    if fast_mode:
+        cmd.append("--fast")
+
+    task_id = f"treino_{int(time.time() * 1000)}_{novo_treino_id}"
+    _registry.create_job(task_id)
+
+    def on_done(success: bool, output_lines: list[str]):
+        if success:
+            keras_path = _extract_model_path_from_output(output_lines)
+            if not keras_path:
+                keras_path = str(_LAB_MODELS_DIR / f"neural_{model_name}.keras")
+            metricas = _read_meta_from_keras(keras_path)
+            _registry.registrar_modelo(novo_treino_id, keras_path, metricas)
+            LOGGER.info("TREINO %s (retry of %s) registered: %s", novo_treino_id, treino_id, keras_path)
+            _invalidate_quality_cache()
+        else:
+            _registry.marcar_falha(novo_treino_id)
+            LOGGER.warning("TREINO %s (retry of %s) failed", novo_treino_id, treino_id)
+
+    t_thread = threading.Thread(
+        target=_run_command,
+        args=(task_id, _registry, cmd, str(BASE_DIR)),
+        kwargs={"on_complete": on_done},
+        daemon=True,
+    )
+    t_thread.start()
+    return jsonify({"treino_id": novo_treino_id, "task_id": task_id})
 
 
 def _get_draw_dezenas(concurso: int) -> list[int] | None:

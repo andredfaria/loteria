@@ -2040,6 +2040,8 @@ const PRED_CONFIGS = [
   },
 ];
 
+window._predFast = false;
+
 const _predState = {
   activeSubTab: 'treinar',
   selectedConfig: 'base',
@@ -2142,15 +2144,21 @@ function renderModTreinar() {
       </div>
 
       <div class="modelos-section-divider">3 · Hiperparâmetros</div>
+      <div style="display:flex;gap:0.5rem;margin-bottom:0.75rem;flex-wrap:wrap">
+        <button onclick="aplicarPreset('rapido')" style="font-size:0.75rem;padding:4px 10px;border:1px solid var(--border);border-radius:4px;background:none;color:var(--text);cursor:pointer">⚡ Rápido (~2min)</button>
+        <button onclick="aplicarPreset('padrao')" style="font-size:0.75rem;padding:4px 10px;border:1px solid var(--border);border-radius:4px;background:none;color:var(--text);cursor:pointer">⚖ Padrão (~10min)</button>
+        <button onclick="aplicarPreset('completo')" style="font-size:0.75rem;padding:4px 10px;border:1px solid var(--border);border-radius:4px;background:none;color:var(--text);cursor:pointer">🔬 Completo (~35min)</button>
+      </div>
+      <div id="predEstimativa" style="font-size:0.72rem;color:var(--muted);margin-bottom:0.75rem;min-height:1.1em"></div>
       <div class="pred-params" style="margin-bottom:0.5rem">
         <div class="pred-param">
           <label>Épocas</label>
-          <input type="number" id="predEpocas" value="40" min="1" max="500">
+          <input type="number" id="predEpocas" value="40" min="1" max="500" oninput="_atualizarEstimativa()">
           <div class="param-hint">Quantas vezes o modelo percorre todo o conjunto de dados durante o treino. Mais épocas = aprendizado mais profundo, mas demora mais. <b>Recomendado: 40–100.</b></div>
         </div>
         <div class="pred-param">
           <label>Janela histórico</label>
-          <input type="number" id="predJanela" value="50" min="10" max="200">
+          <input type="number" id="predJanela" value="50" min="10" max="200" oninput="_atualizarEstimativa()">
           <div class="param-hint">Quantos sorteios consecutivos o modelo "enxerga" de uma vez para aprender padrões de sequência. Janelas maiores capturam tendências mais longas. <b>Recomendado: 30–80.</b></div>
         </div>
         <div class="pred-param">
@@ -2160,7 +2168,7 @@ function renderModTreinar() {
         </div>
         <div class="pred-param">
           <label>Concursos</label>
-          <input type="number" id="predConcursos" value="0" min="0">
+          <input type="number" id="predConcursos" value="0" min="0" oninput="_atualizarEstimativa()">
           <div class="param-hint"><b>0 = usa todos</b> os sorteios históricos disponíveis (~3.600+). Informe um número menor (ex: 500) para treinos mais rápidos ou para testar o fluxo antes de um treino completo.</div>
         </div>
       </div>
@@ -2180,6 +2188,36 @@ function selectPredConfig(id) {
   });
 }
 
+function aplicarPreset(nome) {
+  const presets = {
+    rapido:   { epochs: 15,  window_size: 30, n_draws: 500,  fast: true  },
+    padrao:   { epochs: 40,  window_size: 50, n_draws: 1000, fast: false },
+    completo: { epochs: 100, window_size: 50, n_draws: 0,    fast: false },
+  };
+  const p = presets[nome];
+  if (!p) return;
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+  set('predEpocas', p.epochs);
+  set('predJanela', p.window_size);
+  set('predConcursos', p.n_draws);
+  window._predFast = p.fast;
+  _atualizarEstimativa();
+}
+
+function _atualizarEstimativa() {
+  const epochs = parseInt(document.getElementById('predEpocas')?.value) || 40;
+  const nDraws = parseInt(document.getElementById('predConcursos')?.value) || 0;
+  const draws = nDraws || 3700;
+  const fast = window._predFast || false;
+  // estimativa: ~0.003s/amostra/epoch em CPU
+  const samples = Math.max(draws - 50, 1);
+  const factor = fast ? 0.0015 : 0.003;
+  const secs = Math.round(samples * epochs * factor);
+  const label = secs < 60 ? `~${secs}s` : secs < 3600 ? `~${Math.round(secs/60)}min` : `~${(secs/3600).toFixed(1)}h`;
+  const el = document.getElementById('predEstimativa');
+  if (el) el.textContent = `Estimativa: ${label} · ${draws.toLocaleString('pt-BR')} sorteios · ${epochs} épocas${fast ? ' · modo rápido' : ''}`;
+}
+
 async function iniciarTreino() {
   const nome = (document.getElementById('predNome')?.value || '').trim();
   if (!nome) { alert('Informe um nome para o treino.'); return; }
@@ -2194,6 +2232,7 @@ async function iniciarTreino() {
     window_size: parseInt(document.getElementById('predJanela')?.value) || 50,
     seed: parseInt(document.getElementById('predSeed')?.value) || 42,
     n_draws: parseInt(document.getElementById('predConcursos')?.value) || 0,
+    fast: window._predFast || false,
   };
   if (!parametros.n_draws) delete parametros.n_draws;
 
@@ -2606,6 +2645,7 @@ function retreinarModelo(id) {
 
   // pre-fill state and switch to Treinar
   _predState.selectedConfig = m.tipo_config || 'base';
+  window._predFast = params.fast || false;
   showModelosSubTab('treinar');
 
   // after render, populate the form fields
@@ -2615,11 +2655,12 @@ function retreinarModelo(id) {
     const janela = document.getElementById('predJanela');
     const seed   = document.getElementById('predSeed');
     const concursos = document.getElementById('predConcursos');
-    if (nome)      nome.value      = m.nome || '';
+    if (nome)      nome.value      = (m.nome || '') + '_retry';
     if (epocas)    epocas.value    = params.epochs     ?? 40;
     if (janela)    janela.value    = params.window_size ?? 50;
     if (seed)      seed.value      = params.seed        ?? 42;
     if (concursos) concursos.value = params.n_draws     ?? 0;
+    _atualizarEstimativa();
     nome?.focus();
   });
 }

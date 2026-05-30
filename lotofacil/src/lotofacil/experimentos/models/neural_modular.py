@@ -55,9 +55,17 @@ class NeuralModular(BaseLabModel):
             Keys match config.py constant names (e.g. 'LSTM_UNITS', 'LSTM_LR').
     """
 
-    def __init__(self, config: FeatureConfig, hp_overrides: dict | None = None):
+    def __init__(self, config: FeatureConfig, hp_overrides: dict | None = None, fast: bool = False):
         self.config = config
         self._hp = hp_overrides or {}
+        if fast:
+            # Smaller model for faster CPU training
+            self._hp.setdefault("LSTM_UNITS", [64, 32, 16])
+            self._hp.setdefault("LSTM_DROPOUT", 0.2)
+            self._hp.setdefault("LSTM_DROPOUT_DENSE", 0.15)
+            self._hp.setdefault("ATTENTION_HEADS", 2)
+            self._hp.setdefault("ATTENTION_DIM", 16)
+            self._hp.setdefault("LSTM_BATCH_SIZE", 64)
         self._model = None
         self._history: dict = {}
         self._fitted = False
@@ -131,14 +139,21 @@ class NeuralModular(BaseLabModel):
             _EpochProgressCallback(self._hp_val("LSTM_EPOCHS")),
         ]
 
-        history = model.fit(
-            X_train, y_train,
-            validation_data=(X_val, y_val),
-            epochs=self._hp_val("LSTM_EPOCHS"),
-            batch_size=self._hp_val("LSTM_BATCH_SIZE"),
-            callbacks=callbacks,
-            verbose=0,
-        )
+        try:
+            history = model.fit(
+                X_train, y_train,
+                validation_data=(X_val, y_val),
+                epochs=self._hp_val("LSTM_EPOCHS"),
+                batch_size=self._hp_val("LSTM_BATCH_SIZE"),
+                callbacks=callbacks,
+                verbose=0,
+            )
+        except MemoryError:
+            raise RuntimeError(
+                "Memória insuficiente para treinar o modelo. "
+                "Tente reduzir 'concursos' (ex: 500), 'janela' (ex: 30) "
+                "ou use o modo rápido."
+            )
         self._model = model
         self._history = {k: [float(v) for v in vs] for k, vs in history.history.items()}
         self._meta = meta

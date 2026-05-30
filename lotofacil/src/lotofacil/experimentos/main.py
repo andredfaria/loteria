@@ -132,6 +132,7 @@ def train(
     seed: int = typer.Option(None, "--seed", help="Override RANDOM_SEED for reproducibility."),
     window_size: int = typer.Option(None, "--window-size", help="Override LSTM window (past draws as context)."),
     name: str = typer.Option(None, "--name", help="Custom model stem for versioning (e.g. 'abc1_meu_treino')."),
+    fast: bool = typer.Option(False, "--fast", help="Use smaller LSTM model for faster CPU training."),
     debug: bool = typer.Option(False, "--debug"),
 ) -> None:
     """Train a NeuralModular model for the given feature config and save it."""
@@ -165,7 +166,9 @@ def train(
     if seed:
         lab_cfg.RANDOM_SEED = seed
 
-    model = NeuralModular(cfg)
+    if fast:
+        console.print("[yellow]Modo rápido:[/yellow] modelo menor (LSTM 64/32/16) para treino mais rápido.")
+    model = NeuralModular(cfg, fast=fast)
     console.print("Training... (this may take a while)")
     model.fit(draws)
 
