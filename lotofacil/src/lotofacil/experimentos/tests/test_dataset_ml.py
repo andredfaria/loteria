@@ -93,3 +93,36 @@ def test_build_dataset_uma_linha_por_concurso_e_binarios(tmp_path, monkeypatch):
     # todas as colunas canônicas presentes
     nomes = {c.name for c in dataset_ml.CANONICAL_COLUMNS}
     assert nomes <= set(df.columns)
+
+
+def test_to_training_matrix_alvo_vem_do_proximo_concurso(tmp_path, monkeypatch):
+    # concurso 1 sorteia {1,2,3}; concurso 2 sorteia {3,4,5}
+    _escrever_concurso(tmp_path, 1, "29/09/2003", [1, 2, 3], [3, 2, 1])
+    _escrever_concurso(tmp_path, 2, "06/10/2003", [3, 4, 5], [5, 4, 3])
+    monkeypatch.setattr(dataset_ml, "load_all_climate", lambda: {})
+    monkeypatch.setattr(dataset_ml, "compute_lunar_features",
+                        lambda iso: __import__("numpy").zeros(len(dataset_ml.LUNAR_FEATURE_NAMES)))
+
+    df = dataset_ml.build_dataset(tmp_path)
+    long_df = dataset_ml.to_training_matrix(df)
+
+    # Última linha (concurso 2, sem t+1) é descartada -> só concurso 1
+    assert set(long_df["concurso"].unique()) == {1}
+    # 25 números por concurso
+    assert len(long_df) == 25
+    # alvo = sorteio do concurso 2 ({3,4,5})
+    alvo = set(long_df[long_df["saiu_no_proximo"] == 1]["numero"])
+    assert alvo == {3, 4, 5}
+    # saiu_no_anterior reflete o concurso 1 ({1,2,3})
+    anterior = set(long_df[long_df["saiu_no_anterior"] == 1]["numero"])
+    assert anterior == {1, 2, 3}
+
+
+def test_sliding_freq_e_days_since():
+    import numpy as np
+    binary = np.array([[1, 0], [0, 0], [1, 1]], dtype=float)
+    freq = dataset_ml._sliding_freq(binary, window=10)
+    assert freq[0].tolist() == [0.0, 0.0]                 # 1ª linha sem histórico
+    assert abs(freq[2][0] - 0.5) < 1e-6                   # nº0 saiu 1 de 2 linhas anteriores
+    days = dataset_ml._days_since_last(binary)
+    assert days[2][0] == 2                                # nº0 visto pela última vez na linha 0

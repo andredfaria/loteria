@@ -175,3 +175,58 @@ def build_dataset(data_dir: Optional[Path] = None) -> pd.DataFrame:
     # Garante ordem de colunas canônica
     col_order = [c.name for c in CANONICAL_COLUMNS]
     return pd.DataFrame.from_records(records)[col_order]
+
+
+def _sliding_freq(binary: np.ndarray, window: int) -> np.ndarray:
+    n = len(binary)
+    freq = np.zeros_like(binary)
+    for i in range(n):
+        start = max(0, i - window)
+        freq[i] = binary[start:i].mean(axis=0) if i > 0 else np.zeros(binary.shape[1])
+    return freq
+
+
+def _days_since_last(binary: np.ndarray) -> np.ndarray:
+    n, m = binary.shape
+    result = np.zeros((n, m))
+    last_seen = np.full(m, -1, dtype=int)
+    for i in range(n):
+        for j in range(m):
+            result[i, j] = i if last_seen[j] < 0 else i - last_seen[j]
+            if binary[i, j] == 1:
+                last_seen[j] = i
+    return result
+
+
+def to_training_matrix(df: pd.DataFrame) -> pd.DataFrame:
+    """Converte a tabela canônica em formato long (concurso × número) com alvo t+1."""
+    df = df.sort_values("concurso").reset_index(drop=True)
+    n = len(df)
+    bin_cols = [f"bola_{k:02d}" for k in range(1, 26)]
+    bin_mat = df[bin_cols].to_numpy(dtype=float)
+
+    freqs = {w: _sliding_freq(bin_mat, w) for w in FREQ_WINDOWS}
+    freq_all = _sliding_freq(bin_mat, n)
+    days_since_norm = np.clip(_days_since_last(bin_mat) / 50.0, 0.0, 1.0)
+
+    extra_cols = list(CLIMA_COLS) + list(LUNAR_FEATURE_NAMES) + TEMPORAL_COLS
+    records = []
+    for i in range(n - 1):                       # descarta última (sem t+1)
+        target_row = bin_mat[i + 1]
+        base = {c: df.at[i, c] for c in extra_cols}
+        concurso = int(df.at[i, "concurso"])
+        for j in range(25):
+            rec = {
+                "concurso": concurso,
+                "numero": j + 1,
+                "freq_10": freqs[10][i, j],
+                "freq_30": freqs[30][i, j],
+                "freq_100": freqs[100][i, j],
+                "freq_all": freq_all[i, j],
+                "days_since_last": days_since_norm[i, j],
+                "saiu_no_anterior": int(bin_mat[i, j]),
+                **base,
+                "saiu_no_proximo": int(target_row[j]),
+            }
+            records.append(rec)
+    return pd.DataFrame.from_records(records)
