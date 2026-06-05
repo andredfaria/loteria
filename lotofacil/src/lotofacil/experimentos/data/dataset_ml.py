@@ -89,3 +89,26 @@ def _build_canonical_columns() -> List[ColumnSpec]:
 
 
 CANONICAL_COLUMNS: List[ColumnSpec] = _build_canonical_columns()
+
+
+def _load_raw_draws(data_dir: Optional[Path] = None) -> List[dict]:
+    """Lê concurso_*.json incluindo dezenasOrdemSorteio e local. Ordena por concurso."""
+    root = data_dir or DATA_DIR
+    out: List[dict] = []
+    for fp in Path(root).glob("concurso_*.json"):
+        try:
+            raw = json.loads(fp.read_text(encoding="utf-8"))
+            dez = raw.get("dezenas", [])
+            if not dez:
+                continue
+            out.append({
+                "concurso": int(raw["concurso"]),
+                "data": raw["data"],
+                "local": raw.get("local"),
+                "dezenas": sorted(int(d) for d in dez),
+                "dezenas_ordem_sorteio": [int(d) for d in raw.get("dezenasOrdemSorteio", [])],
+            })
+        except (KeyError, ValueError, json.JSONDecodeError):
+            continue
+    out.sort(key=lambda r: r["concurso"])
+    return out

@@ -35,3 +35,13 @@ def test_canonical_columns_cobrem_grupos_esperados():
 def test_cada_coluna_tem_papel_valido():
     papeis = {c.role for c in dataset_ml.CANONICAL_COLUMNS}
     assert papeis <= {"meta", "feature", "alvo", "cobertura"}
+
+
+def test_load_raw_draws_le_ordem_e_ordena(tmp_path):
+    _escrever_concurso(tmp_path, 2, "06/10/2003", [1, 2, 3], [3, 1, 2])
+    _escrever_concurso(tmp_path, 1, "29/09/2003", [5, 6, 7], [7, 6, 5])
+    rows = dataset_ml._load_raw_draws(tmp_path)
+    assert [r["concurso"] for r in rows] == [1, 2]          # ordenado asc
+    assert rows[0]["dezenas"] == [5, 6, 7]                   # convertido p/ int e sorted
+    assert rows[0]["dezenas_ordem_sorteio"] == [7, 6, 5]     # ordem preservada
+    assert rows[0]["local"] == "TESTE"
