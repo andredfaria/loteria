@@ -45,3 +45,30 @@ def test_load_raw_draws_le_ordem_e_ordena(tmp_path):
     assert rows[0]["dezenas"] == [5, 6, 7]                   # convertido p/ int e sorted
     assert rows[0]["dezenas_ordem_sorteio"] == [7, 6, 5]     # ordem preservada
     assert rows[0]["local"] == "TESTE"
+
+
+def test_clima_fields_ausente_vira_nan():
+    out = dataset_ml._clima_fields(None)
+    assert set(out) == set(dataset_ml.CLIMA_COLS)
+    assert all(_math.isnan(v) for v in out.values())
+
+
+def test_clima_fields_mapeia_chaves_do_resumo():
+    resumo = {"temp_sorteio": 20.8, "precipitacao_media": None,
+              "weathercode_dominante": 3}
+    out = dataset_ml._clima_fields(resumo)
+    assert out["temp_sorteio"] == 20.8
+    assert out["wcode_dominante"] == 3
+    assert _math.isnan(out["precip_media"])     # None -> NaN
+
+
+def test_temporal_fields_quarta_feira():
+    # 2003-10-01 é quarta-feira (weekday=2)
+    out = dataset_ml._temporal_fields("2003-10-01")
+    assert abs(out["dow_sin"] - _math.sin(2 * _math.pi * 2 / 7)) < 1e-6
+    assert set(out) == set(dataset_ml.TEMPORAL_COLS)
+
+
+def test_temporal_fields_data_invalida_vira_nan():
+    out = dataset_ml._temporal_fields("")
+    assert all(_math.isnan(v) for v in out.values())

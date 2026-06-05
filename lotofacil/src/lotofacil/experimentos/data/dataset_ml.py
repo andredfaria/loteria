@@ -112,3 +112,27 @@ def _load_raw_draws(data_dir: Optional[Path] = None) -> List[dict]:
             continue
     out.sort(key=lambda r: r["concurso"])
     return out
+
+
+def _clima_fields(resumo: Optional[dict]) -> dict:
+    if not resumo:
+        return {c: float("nan") for c in CLIMA_COLS}
+    out = {}
+    for col, chave in CLIMA_COLS.items():
+        val = resumo.get(chave)
+        out[col] = float("nan") if val is None else val
+    return out
+
+
+def _temporal_fields(data_iso: str) -> dict:
+    if not data_iso:
+        return {c: float("nan") for c in TEMPORAL_COLS}
+    dt = datetime.strptime(data_iso, "%Y-%m-%d")
+    dow = dt.weekday()
+    month = dt.month - 1
+    return {
+        "dow_sin": math.sin(2 * math.pi * dow / 7),
+        "dow_cos": math.cos(2 * math.pi * dow / 7),
+        "mes_sin": math.sin(2 * math.pi * month / 12),
+        "mes_cos": math.cos(2 * math.pi * month / 12),
+    }
