@@ -74,6 +74,12 @@ def test_temporal_fields_data_invalida_vira_nan():
     assert all(_math.isnan(v) for v in out.values())
 
 
+def test_temporal_fields_data_malformada_vira_nan():
+    out = dataset_ml._temporal_fields("2003-13-99")
+    assert set(out) == set(dataset_ml.TEMPORAL_COLS)
+    assert all(_math.isnan(v) for v in out.values())
+
+
 def test_build_dataset_uma_linha_por_concurso_e_binarios(tmp_path, monkeypatch):
     _escrever_concurso(tmp_path, 1, "29/09/2003", [2, 3, 5], [5, 3, 2])
     _escrever_concurso(tmp_path, 2, "06/10/2003", [1, 2, 4], [4, 2, 1])
@@ -90,6 +96,7 @@ def test_build_dataset_uma_linha_por_concurso_e_binarios(tmp_path, monkeypatch):
     assert linha1["primeira_dezena"] == 5            # 1º da ordem
     assert linha1["tem_clima"] == 0                  # forçado ausente
     assert linha1["data"] == "2003-09-29"            # normalizado p/ ISO
+    assert linha1["tem_lua"] == 0                    # zeros retornados -> não cobre lua
     # todas as colunas canônicas presentes
     nomes = {c.name for c in dataset_ml.CANONICAL_COLUMNS}
     assert nomes <= set(df.columns)
@@ -144,3 +151,22 @@ def test_gerar_dicionario_md_contem_alvo(tmp_path):
     texto = destino.read_text(encoding="utf-8")
     assert "dezenas_ordem_sorteio" in texto
     assert "| coluna |" in texto.lower() or "| Coluna |" in texto
+
+
+def test_phase_sin_cos_unit_e_ciclica():
+    by_name = {c.name: c for c in dataset_ml.CANONICAL_COLUMNS}
+    assert by_name["phase_sin"].unit == "[-1,1]"
+    assert by_name["phase_cos"].unit == "[-1,1]"
+    # os outros 5 features lunares mantêm [0,1]
+    for name in dataset_ml.LUNAR_FEATURE_NAMES:
+        if name not in ("phase_sin", "phase_cos"):
+            assert by_name[name].unit == "[0,1]", f"{name} deve ser [0,1]"
+
+
+def test_build_dataset_vazio_retorna_df_vazio(tmp_path, monkeypatch):
+    # Sem arquivos concurso_*.json no tmp_path -> records vazio
+    monkeypatch.setattr(dataset_ml, "load_all_climate", lambda: {})
+    df = dataset_ml.build_dataset(tmp_path)
+    assert len(df) == 0
+    col_order = [c.name for c in dataset_ml.CANONICAL_COLUMNS]
+    assert list(df.columns) == col_order

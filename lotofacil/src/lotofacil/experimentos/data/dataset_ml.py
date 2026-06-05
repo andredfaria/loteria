@@ -79,7 +79,8 @@ def _build_canonical_columns() -> List[ColumnSpec]:
         "is_full": "1 se ±1.5d da lua cheia.",
     }
     for name in LUNAR_FEATURE_NAMES:
-        cols.append(ColumnSpec(name, "float", "[0,1]", "lua", "feature", lua_desc[name]))
+        unit = "[-1,1]" if name in ("phase_sin", "phase_cos") else "[0,1]"
+        cols.append(ColumnSpec(name, "float", unit, "lua", "feature", lua_desc[name]))
     for c in TEMPORAL_COLS:
         cols.append(ColumnSpec(c, "float", "[-1,1]", "temporal", "feature",
                                f"Codificação cíclica temporal ({c})."))
@@ -127,7 +128,10 @@ def _clima_fields(resumo: Optional[dict]) -> dict:
 def _temporal_fields(data_iso: str) -> dict:
     if not data_iso:
         return {c: float("nan") for c in TEMPORAL_COLS}
-    dt = datetime.strptime(data_iso, "%Y-%m-%d")
+    try:
+        dt = datetime.strptime(data_iso, "%Y-%m-%d")
+    except ValueError:
+        return {c: float("nan") for c in TEMPORAL_COLS}
     dow = dt.weekday()
     month = dt.month - 1
     return {
@@ -163,7 +167,9 @@ def build_dataset(data_dir: Optional[Path] = None) -> pd.DataFrame:
         rec.update(_clima_fields(resumo))
         if data_iso:
             lua = compute_lunar_features(data_iso)
-            rec["tem_lua"] = 1
+            # .any() guards against compute_lunar_features returning zeros when
+            # data/pylunar is unavailable — zeros mean no actual lunar data.
+            rec["tem_lua"] = 1 if lua.any() else 0
             for name, val in zip(LUNAR_FEATURE_NAMES, lua):
                 rec[name] = float(val)
         else:
@@ -174,6 +180,8 @@ def build_dataset(data_dir: Optional[Path] = None) -> pd.DataFrame:
         records.append(rec)
     # Garante ordem de colunas canônica
     col_order = [c.name for c in CANONICAL_COLUMNS]
+    if not records:
+        return pd.DataFrame(columns=col_order)
     return pd.DataFrame.from_records(records)[col_order]
 
 
