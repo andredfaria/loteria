@@ -72,3 +72,24 @@ def test_temporal_fields_quarta_feira():
 def test_temporal_fields_data_invalida_vira_nan():
     out = dataset_ml._temporal_fields("")
     assert all(_math.isnan(v) for v in out.values())
+
+
+def test_build_dataset_uma_linha_por_concurso_e_binarios(tmp_path, monkeypatch):
+    _escrever_concurso(tmp_path, 1, "29/09/2003", [2, 3, 5], [5, 3, 2])
+    _escrever_concurso(tmp_path, 2, "06/10/2003", [1, 2, 4], [4, 2, 1])
+    # Sem clima/lua reais nesse tmp: força ausência
+    monkeypatch.setattr(dataset_ml, "load_all_climate", lambda: {})
+    monkeypatch.setattr(dataset_ml, "compute_lunar_features",
+                        lambda iso: __import__("numpy").zeros(len(dataset_ml.LUNAR_FEATURE_NAMES)))
+
+    df = dataset_ml.build_dataset(tmp_path)
+    assert len(df) == 2
+    linha1 = df[df["concurso"] == 1].iloc[0]
+    assert linha1["bola_02"] == 1 and linha1["bola_03"] == 1 and linha1["bola_05"] == 1
+    assert linha1["bola_01"] == 0
+    assert linha1["primeira_dezena"] == 5            # 1º da ordem
+    assert linha1["tem_clima"] == 0                  # forçado ausente
+    assert linha1["data"] == "2003-09-29"            # normalizado p/ ISO
+    # todas as colunas canônicas presentes
+    nomes = {c.name for c in dataset_ml.CANONICAL_COLUMNS}
+    assert nomes <= set(df.columns)

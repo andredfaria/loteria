@@ -136,3 +136,42 @@ def _temporal_fields(data_iso: str) -> dict:
         "mes_sin": math.sin(2 * math.pi * month / 12),
         "mes_cos": math.cos(2 * math.pi * month / 12),
     }
+
+
+def build_dataset(data_dir: Optional[Path] = None) -> pd.DataFrame:
+    """Monta a tabela canônica: uma linha por concurso, join sorteio+clima+lua+temporal."""
+    rows = _load_raw_draws(data_dir)
+    climate_map = load_all_climate()
+    records = []
+    for r in rows:
+        concurso = r["concurso"]
+        dezenas = r["dezenas"]
+        ordem = r["dezenas_ordem_sorteio"]
+        data_iso = _parse_iso(r["data"])
+        rec = {
+            "concurso": concurso,
+            "data": data_iso,
+            "local": r["local"],
+            "dezenas": json.dumps(dezenas),
+            "dezenas_ordem_sorteio": json.dumps(ordem),
+            "primeira_dezena": ordem[0] if ordem else None,
+        }
+        for n in range(1, 26):
+            rec[f"bola_{n:02d}"] = 1 if n in dezenas else 0
+        resumo = climate_map.get(concurso)
+        rec["tem_clima"] = 1 if resumo else 0
+        rec.update(_clima_fields(resumo))
+        if data_iso:
+            lua = compute_lunar_features(data_iso)
+            rec["tem_lua"] = 1
+            for name, val in zip(LUNAR_FEATURE_NAMES, lua):
+                rec[name] = float(val)
+        else:
+            rec["tem_lua"] = 0
+            for name in LUNAR_FEATURE_NAMES:
+                rec[name] = float("nan")
+        rec.update(_temporal_fields(data_iso))
+        records.append(rec)
+    # Garante ordem de colunas canônica
+    col_order = [c.name for c in CANONICAL_COLUMNS]
+    return pd.DataFrame.from_records(records)[col_order]
