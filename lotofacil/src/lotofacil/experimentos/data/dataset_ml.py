@@ -56,7 +56,7 @@ def _build_canonical_columns() -> List[ColumnSpec]:
         ColumnSpec("local", "text", "—", "sorteio", "meta", "Local do sorteio."),
         ColumnSpec("dezenas", "json[int]", "—", "sorteio", "feature", "15 dezenas sorteadas, ordenadas asc."),
         ColumnSpec("dezenas_ordem_sorteio", "json[int]", "—", "sorteio", "alvo", "15 dezenas na ordem física de saída. Fonte do alvo."),
-        ColumnSpec("primeira_dezena", "int", "1-25", "sorteio", "feature", "Primeira bola sorteada (derivada da ordem)."),
+        ColumnSpec("primeira_dezena", "int", "1-25 ou nulo", "sorteio", "feature", "Primeira bola sorteada (derivada da ordem); nulo se a ordem estiver ausente."),
     ]
     for k in range(1, 26):
         cols.append(ColumnSpec(f"bola_{k:02d}", "int", "0/1", "sorteio", "feature",

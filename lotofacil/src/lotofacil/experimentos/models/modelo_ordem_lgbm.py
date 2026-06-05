@@ -22,6 +22,20 @@ FEATURE_COLS = (
 )
 TARGET = "saiu_no_proximo"
 BASELINE_ALEATORIO = 15 * 15 / 25  # = 9.0 (média hipergeométrica)
+# `numero` (1-25) é uma identidade, não uma grandeza ordinal: tratamos como
+# categórica para o LightGBM (ver design §3).
+CATEGORICAL_FEATURES = ["numero"]
+
+
+def _prepare_features(df: pd.DataFrame) -> pd.DataFrame:
+    """Seleciona FEATURE_COLS e marca colunas categóricas via dtype 'category'.
+
+    O LightGBM (API sklearn) detecta colunas dtype category automaticamente.
+    """
+    X = df[FEATURE_COLS].copy()
+    for col in CATEGORICAL_FEATURES:
+        X[col] = X[col].astype("category")
+    return X
 
 
 def temporal_split(long_df: pd.DataFrame, frac: float = 0.8) -> Tuple[pd.DataFrame, pd.DataFrame]:
@@ -35,7 +49,7 @@ def temporal_split(long_df: pd.DataFrame, frac: float = 0.8) -> Tuple[pd.DataFra
 
 def train_model(train_df: pd.DataFrame):
     import lightgbm as lgb
-    X = train_df[FEATURE_COLS]
+    X = _prepare_features(train_df)
     y = train_df[TARGET]
     model = lgb.LGBMClassifier(
         n_estimators=200, learning_rate=0.05, num_leaves=31,
@@ -48,7 +62,7 @@ def train_model(train_df: pd.DataFrame):
 def evaluate(model, test_df: pd.DataFrame) -> dict:
     from sklearn.metrics import log_loss, roc_auc_score
 
-    proba = model.predict_proba(test_df[FEATURE_COLS])[:, 1]
+    proba = model.predict_proba(_prepare_features(test_df))[:, 1]
     test_df = test_df.assign(_proba=proba)
 
     hits = []

@@ -9,7 +9,7 @@ Tabela canônica: uma linha por concurso. Alvo de treino derivado: `saiu_no_prox
 | `local` | text | — | sorteio | meta | Local do sorteio. |
 | `dezenas` | json[int] | — | sorteio | feature | 15 dezenas sorteadas, ordenadas asc. |
 | `dezenas_ordem_sorteio` | json[int] | — | sorteio | alvo | 15 dezenas na ordem física de saída. Fonte do alvo. |
-| `primeira_dezena` | int | 1-25 | sorteio | feature | Primeira bola sorteada (derivada da ordem). |
+| `primeira_dezena` | int | 1-25 ou nulo | sorteio | feature | Primeira bola sorteada (derivada da ordem); nulo se a ordem estiver ausente. |
 | `bola_01` | int | 0/1 | sorteio | feature | 1 se a dezena 1 saiu neste concurso. |
 | `bola_02` | int | 0/1 | sorteio | feature | 1 se a dezena 2 saiu neste concurso. |
 | `bola_03` | int | 0/1 | sorteio | feature | 1 se a dezena 3 saiu neste concurso. |
