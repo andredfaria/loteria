@@ -126,3 +126,21 @@ def test_sliding_freq_e_days_since():
     assert abs(freq[2][0] - 0.5) < 1e-6                   # nº0 saiu 1 de 2 linhas anteriores
     days = dataset_ml._days_since_last(binary)
     assert days[2][0] == 2                                # nº0 visto pela última vez na linha 0
+
+
+def test_write_schema_json_lista_todas_colunas(tmp_path):
+    destino = tmp_path / "schema.json"
+    dataset_ml.write_schema_json(destino)
+    data = _json.loads(destino.read_text(encoding="utf-8"))
+    nomes = {c["name"] for c in data["columns"]}
+    assert nomes == {c.name for c in dataset_ml.CANONICAL_COLUMNS}
+    assert all({"name", "dtype", "unit", "source", "role", "description"} <= set(c)
+               for c in data["columns"])
+
+
+def test_gerar_dicionario_md_contem_alvo(tmp_path):
+    destino = tmp_path / "dic.md"
+    dataset_ml.generate_data_dictionary_md(destino)
+    texto = destino.read_text(encoding="utf-8")
+    assert "dezenas_ordem_sorteio" in texto
+    assert "| coluna |" in texto.lower() or "| Coluna |" in texto

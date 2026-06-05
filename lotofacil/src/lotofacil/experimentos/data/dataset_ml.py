@@ -230,3 +230,32 @@ def to_training_matrix(df: pd.DataFrame) -> pd.DataFrame:
             }
             records.append(rec)
     return pd.DataFrame.from_records(records)
+
+
+def write_schema_json(path: Path) -> None:
+    payload = {
+        "dataset": "lotofacil_ml",
+        "alvo_treino": "saiu_no_proximo (derivado de bola_* do concurso t+1)",
+        "columns": [
+            {"name": c.name, "dtype": c.dtype, "unit": c.unit,
+             "source": c.source, "role": c.role, "description": c.description}
+            for c in CANONICAL_COLUMNS
+        ],
+    }
+    Path(path).write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def generate_data_dictionary_md(path: Path) -> None:
+    linhas = [
+        "# Dicionário de Dados — Dataset ML Lotofácil",
+        "",
+        "Tabela canônica: uma linha por concurso. Alvo de treino derivado: "
+        "`saiu_no_proximo` (sorteio do concurso `t+1`, ver `to_training_matrix`).",
+        "",
+        "| Coluna | Tipo | Unidade | Fonte | Papel | Descrição |",
+        "|--------|------|---------|-------|-------|-----------|",
+    ]
+    for c in CANONICAL_COLUMNS:
+        linhas.append(f"| `{c.name}` | {c.dtype} | {c.unit} | {c.source} | {c.role} | {c.description} |")
+    linhas.append("")
+    Path(path).write_text("\n".join(linhas), encoding="utf-8")
