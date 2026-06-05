@@ -81,3 +81,25 @@ def evaluate(model, test_df: pd.DataFrame) -> dict:
         "logloss": float(log_loss(y_true, proba, labels=[0, 1])),
     }
     return metrics
+
+
+def predict_top15(model, inference_df: pd.DataFrame) -> Tuple[list, pd.DataFrame]:
+    """Prevê as 15 dezenas mais prováveis para o próximo concurso.
+
+    Args:
+        model: classificador treinado.
+        inference_df: 25 linhas (uma por dezena) de dataset_ml.build_inference_matrix.
+
+    Returns:
+        (top15, ranking): top15 = lista ordenada asc das 15 dezenas escolhidas;
+        ranking = DataFrame [numero, proba] ordenado por probabilidade desc.
+    """
+    proba = model.predict_proba(_prepare_features(inference_df))[:, 1]
+    ranking = (
+        inference_df[["numero"]]
+        .assign(proba=proba)
+        .sort_values("proba", ascending=False)
+        .reset_index(drop=True)
+    )
+    top15 = sorted(ranking.head(15)["numero"].tolist())
+    return top15, ranking

@@ -170,3 +170,22 @@ def test_build_dataset_vazio_retorna_df_vazio(tmp_path, monkeypatch):
     assert len(df) == 0
     col_order = [c.name for c in dataset_ml.CANONICAL_COLUMNS]
     assert list(df.columns) == col_order
+
+
+def test_build_inference_matrix_usa_ultimo_concurso(tmp_path, monkeypatch):
+    _escrever_concurso(tmp_path, 1, "29/09/2003", [1, 2, 3], [3, 2, 1])
+    _escrever_concurso(tmp_path, 2, "06/10/2003", [3, 4, 5], [5, 4, 3])
+    monkeypatch.setattr(dataset_ml, "load_all_climate", lambda: {})
+    monkeypatch.setattr(dataset_ml, "compute_lunar_features",
+                        lambda iso: __import__("numpy").zeros(len(dataset_ml.LUNAR_FEATURE_NAMES)))
+
+    df = dataset_ml.build_dataset(tmp_path)
+    inf = dataset_ml.build_inference_matrix(df)
+
+    # 25 linhas, do ÚLTIMO concurso (2), sem coluna de alvo
+    assert len(inf) == 25
+    assert set(inf["concurso"].unique()) == {2}
+    assert "saiu_no_proximo" not in inf.columns
+    # saiu_no_anterior reflete o concurso 2 ({3,4,5})
+    anterior = set(inf[inf["saiu_no_anterior"] == 1]["numero"])
+    assert anterior == {3, 4, 5}

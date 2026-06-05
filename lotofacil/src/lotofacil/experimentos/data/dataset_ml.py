@@ -206,38 +206,70 @@ def _days_since_last(binary: np.ndarray) -> np.ndarray:
     return result
 
 
+def _compute_feature_arrays(df: pd.DataFrame):
+    """Pré-computa os arrays de features por número a partir da tabela canônica.
+
+    Retorna (bin_mat, freqs, freq_all, days_since_norm, extra_cols). Compartilhado
+    entre `to_training_matrix` (treino) e `build_inference_matrix` (inferência).
+    """
+    n = len(df)
+    bin_cols = [f"bola_{k:02d}" for k in range(1, 26)]
+    bin_mat = df[bin_cols].to_numpy(dtype=float)
+    freqs = {w: _sliding_freq(bin_mat, w) for w in FREQ_WINDOWS}
+    freq_all = _sliding_freq(bin_mat, n)
+    days_since_norm = np.clip(_days_since_last(bin_mat) / 50.0, 0.0, 1.0)
+    extra_cols = list(CLIMA_COLS) + list(LUNAR_FEATURE_NAMES) + TEMPORAL_COLS
+    return bin_mat, freqs, freq_all, days_since_norm, extra_cols
+
+
+def _feature_records_for_index(df, i, bin_mat, freqs, freq_all, days_since_norm, extra_cols):
+    """Os 25 registros de features (sem alvo) do concurso na posição `i`."""
+    base = {c: df.at[i, c] for c in extra_cols}
+    concurso = int(df.at[i, "concurso"])
+    recs = []
+    for j in range(25):
+        recs.append({
+            "concurso": concurso,
+            "numero": j + 1,
+            "freq_10": freqs[10][i, j],
+            "freq_30": freqs[30][i, j],
+            "freq_100": freqs[100][i, j],
+            "freq_all": freq_all[i, j],
+            "days_since_last": days_since_norm[i, j],
+            "saiu_no_anterior": int(bin_mat[i, j]),
+            **base,
+        })
+    return recs
+
+
 def to_training_matrix(df: pd.DataFrame) -> pd.DataFrame:
     """Converte a tabela canônica em formato long (concurso × número) com alvo t+1."""
     df = df.sort_values("concurso").reset_index(drop=True)
     n = len(df)
-    bin_cols = [f"bola_{k:02d}" for k in range(1, 26)]
-    bin_mat = df[bin_cols].to_numpy(dtype=float)
+    bin_mat, freqs, freq_all, days_since_norm, extra_cols = _compute_feature_arrays(df)
 
-    freqs = {w: _sliding_freq(bin_mat, w) for w in FREQ_WINDOWS}
-    freq_all = _sliding_freq(bin_mat, n)
-    days_since_norm = np.clip(_days_since_last(bin_mat) / 50.0, 0.0, 1.0)
-
-    extra_cols = list(CLIMA_COLS) + list(LUNAR_FEATURE_NAMES) + TEMPORAL_COLS
     records = []
     for i in range(n - 1):                       # descarta última (sem t+1)
         target_row = bin_mat[i + 1]
-        base = {c: df.at[i, c] for c in extra_cols}
-        concurso = int(df.at[i, "concurso"])
-        for j in range(25):
-            rec = {
-                "concurso": concurso,
-                "numero": j + 1,
-                "freq_10": freqs[10][i, j],
-                "freq_30": freqs[30][i, j],
-                "freq_100": freqs[100][i, j],
-                "freq_all": freq_all[i, j],
-                "days_since_last": days_since_norm[i, j],
-                "saiu_no_anterior": int(bin_mat[i, j]),
-                **base,
-                "saiu_no_proximo": int(target_row[j]),
-            }
+        for rec in _feature_records_for_index(df, i, bin_mat, freqs, freq_all, days_since_norm, extra_cols):
+            rec["saiu_no_proximo"] = int(target_row[rec["numero"] - 1])
             records.append(rec)
     return pd.DataFrame.from_records(records)
+
+
+def build_inference_matrix(df: pd.DataFrame) -> pd.DataFrame:
+    """Features (sem alvo) do ÚLTIMO concurso, para prever o próximo sorteio.
+
+    Retorna 25 linhas (uma por dezena) com as mesmas FEATURE_COLS do treino,
+    calculadas a partir de todo o histórico até o último concurso disponível.
+    """
+    df = df.sort_values("concurso").reset_index(drop=True)
+    n = len(df)
+    if n == 0:
+        return pd.DataFrame()
+    bin_mat, freqs, freq_all, days_since_norm, extra_cols = _compute_feature_arrays(df)
+    recs = _feature_records_for_index(df, n - 1, bin_mat, freqs, freq_all, days_since_norm, extra_cols)
+    return pd.DataFrame.from_records(recs)
 
 
 def write_schema_json(path: Path) -> None:

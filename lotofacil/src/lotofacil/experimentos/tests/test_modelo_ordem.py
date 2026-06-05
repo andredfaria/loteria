@@ -44,3 +44,17 @@ def test_train_and_evaluate_retorna_metricas():
     assert 0 <= metrics["acertos_medio"] <= 15
     assert metrics["n_concursos_teste"] > 0
     assert "logloss" in metrics and "auc" in metrics
+
+
+def test_predict_top15_retorna_15_dezenas_distintas():
+    df = _long_sintetico()
+    model = mod.train_model(df)
+    # Uma matriz de inferência = 25 linhas (uma por número), só FEATURE_COLS
+    inf = df[df["concurso"] == df["concurso"].max()][mod.FEATURE_COLS].copy()
+    top15, ranking = mod.predict_top15(model, inf)
+    assert len(top15) == 15
+    assert len(set(top15)) == 15
+    assert all(1 <= n <= 25 for n in top15)
+    assert len(ranking) == 25
+    # ranking ordenado por proba desc
+    assert list(ranking["proba"]) == sorted(ranking["proba"], reverse=True)
