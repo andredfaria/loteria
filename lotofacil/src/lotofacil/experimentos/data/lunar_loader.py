@@ -24,11 +24,11 @@ from lotofacil.experimentos.config import (
 logger = logging.getLogger(__name__)
 
 LUNAR_FEATURE_NAMES = [
-    "phase",           # fractional phase [0, 1): 0=nova, 0.5=cheia
+    "phase",           # cyclic phase [0, 1) from moon age: 0=nova, 0.5=cheia
     "phase_sin",       # sin(2π × phase) — cyclic encoding
     "phase_cos",       # cos(2π × phase)
-    "illumination",    # fraction of disc illuminated [0, 1]
-    "age_norm",        # days since new moon / 29.53 → [0, 1]
+    "illumination",    # fraction of disc illuminated [0, 1] (symmetric: ≠ phase)
+    "age_norm",        # days since new moon / 29.53 → [0, 1] (== phase)
     "is_new",          # 1 if within ±1.5d of new moon
     "is_full",         # 1 if within ±1.5d of full moon
 ]
@@ -61,6 +61,54 @@ def _save_to_cache(date_iso: str, features: dict) -> None:
     path.write_text(json.dumps({"date": date_iso, "features": features}, indent=2))
 
 
+def _compute_features_raw(date_iso: str, hora: int = HORA_SORTEIO) -> dict:
+    """Compute the 7 lunar features for a date via pylunar (no caching).
+
+    The cyclic phase is derived from the moon's *age* (days since new moon),
+    NOT from `fractional_phase()` — which returns the illuminated fraction and
+    is symmetric around the full moon, so it cannot distinguish waxing from
+    waning. `illumination` is kept separately from the elongation.
+
+    Args:
+        date_iso: Date in YYYY-MM-DD format.
+        hora: Hour of draw in local time (default 21 BRT).
+
+    Returns:
+        Dict keyed by LUNAR_FEATURE_NAMES.
+
+    Raises:
+        ImportError: if pylunar is unavailable.
+        Exception: on date parse / computation failure (caller handles).
+    """
+    import pylunar
+
+    year, month, day = [int(p) for p in date_iso.split("-")]
+    mi = pylunar.MoonInfo(LATITUDE_SP, LONGITUDE_SP)
+    mi.update((year, month, day, hora, 0, 0))
+
+    age = mi.age()
+    phase = (age / LUNAR_CYCLE_DAYS) % 1.0   # cyclic [0,1): 0=nova, 0.5=cheia
+    age_norm = phase
+
+    elongation = mi.elongation()
+    illumination = float(np.clip((1 - math.cos(math.radians(elongation))) / 2, 0.0, 1.0))
+
+    dist_from_new = min(phase, 1.0 - phase)
+    is_new = 1.0 if dist_from_new < LUNAR_NEW_THRESHOLD else 0.0
+    dist_from_full = abs(phase - 0.5)
+    is_full = 1.0 if dist_from_full < LUNAR_FULL_THRESHOLD else 0.0
+
+    return {
+        "phase": phase,
+        "phase_sin": math.sin(2 * math.pi * phase),
+        "phase_cos": math.cos(2 * math.pi * phase),
+        "illumination": illumination,
+        "age_norm": age_norm,
+        "is_new": is_new,
+        "is_full": is_full,
+    }
+
+
 @lru_cache(maxsize=4096)
 def compute_lunar_features(date_iso: str, hora: int = HORA_SORTEIO) -> np.ndarray:
     """Compute 7 lunar features for a given date and hour (BRT).
@@ -80,47 +128,41 @@ def compute_lunar_features(date_iso: str, hora: int = HORA_SORTEIO) -> np.ndarra
     if cached is not None:
         return cached
 
-    # Compute via pylunar
     try:
-        import pylunar
+        features = _compute_features_raw(date_iso, hora)
     except ImportError:
         logger.error("pylunar not installed. Run: pip install pylunar")
         return np.zeros(N_LUNAR_FEATURES, dtype=np.float32)
-
-    try:
-        year, month, day = [int(p) for p in date_iso.split("-")]
-        mi = pylunar.MoonInfo(LATITUDE_SP, LONGITUDE_SP)
-        mi.update((year, month, day, hora, 0, 0))
-
-        phase = mi.fractional_phase()
-        age = mi.age()
-
-        elongation = mi.elongation()
-        illumination = float(np.clip((1 - math.cos(math.radians(elongation))) / 2, 0.0, 1.0))
-        age_norm = age / LUNAR_CYCLE_DAYS
-
-        dist_from_new = min(phase, 1.0 - phase)
-        is_new = 1.0 if dist_from_new < LUNAR_NEW_THRESHOLD else 0.0
-        dist_from_full = abs(phase - 0.5)
-        is_full = 1.0 if dist_from_full < LUNAR_FULL_THRESHOLD else 0.0
-
-        features = {
-            "phase": phase,
-            "phase_sin": math.sin(2 * math.pi * phase),
-            "phase_cos": math.cos(2 * math.pi * phase),
-            "illumination": illumination,
-            "age_norm": age_norm,
-            "is_new": is_new,
-            "is_full": is_full,
-        }
-
-        arr = np.array(list(features.values()), dtype=np.float32)
-        _save_to_cache(date_iso, features)
-        return arr
-
     except Exception as exc:
         logger.warning("Lunar computation failed for %s: %s", date_iso, exc)
         return np.zeros(N_LUNAR_FEATURES, dtype=np.float32)
+
+    arr = np.array([features[k] for k in LUNAR_FEATURE_NAMES], dtype=np.float32)
+    _save_to_cache(date_iso, features)
+    return arr
+
+
+def recompute_lunar_cache(date_iso: str, hora: int = HORA_SORTEIO) -> np.ndarray:
+    """Recompute features ignoring the cache and overwrite the JSON on disk.
+
+    Use to repair caches written by an older, buggy version of the
+    computation. Also clears the in-process lru_cache for this date.
+
+    Returns:
+        float32 array of shape (7,). Returns zeros on failure.
+    """
+    try:
+        features = _compute_features_raw(date_iso, hora)
+    except ImportError:
+        logger.error("pylunar not installed. Run: pip install pylunar")
+        return np.zeros(N_LUNAR_FEATURES, dtype=np.float32)
+    except Exception as exc:
+        logger.warning("Lunar recompute failed for %s: %s", date_iso, exc)
+        return np.zeros(N_LUNAR_FEATURES, dtype=np.float32)
+
+    _save_to_cache(date_iso, features)
+    compute_lunar_features.cache_clear()
+    return np.array([features[k] for k in LUNAR_FEATURE_NAMES], dtype=np.float32)
 
 
 def _parse_iso(date_str: str) -> str:

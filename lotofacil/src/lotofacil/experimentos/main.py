@@ -89,12 +89,23 @@ def backfill_lua(
     ultimos: int = typer.Option(None, help="Only last N draws."),
     from_c: int = typer.Option(None, "--from", help="First concurso."),
     to_c: int = typer.Option(None, "--to", help="Last concurso."),
+    force: bool = typer.Option(
+        False, "--force",
+        help="Recompute and overwrite existing cache files (repairs stale/wrong data).",
+    ),
     debug: bool = typer.Option(False, "--debug"),
 ) -> None:
-    """Backfill lunar cache for all/selected historical draws."""
+    """Backfill lunar cache for all/selected historical draws.
+
+    Without --force, only missing dates are computed. With --force, every
+    selected date is recomputed and its cache file overwritten — use this to
+    repair caches written by an older, buggy version of the phase calculation.
+    """
     _setup_logging(debug)
     from lotofacil.experimentos.data.draws_loader import load_draws, load_draws_last_n
-    from lotofacil.experimentos.data.lunar_loader import compute_lunar_features, _parse_iso
+    from lotofacil.experimentos.data.lunar_loader import (
+        compute_lunar_features, recompute_lunar_cache, _parse_iso,
+    )
 
     draws = load_draws()
     if ultimos:
@@ -104,21 +115,22 @@ def backfill_lua(
     if to_c:
         draws = [d for d in draws if d.concurso <= to_c]
 
-    cached = 0
     computed = 0
     errors = 0
-    with console.status("[bold green]Backfilling lunar data..."):
+    label = "Recomputing" if force else "Backfilling"
+    with console.status(f"[bold green]{label} lunar data..."):
         for draw in draws:
             iso = _parse_iso(draw.data)
             if not iso:
                 errors += 1
                 continue
-            arr = compute_lunar_features(iso)
+            arr = recompute_lunar_cache(iso) if force else compute_lunar_features(iso)
             if arr.sum() == 0 and not any(e in iso for e in ["1900", "error"]):
                 errors += 1
             computed += 1
 
-    console.print(f"[green]Done:[/green] {computed} dates cached, {errors} errors.")
+    verb = "recomputed" if force else "cached"
+    console.print(f"[green]Done:[/green] {computed} dates {verb}, {errors} errors.")
 
 
 # ── train ──────────────────────────────────────────────────────────────────────
@@ -176,9 +188,11 @@ def train(
     model.save(save_path)
     stem = name if name else f"{cfg.signature()}"
     console.print(f"[green]Saved:[/green] neural_{stem}.keras")
-    # Emitted for dashboard registry to capture the saved path
+    # Emitted for dashboard registry to capture the saved path.
+    # Plain print() (not console.print) so Rich não quebra o caminho em
+    # múltiplas linhas quando rodando em subprocess sem tty (largura 80).
     actual_path = save_path or (MODELS_DIR / f"neural_{cfg.signature()}.keras")
-    console.print(f"TREINO_MODELO_PATH: {actual_path}")
+    print(f"TREINO_MODELO_PATH: {actual_path}", flush=True)
 
 
 # ── predict ────────────────────────────────────────────────────────────────────

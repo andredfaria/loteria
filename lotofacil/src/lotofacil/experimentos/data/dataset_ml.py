@@ -70,7 +70,7 @@ def _build_canonical_columns() -> List[ColumnSpec]:
         cols.append(ColumnSpec(c, "float", clima_unit[c], "clima", "feature",
                                f"Clima ({c}) no dia/horário do sorteio. NaN se ausente."))
     lua_desc = {
-        "phase": "Fase fracionária [0,1): 0=nova, 0.5=cheia.",
+        "phase": "Fase cíclica [0,1) via idade da lua: 0=nova, 0.5=cheia.",
         "phase_sin": "sin(2π·phase) — codificação cíclica.",
         "phase_cos": "cos(2π·phase) — codificação cíclica.",
         "illumination": "Fração do disco iluminada [0,1].",
