@@ -51,6 +51,12 @@ _freq_cache: dict = {}           # {"data": {...}, "ts": float}
 _FREQ_TTL = 300                  # 5 minutes
 _quality_cache: dict = {}        # {last_n: {"data": {...}, "ts": float}}
 _QUALITY_TTL = 120               # 2 minutes
+# Cache de modelos Keras carregados, evita recarregar o TF a cada geração.
+# Chave: caminho do .keras → {"model": NeuralModular, "mtime": float}
+_model_cache: dict = {}
+# Serializa load + predict (Keras não é thread-safe para predict concorrente);
+# mantém o resto do dashboard responsivo enquanto a geração roda.
+_model_lock = threading.Lock()
 _SRC = Path(__file__).resolve().parent.parent.parent.parent.parent / "src"
 _LOTOFACIL_BIN = str(Path(sys.executable).parent / "lotofacil")
 
@@ -1121,12 +1127,63 @@ def _extract_model_path_from_output(lines: list[str]) -> str | None:
     for i, line in enumerate(lines):
         if line.startswith("TREINO_MODELO_PATH:"):
             rest = line.split(":", 1)[1].strip()
-            if rest:
-                return rest
-            # path is on the next line (line wrapping)
-            if i + 1 < len(lines):
-                return lines[i + 1].strip()
+            if not rest and i + 1 < len(lines):
+                # Rich pode quebrar o caminho em várias linhas (largura 80 em
+                # subprocess sem tty). Reagrupa as linhas seguintes até montar
+                # um caminho que termine em .keras.
+                rest = lines[i + 1].strip()
+                j = i + 2
+                while not rest.endswith(".keras") and j < len(lines):
+                    rest += lines[j].strip()
+                    j += 1
+            return rest or None
     return None
+
+
+def _repair_model_path(t: dict) -> str | None:
+    """Tenta reconstruir o caminho do .keras de um treino cujo arquivo gravado
+    não existe (ex.: caminho truncado por versões antigas do CLI).
+
+    Estratégia, em ordem:
+      1. caminho determinístico neural_{treino_id}_{slug(nome)}.keras
+      2. glob por neural_{treino_id}_*.keras (robusto a renomeações)
+
+    Retorna o caminho corrigido (e persiste no registry) ou None.
+    """
+    treino_id = t.get("id")
+    if not treino_id:
+        return None
+
+    candidatos = [_LAB_MODELS_DIR / f"neural_{treino_id}_{_slug(t.get('nome', ''))}.keras"]
+    candidatos += sorted(_LAB_MODELS_DIR.glob(f"neural_{treino_id}_*.keras"))
+
+    for cand in candidatos:
+        if cand.exists():
+            novo = str(cand)
+            if novo != t.get("arquivo_modelo"):
+                _registry.atualizar_arquivo(treino_id, novo)
+                LOGGER.info("TREINO %s caminho reparado: %s", treino_id, novo)
+            return novo
+    return None
+
+
+def _get_cached_model(arquivo_modelo: str, cfg):
+    """Carrega (ou reusa do cache) um NeuralModular para o .keras dado.
+
+    Deve ser chamado com _model_lock já adquirido. Invalida o cache quando o
+    arquivo foi modificado (ex.: retreino com o mesmo nome).
+    """
+    from lotofacil.experimentos.models.neural_modular import NeuralModular
+
+    mtime = Path(arquivo_modelo).stat().st_mtime
+    cached = _model_cache.get(arquivo_modelo)
+    if cached and cached["mtime"] == mtime:
+        return cached["model"]
+
+    model = NeuralModular(cfg)
+    model.load(Path(arquivo_modelo))
+    _model_cache[arquivo_modelo] = {"model": model, "mtime": mtime}
+    return model
 
 
 def _read_meta_from_keras(keras_path: str) -> dict:
@@ -1191,7 +1248,10 @@ def api_treinos_iniciar():
     def on_done(success: bool, output_lines: list[str]):
         if success:
             keras_path = _extract_model_path_from_output(output_lines)
-            if not keras_path:
+            # Caminho parseado pode vir vazio ou (em versões antigas do CLI)
+            # truncado pela quebra de linha do Rich; nesses casos usa o
+            # fallback determinístico que casa com o --name passado ao treino.
+            if not keras_path or not Path(keras_path).exists():
                 keras_path = str(_LAB_MODELS_DIR / f"neural_{model_name}.keras")
             metricas = _read_meta_from_keras(keras_path)
             _registry.registrar_modelo(treino_id, keras_path, metricas)
@@ -1214,6 +1274,30 @@ def api_treinos_iniciar():
 @app.route("/api/treinos")
 def api_treinos_listar():
     return jsonify(_registry.listar())
+
+
+@app.route("/api/treinos/reparar", methods=["POST"])
+def api_treinos_reparar():
+    """Varre os treinos concluídos e conserta caminhos de modelo quebrados."""
+    reparados, sem_arquivo, ok = [], [], 0
+    for t in _registry.listar():
+        if t.get("status") != "completed":
+            continue
+        arquivo = t.get("arquivo_modelo")
+        if arquivo and Path(arquivo).exists():
+            ok += 1
+            continue
+        novo = _repair_model_path(t)
+        if novo:
+            reparados.append({"id": t["id"], "nome": t.get("nome"), "arquivo": novo})
+        else:
+            sem_arquivo.append({"id": t["id"], "nome": t.get("nome")})
+    return jsonify({
+        "reparados": reparados,
+        "sem_arquivo": sem_arquivo,
+        "ja_ok": ok,
+        "total_reparados": len(reparados),
+    })
 
 
 @app.route("/api/treinos/comparar")
@@ -1299,6 +1383,8 @@ def api_treino_deletar(treino_id: str):
         _registry.atualizar_status(treino_id, "cancelled")
     arquivo = t.get("arquivo_modelo")
     if arquivo:
+        with _model_lock:
+            _model_cache.pop(arquivo, None)
         keras_path = Path(arquivo)
         for p in [keras_path, keras_path.with_suffix(".meta.json")]:
             try:
@@ -1368,7 +1454,7 @@ def api_treinos_retry(treino_id: str):
     def on_done(success: bool, output_lines: list[str]):
         if success:
             keras_path = _extract_model_path_from_output(output_lines)
-            if not keras_path:
+            if not keras_path or not Path(keras_path).exists():
                 keras_path = str(_LAB_MODELS_DIR / f"neural_{model_name}.keras")
             metricas = _read_meta_from_keras(keras_path)
             _registry.registrar_modelo(novo_treino_id, keras_path, metricas)
@@ -1439,7 +1525,11 @@ def api_treino_gerar(treino_id: str):
 
     arquivo_modelo = t.get("arquivo_modelo")
     if not arquivo_modelo or not Path(arquivo_modelo).exists():
-        return jsonify({"error": "Arquivo do modelo não encontrado"}), 404
+        # Tenta auto-reparar caminhos truncados/quebrados gravados por versões
+        # antigas antes de desistir.
+        arquivo_modelo = _repair_model_path(t)
+        if not arquivo_modelo:
+            return jsonify({"error": "Arquivo do modelo não encontrado"}), 404
 
     body = request.get_json(force=True) or {}
     n_jogos = max(1, min(int(body.get("n_jogos", 1)), 20))
@@ -1451,7 +1541,6 @@ def api_treino_gerar(treino_id: str):
         _sys.path.insert(0, str(_SRC))
         from lotofacil.experimentos.data.feature_flags import FeatureConfig
         from lotofacil.experimentos.data.draws_loader import load_draws_last_n
-        from lotofacil.experimentos.models.neural_modular import NeuralModular
 
         tipo_config = t.get("tipo_config", "base")
         config_sig = _CONFIG_SIG_MAP.get(tipo_config, tipo_config)
@@ -1461,9 +1550,11 @@ def api_treino_gerar(treino_id: str):
         if not draws:
             return jsonify({"error": "Sem dados de sorteios disponíveis"}), 500
 
-        model = NeuralModular(cfg)
-        model.load(Path(arquivo_modelo))
-        proba = model.predict_proba(draws)  # shape (25,)
+        # Carrega/reusa o modelo e infere sob lock: Keras não é thread-safe
+        # para predict concorrente, mas os demais endpoints seguem livres.
+        with _model_lock:
+            model = _get_cached_model(arquivo_modelo, cfg)
+            proba = model.predict_proba(draws)  # shape (25,)
 
         rng = np.random.default_rng()
         jogos = []
@@ -1607,6 +1698,49 @@ def api_roi_autodiscover():
         return jsonify({"error": str(exc)}), 500
 
 
+@app.route("/api/fechamento", methods=["POST"])
+def api_fechamento():
+    """Fechamento garantido (covering design) por orçamento fixo."""
+    from lotofacil.servicos.gerar_fechamento import gerar_fechamento_service
+
+    body = request.get_json(force=True) or {}
+    try:
+        pool_size = int(body.get("pool_size", 18))
+        n_jogos = max(1, min(int(body.get("jogos", 20)), 200))
+        fixar = [int(x) for x in (body.get("fixar") or [])]
+        excluir = [int(x) for x in (body.get("excluir") or [])]
+        alvo_p = body.get("alvo_p")
+        alvo_p = int(alvo_p) if alvo_p not in (None, "") else None
+    except (TypeError, ValueError):
+        return jsonify({"error": "parâmetros inválidos"}), 400
+
+    try:
+        r = gerar_fechamento_service(
+            pool_size=pool_size,
+            n_jogos=n_jogos,
+            fixar=fixar,
+            excluir=excluir,
+            alvo_p=alvo_p,
+            dados_dir=DADOS_DIR,
+            salvar=bool(body.get("salvar", False)),
+        )
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception as exc:
+        LOGGER.exception("fechamento error")
+        return jsonify({"error": str(exc)}), 500
+
+    return jsonify({
+        "concurso_alvo": r.concurso_alvo,
+        "pool": r.pool,
+        "jogos": r.jogos,
+        "curva_garantia": {str(k): v for k, v in r.curva_garantia.items()},
+        "n_jogos": r.n_jogos,
+        "custo_total": r.custo_total,
+        "nota_ev": r.nota_ev,
+    })
+
+
 @app.route("/api/jobs/<task_id>/stream")
 def api_job_stream(task_id: str):
     def generate():
@@ -1640,7 +1774,7 @@ def main():
     LOGGER.info("🎰 Lotofácil Dashboard")
     LOGGER.info("Servidor: http://%s:%s", host, port)
     LOGGER.info("Pressione Ctrl+C para parar.")
-    app.run(host=host, port=port, debug=False)
+    app.run(host=host, port=port, debug=False, threaded=True)
 
 
 if __name__ == "__main__":

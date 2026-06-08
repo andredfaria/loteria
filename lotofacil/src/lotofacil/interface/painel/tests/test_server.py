@@ -390,3 +390,88 @@ def test_extract_path_not_found():
     lines = ["Config: base", "Training... (this may take a while)"]
     result = server_module._extract_model_path_from_output(lines)
     assert result is None
+
+
+def test_repair_model_path_deterministic(tmp_path, monkeypatch):
+    reg = TreinoRegistry(tmp_path / "treinos.db")
+    monkeypatch.setattr(server_module, "_registry", reg)
+    monkeypatch.setattr(server_module, "_LAB_MODELS_DIR", tmp_path)
+
+    reg.criar("abcd1234", "Meu Treino", "base", {})
+    # caminho gravado truncado (não existe)
+    reg.registrar_modelo("abcd1234", "/caminho/truncado/sav", {})
+    # arquivo real que o reparo deve encontrar
+    real = tmp_path / "neural_abcd1234_Meu_Treino.keras"
+    real.touch()
+
+    novo = server_module._repair_model_path(reg.buscar("abcd1234"))
+    assert novo == str(real)
+    # persistido no registry
+    assert reg.buscar("abcd1234")["arquivo_modelo"] == str(real)
+
+
+def test_repair_model_path_glob_after_rename(tmp_path, monkeypatch):
+    reg = TreinoRegistry(tmp_path / "treinos.db")
+    monkeypatch.setattr(server_module, "_registry", reg)
+    monkeypatch.setattr(server_module, "_LAB_MODELS_DIR", tmp_path)
+
+    reg.criar("ef567890", "Nome Antigo", "base", {})
+    reg.registrar_modelo("ef567890", "/caminho/truncado/sav", {})
+    reg.renomear("ef567890", "Nome Novo")  # slug muda, mas treino_id no arquivo não
+    real = tmp_path / "neural_ef567890_Nome_Antigo.keras"
+    real.touch()
+
+    novo = server_module._repair_model_path(reg.buscar("ef567890"))
+    assert novo == str(real)
+
+
+def test_repair_model_path_no_file(tmp_path, monkeypatch):
+    reg = TreinoRegistry(tmp_path / "treinos.db")
+    monkeypatch.setattr(server_module, "_registry", reg)
+    monkeypatch.setattr(server_module, "_LAB_MODELS_DIR", tmp_path)
+
+    reg.criar("99999999", "Sem Arquivo", "base", {})
+    reg.registrar_modelo("99999999", "/caminho/truncado/sav", {})
+    assert server_module._repair_model_path(reg.buscar("99999999")) is None
+
+
+def test_api_treinos_reparar(client, tmp_path, monkeypatch):
+    reg = TreinoRegistry(tmp_path / "treinos.db")
+    monkeypatch.setattr(server_module, "_registry", reg)
+    monkeypatch.setattr(server_module, "_LAB_MODELS_DIR", tmp_path)
+
+    # treino reparável
+    reg.criar("aaaa1111", "Reparavel", "base", {})
+    reg.registrar_modelo("aaaa1111", "/truncado/sav", {})
+    (tmp_path / "neural_aaaa1111_Reparavel.keras").touch()
+    # treino sem arquivo
+    reg.criar("bbbb2222", "Perdido", "base", {})
+    reg.registrar_modelo("bbbb2222", "/truncado/sav", {})
+    # treino já ok
+    reg.criar("cccc3333", "Ok", "base", {})
+    ok_path = tmp_path / "neural_cccc3333_Ok.keras"
+    ok_path.touch()
+    reg.registrar_modelo("cccc3333", str(ok_path), {})
+
+    r = client.post("/api/treinos/reparar")
+    assert r.status_code == 200
+    d = json.loads(r.data)
+    assert d["total_reparados"] == 1
+    assert d["reparados"][0]["id"] == "aaaa1111"
+    assert [x["id"] for x in d["sem_arquivo"]] == ["bbbb2222"]
+    assert d["ja_ok"] == 1
+
+
+def test_extract_path_wrapped_across_lines():
+    # Rich quebra caminhos longos em múltiplas linhas (largura 80 em subprocess
+    # sem tty); a extração precisa remontar até o sufixo .keras.
+    lines = [
+        "TREINO_MODELO_PATH: ",
+        "/home/andre/Documentos/projetos/loteria/lotofacil/src/lotofacil/experimentos/sav",
+        "ed_models/neural_a1b2c3d4_meu_treino.keras",
+    ]
+    result = server_module._extract_model_path_from_output(lines)
+    assert result == (
+        "/home/andre/Documentos/projetos/loteria/lotofacil/src/lotofacil/"
+        "experimentos/saved_models/neural_a1b2c3d4_meu_treino.keras"
+    )

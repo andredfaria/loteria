@@ -144,6 +144,15 @@ class TreinoRegistry:
                 (str(arquivo_modelo), json.dumps(metricas, ensure_ascii=False), _now(), treino_id),
             )
 
+    def atualizar_arquivo(self, treino_id: str, arquivo_modelo: str) -> bool:
+        """Atualiza apenas o caminho do modelo (ex.: reparo de caminho truncado)."""
+        with self._conn() as conn:
+            cur = conn.execute(
+                "UPDATE treinos SET arquivo_modelo = ? WHERE id = ?",
+                (str(arquivo_modelo), treino_id),
+            )
+        return cur.rowcount > 0
+
     def marcar_falha(self, treino_id: str) -> None:
         with self._conn() as conn:
             conn.execute(

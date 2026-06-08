@@ -401,6 +401,7 @@
   }
   .toast.success { border-left: 3px solid var(--green); }
   .toast.error { border-left: 3px solid var(--red); }
+  .toast.warn { border-left: 3px solid #f5a623; }
   .toast.info { border-left: 3px solid var(--accent); }
   @keyframes slide-in { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 
@@ -888,6 +889,8 @@
       <div id="tab-modelos" style="display:none;flex:1;overflow:hidden;flex-direction:column"></div>
       <!-- ROI Lab Tab — populado por renderRoiLab() -->
       <div id="tab-roi-lab" style="display:none;flex:1;overflow:auto;flex-direction:column"></div>
+      <!-- Geração Tab — populado por renderGeracao() -->
+      <div id="tab-geracao" style="display:none;flex:1;overflow:auto;flex-direction:column"></div>
     </div>
   </div>
 </div>
@@ -1200,6 +1203,7 @@ const ADVANCED_CATEGORIES = [
   { id: 'dados',     icon: '🗃️', label: 'Dados'     },
   { id: 'validacao', icon: '✅', label: 'Validação' },
   { id: 'roi_lab',   icon: '🧪', label: 'ROI Lab'   },
+  { id: 'geracao',   icon: '🎯', label: 'Geração' },
 ];
 
 function buildSidebar() {
@@ -1291,6 +1295,8 @@ function switchTab(id) {
 
   tabModelos.style.display = id === 'modelos' ? 'flex' : 'none';
   document.getElementById('tab-roi-lab').style.display = id === 'roi_lab' ? 'flex' : 'none';
+  document.getElementById('tab-geracao').style.display = id === 'geracao' ? 'flex' : 'none';
+  document.getElementById('consoleSection').style.display = (id === 'modelos' || id === 'roi_lab' || id === 'geracao') ? 'none' : '';
 
   if (id === 'dados') {
     numSec.style.display = '';
@@ -1321,6 +1327,10 @@ function switchTab(id) {
     numSec.style.display = 'none';
     bar.innerHTML = '<div class="section-title">🧪 ROI Lab</div>';
     renderRoiLab();
+  } else if (id === 'geracao') {
+    numSec.style.display = 'none';
+    bar.innerHTML = '<div class="section-title">🎯 Geração — Fechamento garantido</div>';
+    renderGeracao();
   } else {
     numSec.style.display = '';
     renderActions();
@@ -3051,6 +3061,9 @@ function renderPredGerar() {
         style="background:var(--accent-dim);border-color:var(--accent);color:var(--accent);font-weight:600">⚡ Gerar Jogos</button>
       ${(_predState.qualidade||[]).length > 0 ? `<button class="action-btn" onclick="_usarMelhorModelo()"
         style="font-size:0.72rem;padding:0.2rem 0.5rem" title="Selecionar modelo com mais hits médios no backtest">🏆 Melhor modelo</button>` : ''}
+      <button class="action-btn" id="repararBtn" onclick="repararModelos()"
+        style="font-size:0.72rem;padding:0.2rem 0.5rem"
+        title="Conserta caminhos de modelo quebrados gravados por versões antigas">🔧 Reparar caminhos</button>
     </div>
     <div class="pred-warning">⚠️ Resultados experimentais e estatísticos — não garantem acertos.</div>
     <div id="gerarResultados"></div>
@@ -3079,6 +3092,25 @@ async function gerarJogos() {
     document.getElementById('gerarResultados').innerHTML =
       `<div style="color:var(--red);margin-top:0.5rem">❌ ${esc(e.message)}</div>`;
   } finally { btn.disabled = false; btn.textContent = '⚡ Gerar Jogos'; }
+}
+
+async function repararModelos() {
+  const btn = document.getElementById('repararBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Reparando...'; }
+  try {
+    const r = await fetch('/api/treinos/reparar', { method: 'POST' });
+    const data = await r.json();
+    if (data.error) throw new Error(data.error);
+    const partes = [`${data.total_reparados} reparado(s)`, `${data.ja_ok} já ok`];
+    if (data.sem_arquivo && data.sem_arquivo.length) {
+      partes.push(`${data.sem_arquivo.length} sem arquivo (re-treinar)`);
+    }
+    showToast(`🔧 ${partes.join(' · ')}`, data.sem_arquivo.length ? 'warn' : 'success');
+  } catch (e) {
+    showToast(`❌ ${e.message}`, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🔧 Reparar caminhos'; }
+  }
 }
 
 async function _loadGerarRecentes() {
@@ -4064,6 +4096,92 @@ function _renderAutoDiscoverResult(data) {
       </tr>
       ${rows}
     </table>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// GERAÇÃO — Fechamento garantido (covering design)
+// ═══════════════════════════════════════════════════════════════
+function _gerParseNums(s) {
+  if (!s) return [];
+  return s.split(',').map(x => parseInt(x.trim(), 10)).filter(n => !isNaN(n));
+}
+
+function renderGeracao() {
+  const el = document.getElementById('tab-geracao');
+  const inp = 'width:100%;font-size:0.74rem;padding:3px 6px;background:var(--bg,#111);color:var(--text);border:1px solid var(--border);border-radius:4px;margin-top:2px';
+  el.innerHTML = `
+    <div style="padding:1rem;max-width:920px;margin:0 auto;width:100%">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:1rem;margin-bottom:1rem">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:0.7rem;align-items:end">
+          <label style="font-size:0.7rem;color:var(--muted)">Tamanho do pool (15–25)
+            <input id="gerPoolSize" type="number" min="15" max="25" value="18" style="${inp}"></label>
+          <label style="font-size:0.7rem;color:var(--muted)">Orçamento (jogos de 15)
+            <input id="gerJogos" type="number" min="1" max="200" value="20" style="${inp}"></label>
+          <label style="font-size:0.7rem;color:var(--muted)">Fixar (ex: 7,10,25)
+            <input id="gerFixar" type="text" placeholder="opcional" style="${inp}"></label>
+          <label style="font-size:0.7rem;color:var(--muted)">Excluir (ex: 13)
+            <input id="gerExcluir" type="text" placeholder="opcional" style="${inp}"></label>
+          <label style="font-size:0.7rem;color:var(--muted)">Alvo p (avançado)
+            <input id="gerAlvoP" type="number" min="0" max="25" placeholder="auto" style="${inp}"></label>
+          <button class="action-btn" onclick="gerarFechamento()"><span class="icon">🎯</span> Gerar fechamento</button>
+        </div>
+        <div class="pred-warning" style="margin-top:0.7rem">⚠️ O fechamento controla a DISTRIBUIÇÃO de prêmios de uma aposta fixa, não o valor esperado (que segue negativo). A garantia é condicional às suas dezenas do pool serem sorteadas.</div>
+      </div>
+      <div id="gerFechResultado"></div>
+    </div>`;
+}
+
+async function gerarFechamento() {
+  const out = document.getElementById('gerFechResultado');
+  const poolSize = parseInt(document.getElementById('gerPoolSize').value, 10);
+  const jogos = parseInt(document.getElementById('gerJogos').value, 10);
+  const fixar = _gerParseNums(document.getElementById('gerFixar').value);
+  const excluir = _gerParseNums(document.getElementById('gerExcluir').value);
+  const alvoRaw = document.getElementById('gerAlvoP').value;
+  const alvo_p = alvoRaw === '' ? null : parseInt(alvoRaw, 10);
+  out.innerHTML = '<div style="color:var(--muted);font-size:0.8rem">⏳ Gerando fechamento…</div>';
+  try {
+    const r = await fetch('/api/fechamento', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pool_size: poolSize, jogos, fixar, excluir, alvo_p }),
+    });
+    const d = await r.json();
+    if (!r.ok || d.error) throw new Error(d.error || 'Erro ao gerar fechamento');
+    out.innerHTML = _renderFechamentoResultado(d);
+  } catch (e) {
+    out.innerHTML = `<div style="color:#e5534b;font-size:0.82rem">❌ ${e.message}</div>`;
+    showToast(`❌ ${e.message}`, 'error');
+  }
+}
+
+function _renderFechamentoResultado(d) {
+  const pad = n => String(n).padStart(2, '0');
+  const pool = d.pool.map(pad).join(' ');
+  const jogos = d.jogos.map((j, i) =>
+    `<div style="font-family:monospace;font-size:0.76rem;padding:1px 0">
+       <span style="color:var(--muted)">${pad(i + 1)}:</span> ${j.map(pad).join(' ')}</div>`).join('');
+  const curva = Object.keys(d.curva_garantia).map(Number).sort((a, b) => a - b)
+    .filter(p => p >= 11)
+    .map(p => `<tr><td style="padding:2px 12px">${p} dezenas</td>
+      <td style="padding:2px 12px;color:var(--accent);font-weight:600">${d.curva_garantia[p]} acertos</td></tr>`).join('');
+  return `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;align-items:start">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:1rem">
+        <div style="font-size:0.7rem;color:var(--muted);margin-bottom:0.3rem">Concurso ${d.concurso_alvo} · ${d.n_jogos} jogos · R$${d.custo_total.toFixed(2)}</div>
+        <div style="font-family:monospace;color:var(--accent);margin-bottom:0.6rem">Pool: ${pool}</div>
+        ${jogos}
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:1rem">
+        <div style="font-weight:600;margin-bottom:0.5rem">🛡️ Curva de garantia</div>
+        <table style="width:100%;border-collapse:collapse;font-size:0.8rem">
+          <tr><th style="text-align:left;padding:2px 12px;color:var(--muted);font-weight:500">Se saírem (do pool)</th>
+              <th style="text-align:left;padding:2px 12px;color:var(--muted);font-weight:500">Garante ao menos</th></tr>
+          ${curva}
+        </table>
+        <div style="font-size:0.68rem;color:var(--muted);margin-top:0.7rem;line-height:1.4">${d.nota_ev}</div>
+      </div>
+    </div>`;
 }
 
 // ═══════════════════════════════════════════════════════════════
