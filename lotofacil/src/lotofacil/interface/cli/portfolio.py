@@ -403,3 +403,57 @@ def portfolio_validar(
             game_idx += 1
 
     console.print(table)
+
+
+def _parse_dezenas(s: Optional[str]) -> list:
+    """'7,10,25' -> [7, 10, 25]; None/'' -> []."""
+    if not s:
+        return []
+    return [int(x) for x in s.replace(" ", "").split(",") if x]
+
+
+@app.command("fechar")
+def fechar(
+    pool_size: int = typer.Option(18, "--pool-size", help="Tamanho do pool de dezenas (15–25)."),
+    jogos: int = typer.Option(20, "--jogos", help="Orçamento: quantos jogos de 15 gerar."),
+    fixar: Optional[str] = typer.Option(None, "--fixar", help="Dezenas sempre no pool, ex: 7,10,25."),
+    excluir: Optional[str] = typer.Option(None, "--excluir", help="Dezenas nunca no pool, ex: 13."),
+    alvo_p: Optional[int] = typer.Option(None, "--alvo-p", help="p alvo da garantia (default min(N,15))."),
+) -> None:
+    """Fechamento garantido (covering design): maximiza a garantia de pior caso
+    para um orçamento fixo de jogos, e reporta a curva de garantia verificada."""
+    from lotofacil.servicos.gerar_fechamento import gerar_fechamento_service
+
+    try:
+        r = gerar_fechamento_service(
+            pool_size=pool_size,
+            n_jogos=jogos,
+            fixar=_parse_dezenas(fixar),
+            excluir=_parse_dezenas(excluir),
+            alvo_p=alvo_p,
+            salvar=True,
+        )
+    except ValueError as exc:
+        console.print(f"[red]✗ {exc}[/red]")
+        raise typer.Exit(1)
+
+    console.print(f"\n[bold cyan]FECHAMENTO — Concurso {r.concurso_alvo}[/bold cyan]")
+    console.print(f"Pool ({len(r.pool)}): [cyan]{' '.join(f'{d:02d}' for d in r.pool)}[/cyan]")
+    console.print(f"{r.n_jogos} jogos · Custo: R${r.custo_total:.2f}\n")
+
+    for i, jogo in enumerate(r.jogos, 1):
+        nums = " ".join(f"{n:02d}" for n in sorted(jogo))
+        console.print(f"  [yellow]Jogo {i:02d}:[/yellow] {nums}")
+
+    tabela = Table(title="Curva de garantia", box=box.SIMPLE_HEAVY)
+    tabela.add_column("Se saírem (do pool)", justify="center")
+    tabela.add_column("Garante ao menos", justify="center", style="green")
+    for p in sorted(r.curva_garantia):
+        if p < 11:
+            continue  # faixas abaixo de 11 não premiam na Lotofácil
+        tabela.add_row(f"{p} dezenas", f"{r.curva_garantia[p]} acertos")
+    console.print()
+    console.print(tabela)
+
+    console.print(f"\n[dim]{r.nota_ev}[/dim]")
+    console.print(f"[dim]💾 Salvo em saida/jogos/fechamento_{r.concurso_alvo}.json[/dim]")
