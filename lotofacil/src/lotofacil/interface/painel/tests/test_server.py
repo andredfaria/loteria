@@ -260,6 +260,37 @@ def test_compute_acertos_returns_empty_list_when_no_jogos():
     assert result == []
 
 
+def test_api_jogos_gerados_series_agrega_por_modelo_e_concurso(client, tmp_path, monkeypatch):
+    reg = TreinoRegistry(tmp_path / "test_treinos.db")
+    monkeypatch.setattr(server_module, "_registry", reg)
+
+    db = tmp_path / "concursos.db"
+    real = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+    with _sqlite3.connect(str(db)) as conn:
+        conn.execute("CREATE TABLE concursos (concurso INTEGER, dezenas TEXT)")
+        conn.execute("INSERT INTO concursos VALUES (?, ?)", (101, json.dumps(real)))
+        conn.execute("INSERT INTO concursos VALUES (?, ?)", (102, json.dumps(real)))
+    monkeypatch.setattr(server_module, "DB_PATH", db)
+
+    # modelo "ml": 101 -> 1 jogo com 15 acertos; 102 -> 1 jogo com 5 acertos
+    reg.salvar_jogo("t1", "ml", 101, [real])
+    reg.salvar_jogo("t1", "ml", 102, [[16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 1, 2, 3, 4, 5]])
+    # modelo "neural": 101 -> 1 jogo com 9 acertos
+    reg.salvar_jogo("t2", "neural", 101, [[1, 2, 3, 4, 5, 6, 7, 8, 9, 16, 17, 18, 19, 20, 21]])
+
+    r = client.get("/api/jogos-gerados/series")
+    assert r.status_code == 200
+    data = json.loads(r.data)
+
+    assert data["baseline_aleatorio"] == 9
+    assert data["menor_premio"] == 11
+    assert data["series"]["ml"] == [
+        {"concurso": 101, "media_acertos": 15.0},
+        {"concurso": 102, "media_acertos": 5.0},
+    ]
+    assert data["series"]["neural"] == [{"concurso": 101, "media_acertos": 9.0}]
+
+
 # ── Atraso das dezenas ────────────────────────────────────────
 
 def test_api_dados_atraso_retorna_200(client):

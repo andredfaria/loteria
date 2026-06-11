@@ -1516,6 +1516,50 @@ def api_jogos_gerados():
     return jsonify(items)
 
 
+# Acertos esperados ao acaso (15 dezenas sorteadas de 25, jogo de 15) e menor faixa premiada.
+ACERTOS_BASELINE_ALEATORIO = 9
+ACERTOS_MENOR_PREMIO = 11
+
+
+@app.route("/api/jogos-gerados/series")
+def api_jogos_gerados_series():
+    """Série temporal de acertos médios por modelo×concurso, para gráfico de evolução."""
+    limit = request.args.get("limit", default=500, type=int)
+    items = _registry.listar_jogos(limit=max(1, min(limit, 500)))
+
+    cache: dict[int, list[int] | None] = {}
+    series: dict[str, dict[int, list[int]]] = {}
+    for item in items:
+        concurso = item.get("concurso")
+        if concurso not in cache:
+            cache[concurso] = _get_draw_dezenas(concurso)
+        real = cache[concurso]
+        if not real:
+            continue
+        jogos = item.get("jogos") or []
+        acertos = [len(set(jogo) & set(real)) for jogo in jogos]
+        if not acertos:
+            continue
+        modelo = item.get("treino_nome") or item.get("treino_id")
+        media = sum(acertos) / len(acertos)
+        series.setdefault(modelo, {}).setdefault(concurso, []).append(media)
+
+    resultado = {}
+    for modelo, por_concurso in series.items():
+        pontos = [
+            {"concurso": concurso, "media_acertos": round(sum(medias) / len(medias), 2)}
+            for concurso, medias in por_concurso.items()
+        ]
+        pontos.sort(key=lambda p: p["concurso"])
+        resultado[modelo] = pontos
+
+    return jsonify({
+        "series": resultado,
+        "baseline_aleatorio": ACERTOS_BASELINE_ALEATORIO,
+        "menor_premio": ACERTOS_MENOR_PREMIO,
+    })
+
+
 @app.route("/api/treinos/<treino_id>/gerar", methods=["POST"])
 def api_treino_gerar(treino_id: str):
     t = _registry.buscar(treino_id)

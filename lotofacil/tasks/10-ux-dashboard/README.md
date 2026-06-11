@@ -81,7 +81,7 @@ pytest src/lotofacil/interface/painel/tests/ -v
 - **Critérios de aceite:** F5 mantém aba, filtros e últimos parâmetros de treino.
 - **Commit:** `feat(painel): persistencia de filtros e aba em localStorage`
 
-### - [ ] 06 — Gráfico de acertos por modelo ao longo do tempo
+### - [x] 06 — Gráfico de acertos por modelo ao longo do tempo
 
 - **Objetivo:** ver se um modelo melhora, piora ou empata com o acaso.
 - **Descrição:** na sub-aba Histórico, gráfico de linha (canvas, mesmo estilo do

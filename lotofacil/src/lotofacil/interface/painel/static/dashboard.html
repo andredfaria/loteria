@@ -3301,14 +3301,29 @@ function renderComparacao(data) {
 let _historicoData = [];
 let _historicoFiltroModelo = '';
 let _historicoSoPremiados = false;
+let _historicoSeries = {};
+let _historicoSeriesBaseline = { baseline_aleatorio: 9, menor_premio: 11 };
+let _historicoSeriesModelosAtivos = new Set();
 
 async function renderPredHistorico() {
   const panel = document.getElementById('mod-historico');
   if (!panel) return;
   panel.innerHTML = `<div style="color:var(--muted);font-size:0.78rem;padding:1rem 0">Carregando histórico…</div>`;
   try {
-    const r = await fetch('/api/jogos-gerados');
+    const [r, rs] = await Promise.all([
+      fetch('/api/jogos-gerados'),
+      fetch('/api/jogos-gerados/series'),
+    ]);
     _historicoData = await r.json();
+    const seriesData = await rs.json();
+    _historicoSeries = seriesData.series || {};
+    _historicoSeriesBaseline = {
+      baseline_aleatorio: seriesData.baseline_aleatorio ?? 9,
+      menor_premio: seriesData.menor_premio ?? 11,
+    };
+    if (_historicoSeriesModelosAtivos.size === 0) {
+      _historicoSeriesModelosAtivos = new Set(Object.keys(_historicoSeries));
+    }
     _renderHistoricoPanel(panel);
   } catch(e) {
     panel.innerHTML = `<div style="color:var(--red);font-size:0.78rem;padding:1rem 0">❌ Erro ao carregar histórico: ${esc(e.message)}</div>`;
@@ -3361,6 +3376,27 @@ function _renderHistoricoPanel(panel) {
       ${stats.comResultado > 0 ? `<div style="font-size:0.72rem;color:var(--dim)">${stats.comResultado} jogo${stats.comResultado>1?'s':''} com resultado</div>` : ''}
     </div>`;
 
+  const seriesModelos = Object.keys(_historicoSeries).sort();
+  const seriesHtml = seriesModelos.length ? `
+    <div style="margin-bottom:0.75rem">
+      <div style="font-size:0.72rem;color:var(--muted);margin-bottom:0.3rem">📈 Acertos médios por modelo ao longo do tempo</div>
+      <div style="display:flex;gap:0.6rem;flex-wrap:wrap;margin-bottom:0.4rem">
+        ${seriesModelos.map((m, i) => `
+          <label style="display:flex;align-items:center;gap:0.3rem;font-size:0.7rem;cursor:pointer;color:${_historicoSeriesModelosAtivos.has(m) ? _SERIES_COLORS[i % _SERIES_COLORS.length] : 'var(--muted)'}">
+            <input type="checkbox" data-modelo="${esc(m)}" onchange="_toggleHistoricoSerie(this.dataset.modelo)"${_historicoSeriesModelosAtivos.has(m) ? ' checked' : ''}>
+            ${esc(m)}
+          </label>`).join('')}
+      </div>
+      <canvas id="historicoSeriesCanvas" width="800" height="180"
+              style="width:100%;border:1px solid var(--border);border-radius:4px;background:var(--surface)"></canvas>
+      <div style="font-size:0.65rem;color:var(--muted);margin-top:0.3rem">
+        - - cinza = ${_historicoSeriesBaseline.baseline_aleatorio} acertos esperados ao acaso ·
+        - - verde = ${_historicoSeriesBaseline.menor_premio} (menor faixa premiada)
+      </div>
+    </div>` : '';
+
+  requestAnimationFrame(() => _drawHistoricoSeriesChart());
+
   let html = `
     <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.5rem;flex-wrap:wrap">
       <div class="modelos-section-title" style="margin:0">🗂 Histórico de Jogos Gerados</div>
@@ -3376,7 +3412,8 @@ function _renderHistoricoPanel(panel) {
       <button class="action-btn" onclick="_exportHistoricoCSV()"
         style="font-size:0.72rem;padding:0.2rem 0.5rem;margin-left:auto">⬇ CSV</button>
     </div>
-    ${statsHtml}`;
+    ${statsHtml}
+    ${seriesHtml}`;
 
   if (filtered.length === 0) {
     html += `<div style="color:var(--muted);font-size:0.78rem">Nenhum jogo para o modelo selecionado.</div>`;
@@ -3426,6 +3463,80 @@ function _renderHistoricoPanel(panel) {
   }
   html += `</tbody></table>`;
   panel.innerHTML = html;
+}
+
+const _SERIES_COLORS = ['#4fc3f7', '#ff8a65', '#aed581', '#ba68c8', '#ffd54f', '#4db6ac'];
+
+function _toggleHistoricoSerie(modelo) {
+  if (_historicoSeriesModelosAtivos.has(modelo)) {
+    _historicoSeriesModelosAtivos.delete(modelo);
+  } else {
+    _historicoSeriesModelosAtivos.add(modelo);
+  }
+  const panel = document.getElementById('mod-historico');
+  if (panel) _renderHistoricoPanel(panel);
+}
+
+function _drawHistoricoSeriesChart() {
+  const canvas = document.getElementById('historicoSeriesCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height, PAD = 28;
+  ctx.clearRect(0, 0, W, H);
+
+  const modelos = Object.keys(_historicoSeries).sort().filter(m => _historicoSeriesModelosAtivos.has(m));
+  const allConcursos = new Set();
+  const allVals = [_historicoSeriesBaseline.baseline_aleatorio, _historicoSeriesBaseline.menor_premio, 0, 15];
+  for (const m of modelos) {
+    for (const p of _historicoSeries[m]) {
+      allConcursos.add(p.concurso);
+      allVals.push(p.media_acertos);
+    }
+  }
+
+  if (allConcursos.size === 0) {
+    ctx.font = '11px monospace';
+    ctx.fillStyle = 'rgba(160,160,160,0.8)';
+    ctx.fillText('Selecione ao menos um modelo com dados.', PAD, H / 2);
+    return;
+  }
+
+  const concursos = [...allConcursos].sort((a, b) => a - b);
+  const minV = Math.min(...allVals);
+  const maxV = Math.max(...allVals);
+  const range = (maxV - minV) || 1;
+  const toX = c => PAD + (concursos.indexOf(c) / (concursos.length - 1 || 1)) * (W - PAD * 2);
+  const toY = v => H - PAD - ((v - minV) / range) * (H - PAD * 2);
+
+  const drawRefLine = (v, color, label) => {
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath(); ctx.moveTo(PAD, toY(v)); ctx.lineTo(W - PAD, toY(v)); ctx.stroke();
+    ctx.restore();
+    ctx.font = '9px monospace';
+    ctx.fillStyle = color;
+    ctx.fillText(label, PAD + 2, toY(v) - 2);
+  };
+  drawRefLine(_historicoSeriesBaseline.baseline_aleatorio, 'rgba(160,160,160,0.7)', `acaso (${_historicoSeriesBaseline.baseline_aleatorio})`);
+  drawRefLine(_historicoSeriesBaseline.menor_premio, 'rgba(129,199,132,0.8)', `prêmio (${_historicoSeriesBaseline.menor_premio})`);
+
+  modelos.forEach((m, i) => {
+    const color = _SERIES_COLORS[i % _SERIES_COLORS.length];
+    const pontos = _historicoSeries[m];
+    if (!pontos.length) return;
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    pontos.forEach((p, idx) => {
+      const x = toX(p.concurso), y = toY(p.media_acertos);
+      idx === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+    ctx.restore();
+  });
 }
 
 function _onHistoricoFiltro() {
