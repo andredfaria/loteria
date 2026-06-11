@@ -725,6 +725,19 @@
   .treino-log .log-error { color: var(--red); }
   .treino-log .log-cmd { color: var(--accent); }
 
+  .treino-stale-warning {
+    font-size: 0.74rem; color: var(--yellow); background: rgba(251,191,36,0.08);
+    border: 1px solid rgba(251,191,36,0.3); border-radius: var(--radius);
+    padding: 0.5rem 0.75rem; margin-bottom: 0.6rem; display: none;
+  }
+  .treino-stale-warning.visible { display: block; }
+  .treino-stale-actions { display: flex; gap: 0.5rem; margin-top: 0.4rem; }
+  .treino-stale-actions button {
+    font-size: 0.7rem; padding: 0.25rem 0.6rem; border-radius: var(--radius);
+    border: 1px solid var(--border); background: none; color: var(--text); cursor: pointer;
+  }
+  .treino-stale-actions button:hover { border-color: var(--accent); }
+
   .treino-modal-footer { display: flex; justify-content: flex-end; }
   .treino-cancel-btn {
     padding: 0.35rem 0.9rem; border-radius: var(--radius);
@@ -891,6 +904,13 @@
       <div class="treino-progress-fill" id="treinoProgressFill"></div>
     </div>
     <div class="treino-epoch-label" id="treinoEpochLabel">Iniciando…</div>
+    <div class="treino-stale-warning" id="treinoStaleWarning">
+      <span id="treinoStaleMsg"></span>
+      <div class="treino-stale-actions">
+        <button onclick="_treinoContinuarAguardando()">Continuar aguardando</button>
+        <button onclick="cancelTreino()">Cancelar job</button>
+      </div>
+    </div>
     <div class="treino-error-summary" id="treinoErrorSummary" style="display:none"></div>
     <button class="treino-log-toggle" id="treinoLogToggle" style="display:none" onclick="_toggleTreinoLog()">▾ ver log completo</button>
     <div class="treino-log" id="treinoLog"></div>
@@ -3393,12 +3413,20 @@ let _treinoTaskId = null;
 let _treinoPollOffset = 0;
 let _treinoTotalEpochs = 100;
 let _treinoEpochLog = [];   // [{epoch, ts}] for ETA calculation
+let _treinoLastOutputTs = 0;
+let _treinoPollDelay = 2000;
+
+const _TREINO_POLL_BASE_DELAY = 2000;
+const _TREINO_POLL_MAX_DELAY = 30000;
+const _TREINO_STALE_TIMEOUT_MS = 15 * 60 * 1000;
 
 function openTreinoModal(taskId, configLabel, epochsHint) {
   _treinoTaskId = taskId;
   _treinoPollOffset = 0;
   _treinoTotalEpochs = epochsHint || parseInt(document.getElementById('predEpocas')?.value) || 100;
   _treinoEpochLog = [];
+  _treinoLastOutputTs = Date.now();
+  _treinoPollDelay = _TREINO_POLL_BASE_DELAY;
 
   document.getElementById('treinoModalTitle').textContent = `Treinando (${configLabel})…`;
   document.getElementById('treinoModalStatus').textContent = 'Em andamento · 00:00';
@@ -3410,6 +3438,7 @@ function openTreinoModal(taskId, configLabel, epochsHint) {
   document.getElementById('treinoLogToggle').style.display = 'none';
   document.getElementById('treinoLogToggle').textContent = '▾ ver log completo';
   document.getElementById('treinoErrorSummary').style.display = 'none';
+  document.getElementById('treinoStaleWarning').classList.remove('visible');
   document.getElementById('treinoCancelBtn').disabled = false;
   document.getElementById('treinoCloseBtn').disabled = true;
   document.getElementById('treinoModalOverlay').classList.add('visible');
@@ -3423,7 +3452,25 @@ function openTreinoModal(taskId, configLabel, epochsHint) {
     document.getElementById('treinoModalStatus').textContent = `Em andamento · ${mm}:${ss}`;
   }, 1000);
 
-  _treinoPoller = setInterval(() => _pollTreino(), 2000);
+  _treinoPoller = setTimeout(() => _pollTreino(), _treinoPollDelay);
+}
+
+function _treinoContinuarAguardando() {
+  _treinoLastOutputTs = Date.now();
+  document.getElementById('treinoStaleWarning').classList.remove('visible');
+}
+
+function _checkTreinoStale() {
+  const semOutputMs = Date.now() - _treinoLastOutputTs;
+  const warning = document.getElementById('treinoStaleWarning');
+  if (semOutputMs > _TREINO_STALE_TIMEOUT_MS) {
+    const min = Math.floor(semOutputMs / 60000);
+    document.getElementById('treinoStaleMsg').textContent =
+      `⚠️ Treino sem output há ${min} min. O processo pode ter travado.`;
+    warning.classList.add('visible');
+  } else {
+    warning.classList.remove('visible');
+  }
 }
 
 async function _pollTreino() {
@@ -3431,6 +3478,7 @@ async function _pollTreino() {
   try {
     const res = await fetch(`/api/jobs/${_treinoTaskId}/poll?offset=${_treinoPollOffset}`);
     const data = await res.json();
+    _treinoPollDelay = _TREINO_POLL_BASE_DELAY;
 
     if (data.lines && data.lines.length > 0) {
       _treinoPollOffset = data.next_offset;
@@ -3440,13 +3488,22 @@ async function _pollTreino() {
 
     if (data.progress) _updateEpochFromProgress(data.progress);
 
+    if ((data.lines && data.lines.length > 0) || data.progress) {
+      _treinoLastOutputTs = Date.now();
+    }
+    _checkTreinoStale();
+
     if (data.done) {
-      clearInterval(_treinoPoller);
       _treinoPoller = null;
       _finishTreinoModal(data.success !== false);
+      return;
     }
   } catch (e) {
     logClient('warn', 'Falha no poll do treino', { error: e.message });
+    _treinoPollDelay = Math.min(_treinoPollDelay * 2, _TREINO_POLL_MAX_DELAY);
+  }
+  if (_treinoTaskId) {
+    _treinoPoller = setTimeout(() => _pollTreino(), _treinoPollDelay);
   }
 }
 
@@ -3558,7 +3615,7 @@ async function cancelTreino() {
   try {
     await fetch(`/api/jobs/${_treinoTaskId}/cancel`, { method: 'POST' });
   } catch (e) { /* silencioso — pode já ter terminado */ }
-  clearInterval(_treinoPoller);
+  clearTimeout(_treinoPoller);
   _treinoPoller = null;
   closeTreinoModal();
 }

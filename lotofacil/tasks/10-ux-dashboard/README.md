@@ -59,7 +59,7 @@ pytest src/lotofacil/interface/painel/tests/ -v
   parser coberto por teste unitário com linhas de exemplo do Keras.
 - **Commit:** `feat(painel): progresso por epoca e ETA no modal de treino`
 
-### - [ ] 04 — Timeout e recuperação do polling
+### - [x] 04 — Timeout e recuperação do polling
 
 - **Objetivo:** polling nunca fica girando para sempre.
 - **Descrição:** se o poll não recebe linha nova por N minutos (default 15,
