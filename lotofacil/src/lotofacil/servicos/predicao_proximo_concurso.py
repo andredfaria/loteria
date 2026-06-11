@@ -18,6 +18,7 @@ import numpy as np
 from lotofacil.infra.config import DADOS_DIR, NUMEROS_POR_SORTEIO
 from lotofacil.infra.dados.leitor import load_draws
 from lotofacil.infra.estrategias.onze_dezenas.predictor import ElevenNumbersStrategy
+from lotofacil.servicos.promover_campeao import carregar_campeao
 
 logger = logging.getLogger(__name__)
 
@@ -63,13 +64,17 @@ def _proxima_data_sorteio(ultima_data: str) -> str:
 def gerar_predicao_proximo_concurso(
     dados_dir: Optional[Path] = None,
     n_dezenas: int = NUMEROS_POR_SORTEIO,
-    abordagem: str = "ensemble",
+    abordagem: Optional[str] = None,
     modelo_nome: Optional[str] = None,
 ) -> PredicaoProximoConcurso:
     """Gera a predição para o próximo concurso ainda não sorteado.
 
     `draws` contém apenas concursos já realizados — o concurso alvo
     (`draws[-1].concurso + 1`) nunca é usado como entrada (sem vazamento).
+
+    Se `abordagem` não for informada, usa o modelo campeão (ver
+    `lotofacil.servicos.promover_campeao`); na ausência de um campeão
+    promovido, o padrão é o ensemble.
     """
     dados_dir = dados_dir or DADOS_DIR
     draws = load_draws(dados_dir)
@@ -79,6 +84,11 @@ def gerar_predicao_proximo_concurso(
     ultimo = draws[-1]
     concurso_alvo = ultimo.concurso + 1
     data_prevista = _proxima_data_sorteio(ultimo.data)
+
+    if abordagem is None:
+        campeao = carregar_campeao()
+        abordagem = campeao.modelo
+        modelo_nome = modelo_nome or campeao.modelo
 
     approach = _ABORDAGEM_PARA_APPROACH.get(abordagem, "all")
     strategy = ElevenNumbersStrategy()

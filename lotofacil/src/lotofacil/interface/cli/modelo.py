@@ -138,6 +138,44 @@ def historico(limit: int = typer.Option(20, "--limit", "-l")) -> None:
 
 
 @app.command()
+def campeao() -> None:
+    """Mostra o modelo campeão atual (usado por padrão na predição)."""
+    from lotofacil.servicos.promover_campeao import carregar_campeao
+
+    info = carregar_campeao()
+    console.print(f"[cyan]Modelo campeão:[/cyan] [bold]{info.modelo}[/bold]")
+    console.print(f"  Acertos médios: {info.mean_hits:.3f} (baseline: {info.baseline_mean_hits:.3f})")
+    console.print(f"  p-value: {info.p_value:.4f}  |  validações: {info.n_validacoes}")
+    console.print(f"  Promovido em: {info.promovido_em}")
+    console.print(f"  Motivo: {info.motivo}")
+
+
+@app.command()
+def promover(min_validacoes: int = typer.Option(20, "--min-validacoes")) -> None:
+    """Recalcula o modelo campeão com base no histórico de validações."""
+    from lotofacil.infra.dados.banco import DatabaseManager
+    from lotofacil.servicos.promover_campeao import promover_campeao_do_historico
+
+    db = DatabaseManager()
+    historico = db.get_prediction_history(limit=1000)
+    validados = [h for h in historico if h["acertos"] is not None]
+
+    if not validados:
+        console.print("[yellow]Nenhuma predição validada ainda. Mantendo modelo padrão (ensemble).[/yellow]")
+
+    concursos_por_numero = {c["concurso"]: c["dezenas"] for c in db.get_all_concursos()}
+    draws_dezenas = [
+        concursos_por_numero[h["concurso_alvo"]]
+        for h in validados
+        if h["concurso_alvo"] in concursos_por_numero
+    ]
+    candidatos = {"ensemble": [h["acertos"] for h in validados if h["concurso_alvo"] in concursos_por_numero]}
+
+    novo = promover_campeao_do_historico(candidatos, draws_dezenas, min_validacoes=min_validacoes)
+    console.print(f"[green]Campeão:[/green] [bold]{novo.modelo}[/bold] — {novo.motivo}")
+
+
+@app.command()
 def validar(debug: bool = typer.Option(False, "--debug")) -> None:
     """Valida predições pendentes contra resultados reais."""
     from lotofacil.infra.dados.banco import DatabaseManager
