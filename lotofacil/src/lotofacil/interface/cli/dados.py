@@ -100,6 +100,10 @@ def _save_draw_json(concurso: int, raw: dict) -> None:
 @app.command()
 def atualizar(
     escopo: str = typer.Option("novos", "--escopo", "-e", help="Escopo: novos, todos, ultimo"),
+    sem_validar: bool = typer.Option(
+        False, "--sem-validar",
+        help="Não validar predições pendentes ao final da atualização",
+    ),
 ) -> None:
     """Busca dados, lua e clima de cada sorteio, concurso a concurso."""
 
@@ -152,6 +156,12 @@ def atualizar(
         else:
             console.print("[dim]Dados: já atualizados[/dim]")
 
+    # ── Validação automática de predições pendentes ───────────────────────────
+    if sem_validar:
+        console.print("[dim]Validação de predições pulada (--sem-validar).[/dim]")
+    else:
+        _validar_predicoes_pendentes(console)
+
     # ── Recarrega índice (inclui novos) ───────────────────────────────────────
     draws = _load_draw_index()
 
@@ -170,6 +180,23 @@ def atualizar(
     )
     _sync_lua(miss_lua, console)
     _sync_clima(miss_clima, console)
+
+
+# ─── Validação automática ─────────────────────────────────────────────────────
+
+def _validar_predicoes_pendentes(console: Console) -> None:
+    """Valida predições pendentes via serviço e imprime o resumo PT-BR."""
+    try:
+        from lotofacil.servicos.atualizar_base import executar_pos_atualizacao
+        from lotofacil.servicos.validar_predicoes import resumo_validacoes
+
+        resultados = executar_pos_atualizacao()
+        if resultados:
+            console.print(f"[green]✓ {resumo_validacoes(resultados)}[/green]")
+        else:
+            console.print("[dim]Nenhuma predição pendente para validar.[/dim]")
+    except Exception as exc:
+        console.print(f"[yellow]⚠ Validação automática falhou: {exc}[/yellow]")
 
 
 # ─── Lua ──────────────────────────────────────────────────────────────────────
@@ -299,7 +326,7 @@ def resetar() -> None:
             f.unlink()
 
     console.print(f"[green]✓ {removidos} sorteio(s) removido(s). Rebuscando histórico completo...[/green]")
-    atualizar(escopo="todos")
+    atualizar(escopo="todos", sem_validar=False)
 
 
 # ─── Status ───────────────────────────────────────────────────────────────────

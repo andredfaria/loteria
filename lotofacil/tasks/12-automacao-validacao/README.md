@@ -21,7 +21,7 @@ lotofacil dados atualizar --escopo ultimo   # dispara validação automática no
 
 ## Tasks
 
-### - [ ] 01 — Validação automática após atualização de dados
+### - [x] 01 — Validação automática após atualização de dados
 
 - **Objetivo:** nunca mais rodar `validar_predicoes` na mão.
 - **Descrição:** ao final de `atualizar_base` (quando chegam concursos novos),
