@@ -62,7 +62,7 @@ lotofacil lab tune --config base+temp+priors --n-trials 5 --fast
   seção avançada sobrescreve preset; parâmetros aparecem no detalhe do treino.
 - **Commit:** `feat(painel): formulario de treino com presets e modo avancado`
 
-### - [ ] 04 — Tuning com busca aleatória + walk-forward (`lotofacil lab tune`)
+### - [x] 04 — Tuning com busca aleatória + walk-forward (`lotofacil lab tune`)
 
 - **Objetivo:** encontrar hiperparâmetros melhores sem se enganar (sem overfitting
   ao período de validação).

@@ -93,6 +93,23 @@ PRESETS_TREINO: dict[str, dict] = {
 BACKTEST_MIN_TRAIN = 300
 BACKTEST_RETRAIN_EVERY = 50
 
+# ── Tuning por busca aleatória (CLI `lotofacil lab tune`) ────────────────────────
+# Espaço de busca de hiperparâmetros. Chaves = nomes das constantes deste
+# módulo; cada valor descreve como amostrar:
+#   - "log_uniforme": 10 ** uniform(log10(min), log10(max))
+#   - "uniforme":     uniform(min, max)
+#   - "escolha":      escolha uniforme dentro de "valores"
+TUNING_ESPACO: dict[str, dict] = {
+    "LSTM_LR": {"tipo": "log_uniforme", "min": 1e-4, "max": 1e-2},
+    "LSTM_DROPOUT": {"tipo": "uniforme", "min": 0.1, "max": 0.5},
+    "LSTM_BATCH_SIZE": {"tipo": "escolha", "valores": [16, 32, 64]},
+    "LSTM_UNITS": {"tipo": "escolha",
+                   "valores": [[64, 32, 16], [128, 64, 32], [256, 128, 64]]},
+}
+
+# Relatórios de tuning (JSON + markdown). Diretório criado no uso.
+TUNING_DIR = PROJECT_ROOT / "saida" / "experimentos"
+
 # ── Financial simulation ─────────────────────────────────────────────────────────
 try:
     from lotofacil_ml.config import COST_PER_GAME, PRIZE_TABLE  # reuse from ml

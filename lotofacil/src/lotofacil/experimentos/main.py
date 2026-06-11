@@ -27,7 +27,9 @@ _SRC = Path(__file__).resolve().parent.parent
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
-from lotofacil.experimentos.config import OUTPUT_DIR, PRESETS_TREINO  # noqa: E402
+from lotofacil.experimentos.config import (  # noqa: E402
+    BACKTEST_MIN_TRAIN, OUTPUT_DIR, PRESETS_TREINO, RANDOM_SEED,
+)
 
 app = typer.Typer(
     name="lotofacil-lab",
@@ -457,6 +459,104 @@ def ablation(
     out_path = generate_report(result)
     _print_summary_table(result["results"])
     console.print(f"\n[green]Report written to:[/green] {out_path}")
+
+
+# ── tune ───────────────────────────────────────────────────────────────────────
+
+@app.command("tune")
+def tune(
+    config_sig: str = typer.Option("base+temp+priors", "--config",
+                                    help="Assinatura das features, ex.: 'base+temp+priors'."),
+    n_trials: int = typer.Option(10, "--n-trials",
+                                  help="Número de trials de busca aleatória."),
+    n_test: int = typer.Option(30, "--n-test",
+                                help="Janela de teste do walk-forward por trial."),
+    retrain_every: int = typer.Option(15, "--retrain-every",
+                                       help="Retreina o modelo a cada N passos do walk-forward."),
+    min_train: int = typer.Option(None, "--min-train",
+                                   help=f"Mínimo de concursos antes do 1º treino "
+                                        f"(default {BACKTEST_MIN_TRAIN}; reduza para rodar no sample)."),
+    fast: bool = typer.Option(False, "--fast",
+                               help="Usa o preset 'rapido' como base de cada trial (mais leve em CPU)."),
+    seed: int = typer.Option(None, "--seed",
+                              help=f"Seed da amostragem (default {RANDOM_SEED}; reprodutibilidade)."),
+    debug: bool = typer.Option(False, "--debug"),
+) -> None:
+    """Tuning de hiperparâmetros: busca aleatória avaliada com walk-forward.
+
+    Amostra hiperparâmetros do espaço TUNING_ESPACO (config.py), avalia cada
+    trial com walk-forward (treina só com dados passados — sem vazamento) e
+    ranqueia por mean_hits com p-value vs baseline aleatório. Salva relatório
+    JSON + markdown em saida/experimentos/.
+    """
+    _setup_logging(debug)
+    try:
+        import tensorflow  # noqa: F401
+    except ImportError:
+        console.print("[red]Erro:[/red] TensorFlow não encontrado neste ambiente.")
+        console.print("Reconstrua a imagem Docker: [bold]docker-compose build --no-cache[/bold]")
+        raise typer.Exit(1)
+    from lotofacil.experimentos.data.draws_loader import load_draws
+    from lotofacil.experimentos.experiments.tuning import (
+        BASELINE_ALEATORIO_HITS, executar_tuning, salvar_relatorio,
+    )
+
+    draws = load_draws()
+    if not draws:
+        console.print("[red]Sem dados. Execute: lotofacil dados atualizar --all[/red]")
+        raise typer.Exit(1)
+
+    min_train_efetivo = min_train if min_train is not None else BACKTEST_MIN_TRAIN
+    seed_efetiva = seed if seed is not None else RANDOM_SEED
+    console.print(f"Config: [cyan]{config_sig}[/cyan] | Draws: {len(draws)} "
+                  f"({draws[0].concurso}–{draws[-1].concurso})")
+    console.print(f"Tuning: {n_trials} trials | n_test={n_test} | "
+                  f"retrain_every={retrain_every} | min_train={min_train_efetivo} | "
+                  f"fast={'sim' if fast else 'não'} | seed={seed_efetiva}")
+
+    resultado = executar_tuning(
+        draws,
+        config_sig=config_sig,
+        n_trials=n_trials,
+        n_test=n_test,
+        retrain_every=retrain_every,
+        min_train=min_train_efetivo,
+        fast=fast,
+        seed=seed_efetiva,
+    )
+    json_path, md_path = salvar_relatorio(resultado)
+
+    table = Table(title="Tuning — ranking por mean_hits", box=box.SIMPLE_HEAVY)
+    table.add_column("#", justify="right")
+    table.add_column("Trial", justify="right")
+    table.add_column("Acertos médios", justify="right")
+    table.add_column("p-value", justify="right")
+    table.add_column("Avaliados", justify="right")
+    table.add_column("Hiperparâmetros", style="cyan")
+
+    for pos, trial in enumerate(resultado["trials"], start=1):
+        hp_str = " ".join(
+            f"{k}={v:.6g}" if isinstance(v, float) else f"{k}={v}"
+            for k, v in trial.get("hiperparametros", {}).items()
+        )
+        if "erro" in trial:
+            table.add_row(str(pos), str(trial.get("trial", "?")), "ERRO", "—", "—", hp_str)
+            continue
+        p = trial.get("p_value_vs_random", 1.0)
+        p_str = f"[green]{p:.4f}[/green]" if p < 0.05 else f"{p:.4f}"
+        table.add_row(
+            str(pos),
+            str(trial.get("trial", "?")),
+            f"{trial.get('mean_hits', 0):.4f}",
+            p_str,
+            str(trial.get("n_avaliados", 0)),
+            hp_str,
+        )
+    console.print(table)
+    console.print(f"Baseline aleatório esperado: {BASELINE_ALEATORIO_HITS:.1f} acertos "
+                  "(p-value ≥ 0.05 = dentro do ruído).")
+    console.print(f"\n[green]Relatórios:[/green] {json_path}")
+    console.print(f"               {md_path}")
 
 
 # ── compare ────────────────────────────────────────────────────────────────────
