@@ -154,7 +154,7 @@ def campeao() -> None:
 def promover(min_validacoes: int = typer.Option(20, "--min-validacoes")) -> None:
     """Recalcula o modelo campeão com base no histórico de validações."""
     from lotofacil.infra.dados.banco import DatabaseManager
-    from lotofacil.servicos.promover_campeao import promover_campeao_do_historico
+    from lotofacil.servicos.promover_campeao import coletar_acertos_jogos, promover_campeao_do_historico
 
     db = DatabaseManager()
     historico = db.get_prediction_history(limit=1000)
@@ -170,6 +170,12 @@ def promover(min_validacoes: int = typer.Option(20, "--min-validacoes")) -> None
         if h["concurso_alvo"] in concursos_por_numero
     ]
     candidatos = {"ensemble": [h["acertos"] for h in validados if h["concurso_alvo"] in concursos_por_numero]}
+
+    acertos_ordem = coletar_acertos_jogos("ordem", concursos_por_numero)
+    if acertos_ordem:
+        candidatos["ordem"] = acertos_ordem
+        if not draws_dezenas:
+            draws_dezenas = [concursos_por_numero[c] for c in sorted(concursos_por_numero)[-len(acertos_ordem):]]
 
     novo = promover_campeao_do_historico(candidatos, draws_dezenas, min_validacoes=min_validacoes)
     console.print(f"[green]Campeão:[/green] [bold]{novo.modelo}[/bold] — {novo.motivo}")

@@ -98,7 +98,7 @@ curl -s localhost:5000/api/predicao/proxima | python -m json.tool
   em dataset sample completa; predição retorna 15 dezenas válidas (1–25, únicas).
 - **Commit:** `feat(lab): integra modelo_ordem (LightGBM) ao CLI`
 
-### - [ ] 06 — modelo_ordem como candidato a campeão e abordagem do painel
+### - [x] 06 — modelo_ordem como candidato a campeão e abordagem do painel
 
 - **Objetivo:** modelo_ordem participa da predição padrão e do dashboard.
 - **Descrição:** registrar `ordem` como abordagem em `commands.py` (botões

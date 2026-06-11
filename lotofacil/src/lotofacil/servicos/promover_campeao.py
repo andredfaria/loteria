@@ -52,6 +52,39 @@ def _campeao_padrao(motivo: str, baseline_mean_hits: float = 9.0) -> CampeaoInfo
     )
 
 
+def coletar_acertos_jogos(
+    abordagem: str,
+    draws_dezenas_por_concurso: dict[int, list[int]],
+    jogos_dir: Optional[Path] = None,
+) -> list[int]:
+    """Calcula os acertos de `saida/jogos/predicao_{abordagem}_*.json` vs sorteios reais.
+
+    Usado para abordagens (ex.: `ordem`) que ainda não persistem histórico de
+    validação no banco — o histórico é reconstruído a partir dos jogos salvos
+    em disco, na ordem cronológica dos concursos.
+    """
+    jogos_dir = jogos_dir or (SAIDA_DIR / "jogos")
+    if not jogos_dir.exists():
+        return []
+
+    rows = []
+    for f in jogos_dir.glob(f"predicao_{abordagem}_*.json"):
+        try:
+            data = json.loads(f.read_text(encoding="utf-8"))
+            concurso = int(data["concurso"])
+            dezenas = data.get("dezenas", [])
+            if dezenas and concurso in draws_dezenas_por_concurso:
+                rows.append((concurso, dezenas))
+        except (KeyError, ValueError, json.JSONDecodeError, OSError):
+            continue
+
+    rows.sort(key=lambda item: item[0])
+    return [
+        len(set(dezenas) & set(draws_dezenas_por_concurso[concurso]))
+        for concurso, dezenas in rows
+    ]
+
+
 def baseline_hits_simulados(draws_dezenas: list[list[int]], seed: int = RANDOM_SEED) -> list[int]:
     """Simula acertos de 15 dezenas escolhidas ao acaso para cada sorteio real."""
     rng = random.Random(seed)

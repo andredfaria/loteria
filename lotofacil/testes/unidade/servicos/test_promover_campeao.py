@@ -9,6 +9,7 @@ from lotofacil.servicos.promover_campeao import (
     CampeaoInfo,
     baseline_hits_simulados,
     carregar_campeao,
+    coletar_acertos_jogos,
     promover_campeao_do_historico,
     salvar_campeao,
     selecionar_campeao,
@@ -112,6 +113,37 @@ def test_carregar_campeao_sem_arquivo_retorna_padrao(tmp_path):
     info = carregar_campeao(path=tmp_path / "nao_existe.json")
     assert info.modelo == MODELO_PADRAO
     assert info.n_validacoes == 0
+
+
+def test_coletar_acertos_jogos_calcula_hits_em_ordem_cronologica(tmp_path):
+    jogos_dir = tmp_path / "jogos"
+    jogos_dir.mkdir()
+    (jogos_dir / "predicao_ordem_102.json").write_text(
+        json.dumps({"concurso": 102, "abordagem": "ordem", "dezenas": list(range(1, 16))}),
+        encoding="utf-8",
+    )
+    (jogos_dir / "predicao_ordem_101.json").write_text(
+        json.dumps({"concurso": 101, "abordagem": "ordem", "dezenas": list(range(11, 26))}),
+        encoding="utf-8",
+    )
+    # outra abordagem não deve ser considerada
+    (jogos_dir / "predicao_ensemble_101.json").write_text(
+        json.dumps({"concurso": 101, "abordagem": "ensemble", "dezenas": list(range(1, 16))}),
+        encoding="utf-8",
+    )
+
+    draws = {101: list(range(1, 16)), 102: list(range(1, 16))}
+
+    hits = coletar_acertos_jogos("ordem", draws, jogos_dir=jogos_dir)
+
+    # ordenado por concurso: 101 (predicao 11-25 vs real 1-15 -> intersecao 11-15 = 5)
+    # depois 102 (predicao 1-15 vs real 1-15 -> 15)
+    assert hits == [5, 15]
+
+
+def test_coletar_acertos_jogos_sem_diretorio_retorna_vazio(tmp_path):
+    hits = coletar_acertos_jogos("ordem", {}, jogos_dir=tmp_path / "nao_existe")
+    assert hits == []
 
 
 def test_promover_campeao_do_historico_persiste(tmp_path):
