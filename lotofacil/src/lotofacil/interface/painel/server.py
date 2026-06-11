@@ -51,6 +51,8 @@ _freq_cache: dict = {}           # {"data": {...}, "ts": float}
 _FREQ_TTL = 300                  # 5 minutes
 _quality_cache: dict = {}        # {last_n: {"data": {...}, "ts": float}}
 _QUALITY_TTL = 120               # 2 minutes
+_predicao_proxima_cache: dict = {}  # {"data": {...}, "ts": float}
+_PREDICAO_PROXIMA_TTL = 60       # 1 minute
 _SRC = Path(__file__).resolve().parent.parent.parent.parent.parent / "src"
 _LOTOFACIL_BIN = str(Path(sys.executable).parent / "lotofacil")
 
@@ -785,6 +787,40 @@ def api_status():
         "timestamp": datetime.now().isoformat(),
         "auth_enabled": bool(os.environ.get("DASHBOARD_PASSWORD", "")),
     })
+
+
+@app.route("/api/predicao/proxima")
+def api_predicao_proxima():
+    refresh = request.args.get("refresh", default="0") == "1"
+    cached = _predicao_proxima_cache.get("data")
+    ts = _predicao_proxima_cache.get("ts", 0)
+    if cached and not refresh and (time.time() - ts) < _PREDICAO_PROXIMA_TTL:
+        return jsonify(cached)
+
+    from lotofacil.servicos.predicao_proximo_concurso import gerar_predicao_proximo_concurso
+
+    try:
+        resultado = gerar_predicao_proximo_concurso(dados_dir=DADOS_DIR)
+    except ValueError as exc:
+        return jsonify({"erro": {"tipo": "validacao", "mensagem": str(exc)}}), 400
+    except Exception as exc:
+        LOGGER.exception("Falha ao gerar predicao do proximo concurso")
+        return jsonify({"erro": {"tipo": "execucao", "mensagem": str(exc)}}), 500
+
+    payload = {
+        "concurso_alvo": resultado.concurso_alvo,
+        "data_prevista": resultado.data_prevista,
+        "dezenas": resultado.dezenas,
+        "confianca_por_dezena": resultado.confianca_por_dezena,
+        "confianca_media": resultado.confianca_media,
+        "modelo": resultado.modelo,
+        "abordagem": resultado.abordagem,
+        "baseline_esperado": resultado.baseline_esperado,
+        "gerado_em": resultado.gerado_em,
+    }
+    _predicao_proxima_cache["data"] = payload
+    _predicao_proxima_cache["ts"] = time.time()
+    return jsonify(payload)
 
 
 @app.route("/api/games")

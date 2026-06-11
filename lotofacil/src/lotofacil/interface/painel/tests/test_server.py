@@ -390,3 +390,41 @@ def test_extract_path_not_found():
     lines = ["Config: base", "Training... (this may take a while)"]
     result = server_module._extract_model_path_from_output(lines)
     assert result is None
+
+
+def _escrever_concurso(dados_dir, concurso, data, dezenas):
+    import json
+    dados_dir.mkdir(parents=True, exist_ok=True)
+    path = dados_dir / f"concurso_{concurso}.json"
+    path.write_text(json.dumps({"concurso": concurso, "data": data, "dezenas": dezenas}), encoding="utf-8")
+
+
+@pytest.fixture(autouse=True)
+def _clear_predicao_proxima_cache():
+    server_module._predicao_proxima_cache.clear()
+    yield
+    server_module._predicao_proxima_cache.clear()
+
+
+def test_api_predicao_proxima_returns_payload(client, tmp_path, monkeypatch):
+    _escrever_concurso(tmp_path, 100, "26/06/2024", list(range(1, 16)))
+    _escrever_concurso(tmp_path, 101, "27/06/2024", list(range(2, 17)))
+    _escrever_concurso(tmp_path, 102, "28/06/2024", list(range(3, 18)))
+    monkeypatch.setattr(server_module, "DADOS_DIR", tmp_path)
+
+    r = client.get("/api/predicao/proxima")
+    assert r.status_code == 200
+    data = json.loads(r.data)
+    assert data["concurso_alvo"] == 103
+    assert len(data["dezenas"]) == 15
+    assert data["baseline_esperado"] == 9.0
+    assert "modelo" in data and "abordagem" in data
+
+
+def test_api_predicao_proxima_sem_dados_retorna_400(client, tmp_path, monkeypatch):
+    monkeypatch.setattr(server_module, "DADOS_DIR", tmp_path)
+
+    r = client.get("/api/predicao/proxima")
+    assert r.status_code == 400
+    data = json.loads(r.data)
+    assert data["erro"]["tipo"] == "validacao"
