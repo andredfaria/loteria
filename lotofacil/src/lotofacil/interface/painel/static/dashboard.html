@@ -705,6 +705,17 @@
     max-height: 140px; overflow-y: auto; color: var(--muted);
     margin-bottom: 1rem;
   }
+  .treino-log.expanded { max-height: 380px; }
+  .treino-error-summary {
+    font-size: 0.72rem; color: var(--red); background: rgba(248,113,113,0.08);
+    border: 1px solid rgba(248,113,113,0.3); border-radius: var(--radius);
+    padding: 0.5rem 0.75rem; margin-bottom: 0.6rem; font-family: monospace;
+    word-break: break-word;
+  }
+  .treino-log-toggle {
+    font-size: 0.68rem; color: var(--accent); background: none; border: none;
+    cursor: pointer; padding: 0; margin-bottom: 0.6rem; text-decoration: underline;
+  }
   .treino-log .log-success { color: var(--green); }
   .treino-log .log-error { color: var(--red); }
   .treino-log .log-cmd { color: var(--accent); }
@@ -875,6 +886,8 @@
       <div class="treino-progress-fill" id="treinoProgressFill"></div>
     </div>
     <div class="treino-epoch-label" id="treinoEpochLabel">Iniciando…</div>
+    <div class="treino-error-summary" id="treinoErrorSummary" style="display:none"></div>
+    <button class="treino-log-toggle" id="treinoLogToggle" style="display:none" onclick="_toggleTreinoLog()">▾ ver log completo</button>
     <div class="treino-log" id="treinoLog"></div>
     <div class="treino-modal-footer">
       <button class="treino-cancel-btn" id="treinoCancelBtn" onclick="cancelTreino()">✕ Cancelar</button>
@@ -2385,11 +2398,13 @@ async function iniciarTreino() {
       body: JSON.stringify({ nome, tipo_config: _predState.selectedConfig, parametros }),
     });
     const data = await r.json();
+    if (data.erro) throw new Error(data.erro.mensagem || 'Falha ao iniciar treino');
     if (data.error) throw new Error(data.error);
     openTreinoModal(data.task_id, _predState.selectedConfig, epochs);
     startModelosPolling();
   } catch (e) {
     if (statusEl) statusEl.textContent = `❌ ${e.message}`;
+    showToast(e.message, 'error');
     if (btn) { btn.disabled = false; btn.textContent = '▶ Iniciar Treino'; }
   }
 }
@@ -3311,6 +3326,10 @@ function openTreinoModal(taskId, configLabel, epochsHint) {
   document.getElementById('treinoProgressFill').style.background = '';
   document.getElementById('treinoEpochLabel').textContent = 'Iniciando…';
   document.getElementById('treinoLog').innerHTML = '';
+  document.getElementById('treinoLog').classList.remove('expanded');
+  document.getElementById('treinoLogToggle').style.display = 'none';
+  document.getElementById('treinoLogToggle').textContent = '▾ ver log completo';
+  document.getElementById('treinoErrorSummary').style.display = 'none';
   document.getElementById('treinoCancelBtn').disabled = false;
   document.getElementById('treinoCloseBtn').disabled = true;
   document.getElementById('treinoModalOverlay').classList.add('visible');
@@ -3349,10 +3368,13 @@ async function _pollTreino() {
   }
 }
 
+let _treinoLogLines = [];
+
 function _appendTreinoLog(lines) {
   const log = document.getElementById('treinoLog');
   for (const line of lines) {
     if (!line) continue;
+    _treinoLogLines.push(line);
     const div = document.createElement('div');
     if (/^✅|sucesso|conclu/i.test(line)) div.className = 'log-success';
     else if (/^❌|erro|error|Traceback/i.test(line)) div.className = 'log-error';
@@ -3361,7 +3383,16 @@ function _appendTreinoLog(lines) {
     log.appendChild(div);
   }
   while (log.children.length > 60) log.removeChild(log.firstChild);
+  if (_treinoLogLines.length > 500) _treinoLogLines = _treinoLogLines.slice(-500);
   log.scrollTop = log.scrollHeight;
+}
+
+function _toggleTreinoLog() {
+  const log = document.getElementById('treinoLog');
+  const btn = document.getElementById('treinoLogToggle');
+  const expanded = log.classList.toggle('expanded');
+  btn.textContent = expanded ? '▴ recolher log' : '▾ ver log completo';
+  if (expanded) log.scrollTop = log.scrollHeight;
 }
 
 function _updateEpochFromLog(lines) {
@@ -3411,6 +3442,15 @@ function _finishTreinoModal(success) {
     title.textContent = '❌ Treino falhou';
     status.textContent = 'Veja o log para detalhes.';
     showToast('❌ Treino falhou. Verifique o log no modal.', 'error');
+
+    const erroLine = [..._treinoLogLines].reverse().find((l) => /erro|error|traceback|exception/i.test(l));
+    const summaryEl = document.getElementById('treinoErrorSummary');
+    const toggleEl = document.getElementById('treinoLogToggle');
+    if (erroLine && summaryEl) {
+      summaryEl.textContent = erroLine.length > 300 ? erroLine.slice(0, 300) + '…' : erroLine;
+      summaryEl.style.display = 'block';
+    }
+    if (toggleEl) toggleEl.style.display = 'inline';
   }
 }
 

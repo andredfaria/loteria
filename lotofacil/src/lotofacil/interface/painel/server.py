@@ -682,13 +682,29 @@ def _log_response(response):
     return response
 
 
+def _erro_validacao(mensagem: str, detalhe: str | None = None):
+    """Resposta padronizada para erros de input do usuário (HTTP 400)."""
+    payload = {"erro": {"tipo": "validacao", "mensagem": mensagem}}
+    if detalhe:
+        payload["erro"]["detalhe"] = detalhe
+    return jsonify(payload), 400
+
+
+def _erro_execucao(mensagem: str, detalhe: str | None = None, status: int = 500):
+    """Resposta padronizada para falhas de execução do sistema (HTTP 5xx)."""
+    payload = {"erro": {"tipo": "execucao", "mensagem": mensagem}}
+    if detalhe:
+        payload["erro"]["detalhe"] = detalhe
+    return jsonify(payload), status
+
+
 @app.errorhandler(Exception)
 def _handle_uncaught_exception(exc):
     from werkzeug.exceptions import HTTPException
     if isinstance(exc, HTTPException):
         return exc
     LOGGER.exception("Unhandled server error on %s %s", request.method, request.path)
-    return jsonify({"error": "Erro interno no servidor", "details": str(exc)}), 500
+    return _erro_execucao("Erro interno no servidor", detalhe=str(exc))
 
 _LOGIN_HTML = """<!DOCTYPE html>
 <html lang="pt-BR">
@@ -1198,14 +1214,14 @@ def api_treinos_iniciar():
 
     min_draws_needed = window_size + 20
     if n_draws and n_draws < min_draws_needed:
-        return jsonify({"error": (
+        return _erro_validacao(
             f"n_draws={n_draws} é insuficiente para window_size={window_size}. "
             f"Mínimo: {min_draws_needed} concursos."
-        )}), 400
+        )
     if window_size < 5 or window_size > 500:
-        return jsonify({"error": "window_size deve estar entre 5 e 500."}), 400
+        return _erro_validacao("window_size deve estar entre 5 e 500.")
     if epochs < 1 or epochs > 1000:
-        return jsonify({"error": "epochs deve estar entre 1 e 1000."}), 400
+        return _erro_validacao("epochs deve estar entre 1 e 1000.")
 
     config_sig = _CONFIG_SIG_MAP.get(tipo_config, tipo_config)
     treino_id = uuid.uuid4().hex[:8]
@@ -1374,14 +1390,14 @@ def api_treinos_retry(treino_id: str):
     # Validate (same rules as api_treinos_iniciar)
     min_draws_needed = window_size + 20
     if n_draws and n_draws < min_draws_needed:
-        return jsonify({"error": (
+        return _erro_validacao(
             f"n_draws={n_draws} é insuficiente para window_size={window_size}. "
             f"Mínimo: {min_draws_needed} concursos."
-        )}), 400
+        )
     if window_size < 5 or window_size > 500:
-        return jsonify({"error": "window_size deve estar entre 5 e 500."}), 400
+        return _erro_validacao("window_size deve estar entre 5 e 500.")
     if epochs < 1 or epochs > 1000:
-        return jsonify({"error": "epochs deve estar entre 1 e 1000."}), 400
+        return _erro_validacao("epochs deve estar entre 1 e 1000.")
 
     config_sig = _CONFIG_SIG_MAP.get(tipo_config, tipo_config)
     novo_treino_id = uuid.uuid4().hex[:8]

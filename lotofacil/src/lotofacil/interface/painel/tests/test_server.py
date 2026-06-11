@@ -148,6 +148,28 @@ def test_api_treinos_iniciar_returns_ids(client, monkeypatch):
     assert "task_id" in data
 
 
+def test_api_treinos_iniciar_epochs_invalido_retorna_erro_validacao(client):
+    resp = client.post(
+        "/api/treinos/iniciar",
+        json={"nome": "teste", "tipo_config": "base", "parametros": {"epochs": 2000}},
+    )
+    assert resp.status_code == 400
+    data = resp.get_json()
+    assert data["erro"]["tipo"] == "validacao"
+    assert "epochs" in data["erro"]["mensagem"]
+
+
+def test_api_treinos_iniciar_window_size_invalido_retorna_erro_validacao(client):
+    resp = client.post(
+        "/api/treinos/iniciar",
+        json={"nome": "teste", "tipo_config": "base", "parametros": {"window_size": 999}},
+    )
+    assert resp.status_code == 400
+    data = resp.get_json()
+    assert data["erro"]["tipo"] == "validacao"
+    assert "window_size" in data["erro"]["mensagem"]
+
+
 def test_compute_acertos_with_matching_numbers():
     jogos = [[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]]
     real = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]

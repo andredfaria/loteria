@@ -19,7 +19,7 @@ pytest src/lotofacil/interface/painel/tests/ -v
 
 ## Tasks
 
-### - [ ] 01 — Sistema de toasts e classificação de erros
+### - [x] 01 — Sistema de toasts e classificação de erros
 
 - **Objetivo:** o usuário sempre distingue "você errou o input" de "o sistema falhou".
 - **Descrição:** componente único de toast (sucesso/aviso/erro) em
