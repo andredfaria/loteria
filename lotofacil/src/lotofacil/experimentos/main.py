@@ -245,6 +245,130 @@ def predict(
     console.print(f"  [dim]💾 Salvo em saida/jogos/{out.name}[/dim]")
 
 
+# ── train-ordem ────────────────────────────────────────────────────────────────
+
+@app.command("train-ordem")
+def train_ordem(
+    name: str = typer.Option(None, "--name", help="Custom model stem for versioning (default: ordem_lgbm)."),
+    debug: bool = typer.Option(False, "--debug"),
+) -> None:
+    """Treina o modelo_ordem (LightGBM top-15) e gera relatório honesto."""
+    _setup_logging(debug)
+    from lotofacil.experimentos.config import MODELS_DIR
+    from lotofacil.experimentos.data import dataset_ml
+    from lotofacil.experimentos.models import modelo_ordem_lgbm as mod
+
+    console.print("Construindo dataset e matriz de treino...")
+    df = dataset_ml.build_dataset()
+    if len(df) < 10:
+        console.print("[red]Dados insuficientes. Execute: lotofacil dados atualizar --all[/red]")
+        raise typer.Exit(1)
+    long_df = dataset_ml.to_training_matrix(df)
+    train_df, test_df = mod.temporal_split(long_df, frac=0.8)
+    console.print(
+        f"Treino: {train_df['concurso'].nunique()} concursos | "
+        f"Teste: {test_df['concurso'].nunique()} concursos"
+    )
+
+    console.print("Treinando LightGBM...")
+    eval_model = mod.train_model(train_df)
+    metrics = mod.evaluate(eval_model, test_df)
+
+    console.print("\n[bold]===== RELATÓRIO HONESTO =====[/bold]")
+    console.print(f"Acertos@15 médio  : {metrics['acertos_medio']:.3f} (±{metrics['acertos_std']:.3f})")
+    console.print(f"Baseline aleatório: {metrics['baseline_aleatorio']:.3f}")
+    console.print(f"AUC               : {metrics['auc']:.4f}")
+    console.print(f"LogLoss           : {metrics['logloss']:.4f}")
+    delta = metrics["acertos_medio"] - metrics["baseline_aleatorio"]
+    if abs(delta) < 0.3:
+        console.print(
+            "[yellow]Conclusão: empate estatístico com o acaso[/yellow] "
+            "(esperado — a ordem do sorteio é fisicamente aleatória)."
+        )
+    elif delta > 0:
+        console.print(
+            f"[yellow]Conclusão: +{delta:.3f} acima do acaso.[/yellow] "
+            "Investigar antes de confiar (pode ser ruído/overfit do split)."
+        )
+    else:
+        console.print(f"Conclusão: abaixo do acaso ({delta:.3f}). Consistente com sinal ausente.")
+
+    console.print("\nTreinando em todo o histórico para predição...")
+    full_model = mod.train_model(long_df)
+
+    stem = name or "ordem_lgbm"
+    save_path = MODELS_DIR / f"{stem}.joblib"
+    mod.save_model(full_model, save_path, metrics=metrics)
+    console.print(f"[green]Saved:[/green] {save_path.name}")
+    print(f"TREINO_MODELO_PATH: {save_path}", flush=True)
+
+
+# ── prever-ordem ───────────────────────────────────────────────────────────────
+
+@app.command("prever-ordem")
+def prever_ordem(
+    name: str = typer.Option(None, "--name", help="Model stem (default: ordem_lgbm)."),
+    debug: bool = typer.Option(False, "--debug"),
+) -> None:
+    """Prevê as 15 dezenas do próximo concurso com o modelo_ordem (LightGBM).
+
+    AVISO (honestidade): fora de amostra este modelo empata com o acaso
+    (AUC ~ 0.5, ~9 acertos@15). Esta predição não tem vantagem estatística real.
+    """
+    _setup_logging(debug)
+    import json
+    from lotofacil.experimentos.config import MODELS_DIR, PROJECT_ROOT
+    from lotofacil.experimentos.data import dataset_ml
+    from lotofacil.experimentos.models import modelo_ordem_lgbm as mod
+
+    stem = name or "ordem_lgbm"
+    model_path = MODELS_DIR / f"{stem}.joblib"
+    if not model_path.exists():
+        console.print(f"[red]Modelo não encontrado: {model_path}[/red]")
+        console.print("Execute: lotofacil lab train-ordem")
+        raise typer.Exit(1)
+
+    console.print("Construindo dataset...")
+    df = dataset_ml.build_dataset()
+    if df.empty:
+        console.print("[red]Sem dados. Execute: lotofacil dados atualizar --all[/red]")
+        raise typer.Exit(1)
+
+    proximo = int(df["concurso"].max()) + 1
+    model = mod.load_model(model_path)
+    inf = dataset_ml.build_inference_matrix(df)
+    top15, ranking = mod.predict_top15(model, inf)
+
+    console.print(f"\n[bold]Predição — Concurso {proximo}[/bold] (modelo_ordem):")
+    console.print(" ".join(f"{n:02d}" for n in top15))
+    console.print(f"Soma: {sum(top15)} | Pares: {sum(1 for d in top15 if d % 2 == 0)}")
+
+    saida = PROJECT_ROOT / "saida" / "jogos"
+    saida.mkdir(parents=True, exist_ok=True)
+    out = saida / f"predicao_ordem_{proximo}.json"
+    confianca = {
+        f"{int(row.numero):02d}": round(float(row.proba), 4)
+        for row in ranking.itertuples()
+    }
+    out.write_text(
+        json.dumps({
+            "concurso": proximo,
+            "abordagem": "ordem",
+            "dezenas": top15,
+            "confianca": confianca,
+        }, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    console.print(f"  [dim]💾 Salvo em saida/jogos/{out.name}[/dim]")
+
+    console.print("\n[yellow]--- AVISO ---[/yellow]")
+    console.print(
+        "Fora de amostra o modelo empata com o acaso (AUC ~ 0.5). Use esta "
+        "predição como uma aposta estruturada, sem vantagem real. Jogue com "
+        "responsabilidade."
+    )
+
+
 # ── ablation ───────────────────────────────────────────────────────────────────
 
 @app.command("ablation")

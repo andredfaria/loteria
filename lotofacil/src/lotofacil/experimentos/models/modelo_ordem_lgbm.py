@@ -6,6 +6,8 @@ Avaliação honesta: acertos@15 vs baseline aleatório (~9 esperados, hipergeom�
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Tuple
 
 import numpy as np
@@ -81,6 +83,27 @@ def evaluate(model, test_df: pd.DataFrame) -> dict:
         "logloss": float(log_loss(y_true, proba, labels=[0, 1])),
     }
     return metrics
+
+
+def save_model(model, path: Path, metrics: dict | None = None) -> None:
+    """Persiste o modelo treinado (joblib) e, opcionalmente, suas métricas (.meta.json)."""
+    import joblib
+
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    joblib.dump(model, path)
+    if metrics is not None:
+        meta = {"metrics": metrics, "feature_cols": FEATURE_COLS}
+        path.with_suffix(".meta.json").write_text(
+            json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8"
+        )
+
+
+def load_model(path: Path):
+    """Carrega um modelo persistido por `save_model`."""
+    import joblib
+
+    return joblib.load(Path(path))
 
 
 def predict_top15(model, inference_df: pd.DataFrame) -> Tuple[list, pd.DataFrame]:

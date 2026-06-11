@@ -39,3 +39,19 @@ def test_lab_help():
     assert result.exit_code == 0, f"Exit code {result.exit_code}: {result.output}"
     assert "backfill-clima" in result.output
     assert "lunar-check" in result.output
+    assert "train-ordem" in result.output
+    assert "prever-ordem" in result.output
+
+
+def test_lab_train_ordem_help():
+    runner = CliRunner()
+    result = runner.invoke(app, ["lab", "train-ordem", "--help"])
+    assert result.exit_code == 0, f"Exit code {result.exit_code}: {result.output}"
+    assert "--name" in result.output
+
+
+def test_lab_prever_ordem_help():
+    runner = CliRunner()
+    result = runner.invoke(app, ["lab", "prever-ordem", "--help"])
+    assert result.exit_code == 0, f"Exit code {result.exit_code}: {result.output}"
+    assert "--name" in result.output

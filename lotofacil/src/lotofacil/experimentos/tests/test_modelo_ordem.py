@@ -1,3 +1,5 @@
+import json
+
 import numpy as np
 import pandas as pd
 
@@ -58,3 +60,23 @@ def test_predict_top15_retorna_15_dezenas_distintas():
     assert len(ranking) == 25
     # ranking ordenado por proba desc
     assert list(ranking["proba"]) == sorted(ranking["proba"], reverse=True)
+
+
+def test_save_e_load_model_preserva_predicoes(tmp_path):
+    df = _long_sintetico()
+    model = mod.train_model(df)
+    inf = df[df["concurso"] == df["concurso"].max()][mod.FEATURE_COLS].copy()
+
+    path = tmp_path / "ordem_lgbm.joblib"
+    mod.save_model(model, path, metrics={"acertos_medio": 9.1, "baseline_aleatorio": 9.0})
+    assert path.exists()
+    assert path.with_suffix(".meta.json").exists()
+
+    loaded = mod.load_model(path)
+    top15_original, _ = mod.predict_top15(model, inf)
+    top15_loaded, _ = mod.predict_top15(loaded, inf)
+    assert top15_original == top15_loaded
+
+    meta = json.loads(path.with_suffix(".meta.json").read_text(encoding="utf-8"))
+    assert meta["metrics"]["acertos_medio"] == 9.1
+    assert meta["feature_cols"] == mod.FEATURE_COLS

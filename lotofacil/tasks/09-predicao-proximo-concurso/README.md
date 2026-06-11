@@ -80,7 +80,7 @@ curl -s localhost:5000/api/predicao/proxima | python -m json.tool
   apagando `saida/`.
 - **Commit:** `feat(painel): tela hero de predicao do proximo concurso`
 
-### - [ ] 05 — Integrar modelo_ordem ao CLI `lotofacil lab`
+### - [x] 05 — Integrar modelo_ordem ao CLI `lotofacil lab`
 
 - **Objetivo:** tirar o LightGBM top-15 de `scripts/` e torná-lo cidadão de
   primeira classe.
