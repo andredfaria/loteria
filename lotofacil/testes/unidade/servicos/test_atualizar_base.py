@@ -152,3 +152,91 @@ def test_resumo_validacoes_varios_concursos(monkeypatch, db, dados_dir):
 
 def test_resumo_validacoes_vazio():
     assert "Nenhuma predição" in resumo_validacoes([])
+
+
+# ─── Predição automática pós-validação (AUTO_PREVER=1) ────────────────────────
+
+
+def _instalar_predicao_falsa(monkeypatch, concurso_alvo: int):
+    """Substitui gerar_predicao_proximo_concurso por uma versão determinística."""
+    from lotofacil.servicos import predicao_proximo_concurso as ppc
+
+    def falsa(**kwargs):
+        return ppc.PredicaoProximoConcurso(
+            concurso_alvo=concurso_alvo,
+            data_prevista="29/06/2024",
+            dezenas=list(range(1, 16)),
+            confianca_por_dezena={d: 0.6 for d in range(1, 16)},
+            confianca_media=0.6,
+            modelo="ensemble",
+            abordagem="ensemble",
+            baseline_esperado=9.0,
+            gerado_em="2024-06-28T21:00:00",
+        )
+
+    monkeypatch.setattr(ppc, "gerar_predicao_proximo_concurso", falsa)
+
+
+def test_ciclo_completo_com_auto_prever(monkeypatch, db, dados_dir):
+    """Novo sorteio → validação → nova predição registrada para concurso+1."""
+    monkeypatch.setenv("AUTO_PREVER", "1")
+    _instalar_predicao_falsa(monkeypatch, concurso_alvo=103)
+
+    db.upsert_concurso(101, "27/06/2024", list(range(1, 16)))
+    db.save_prediction(102, list(range(1, 16)), [0.5] * 15, 0.5, ["ensemble"])
+    novo = {"concurso": 102, "data": "28/06/2024", "dezenas": list(range(3, 18))}
+    _escrever_concurso(dados_dir, 102, "28/06/2024", novo["dezenas"])
+    _preparar(monkeypatch, db, [novo])
+
+    resultado = mod.atualizar_base(escopo="novos")
+
+    # 1) validação do concurso novo ocorreu
+    assert len(resultado.validacoes) == 1
+    por_alvo = {h["concurso_alvo"]: h for h in db.get_prediction_history(limit=10)}
+    assert por_alvo[102]["acertos"] == 13
+
+    # 2) predição do próximo concurso registrada ANTES do sorteio (pendente)
+    assert 103 in por_alvo
+    assert por_alvo[103]["acertos"] is None
+    assert por_alvo[103]["criado_em"]
+    assert por_alvo[103]["dezenas_sugeridas"] == list(range(1, 16))
+
+
+def test_auto_prever_desligado_por_padrao(monkeypatch, db, dados_dir):
+    """Sem AUTO_PREVER=1 nenhuma predição nova é registrada."""
+    monkeypatch.delenv("AUTO_PREVER", raising=False)
+    _instalar_predicao_falsa(monkeypatch, concurso_alvo=103)
+
+    db.upsert_concurso(101, "27/06/2024", list(range(1, 16)))
+    db.save_prediction(102, list(range(1, 16)), [0.5] * 15, 0.5, ["ensemble"])
+    novo = {"concurso": 102, "data": "28/06/2024", "dezenas": list(range(3, 18))}
+    _escrever_concurso(dados_dir, 102, "28/06/2024", novo["dezenas"])
+    _preparar(monkeypatch, db, [novo])
+
+    mod.atualizar_base(escopo="novos")
+
+    por_alvo = {h["concurso_alvo"]: h for h in db.get_prediction_history(limit=10)}
+    assert por_alvo[102]["acertos"] == 13
+    assert 103 not in por_alvo
+
+
+def test_falha_na_predicao_automatica_nao_quebra_atualizacao(monkeypatch, db, dados_dir):
+    """Erro na predição automática é logado e não derruba o update."""
+    monkeypatch.setenv("AUTO_PREVER", "1")
+    from lotofacil.servicos import predicao_proximo_concurso as ppc
+
+    def explode(**kwargs):
+        raise RuntimeError("modelo indisponível")
+
+    monkeypatch.setattr(ppc, "gerar_predicao_proximo_concurso", explode)
+
+    db.upsert_concurso(101, "27/06/2024", list(range(1, 16)))
+    db.save_prediction(102, list(range(1, 16)), [0.5] * 15, 0.5, ["ensemble"])
+    novo = {"concurso": 102, "data": "28/06/2024", "dezenas": list(range(3, 18))}
+    _escrever_concurso(dados_dir, 102, "28/06/2024", novo["dezenas"])
+    _preparar(monkeypatch, db, [novo])
+
+    resultado = mod.atualizar_base(escopo="novos")
+
+    assert resultado.total_novos == 1
+    assert len(resultado.validacoes) == 1

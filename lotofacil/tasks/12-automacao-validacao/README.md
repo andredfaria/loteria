@@ -52,7 +52,7 @@ lotofacil dados atualizar --escopo ultimo   # dispara validação automática no
   endpoint de status; com 2 workers Gunicorn, apenas um agenda (sem dupla coleta).
 - **Commit:** `feat(agendador): coleta e validacao agendadas no painel`
 
-### - [ ] 03 — Predição automática pós-validação
+### - [x] 03 — Predição automática pós-validação
 
 - **Objetivo:** sempre existe predição fresca para o próximo concurso.
 - **Descrição:** após validar um concurso novo (task 01/02), gerar

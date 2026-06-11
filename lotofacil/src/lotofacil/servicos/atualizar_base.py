@@ -8,6 +8,7 @@ resumo PT-BR no log (ver `executar_pos_atualizacao`).
 from __future__ import annotations
 
 import logging
+import os
 from dataclasses import dataclass, field, replace
 from typing import Literal, Optional
 
@@ -92,13 +93,44 @@ def _sincronizar(
     )
 
 
+def _auto_prever_habilitado() -> bool:
+    """Predição automática pós-validação é opt-in via env AUTO_PREVER=1."""
+    return os.getenv("AUTO_PREVER", "0").strip().lower() in ("1", "true", "sim")
+
+
+def _gerar_predicao_automatica(db: DatabaseManager) -> None:
+    """Gera e registra no histórico a predição do próximo concurso.
+
+    Usa o modelo campeão (ver `predicao_proximo_concurso`) e persiste no banco
+    antes do sorteio — auditável, sem retro-predição.
+    """
+    from lotofacil.servicos.predicao_proximo_concurso import gerar_predicao_proximo_concurso
+
+    predicao = gerar_predicao_proximo_concurso()
+    db.save_prediction(
+        predicao.concurso_alvo,
+        predicao.dezenas,
+        [predicao.confianca_por_dezena[d] for d in predicao.dezenas],
+        predicao.confianca_media,
+        [predicao.modelo],
+    )
+    logger.info(
+        "Predição automática registrada para o concurso %d (modelo %s, data prevista %s)",
+        predicao.concurso_alvo,
+        predicao.modelo,
+        predicao.data_prevista,
+    )
+
+
 def executar_pos_atualizacao(
     db: Optional[DatabaseManager] = None,
 ) -> list[ResultadoValidacaoPredicao]:
     """Executa as etapas automáticas após a chegada de concursos novos.
 
-    Hoje a etapa é a validação das predições pendentes, com resumo PT-BR
-    no log (ex.: "1 predição validada para o concurso 3701: 10 acertos").
+    Etapas:
+    1. Validação das predições pendentes, com resumo PT-BR no log
+       (ex.: "1 predição validada para o concurso 3701: 10 acertos").
+    2. Com AUTO_PREVER=1, geração e registro da predição do próximo concurso.
     """
     db = db or DatabaseManager()
     validacoes = validar_todas_pendentes(db=db)
@@ -106,6 +138,13 @@ def executar_pos_atualizacao(
         logger.info(resumo_validacoes(validacoes))
     else:
         logger.info("Nenhuma predição pendente para validar")
+
+    if _auto_prever_habilitado():
+        try:
+            _gerar_predicao_automatica(db)
+        except Exception:
+            logger.exception("Falha ao gerar a predição automática do próximo concurso")
+
     return validacoes
 
 
