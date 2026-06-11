@@ -32,7 +32,7 @@ pytest src/lotofacil/interface/painel/tests/ -v
   `tipo: validacao`; toast aparece e some sozinho; teste de endpoint cobre o formato.
 - **Commit:** `feat(painel): toasts e formato padronizado de erros`
 
-### - [ ] 02 — Validação de formulários no frontend
+### - [x] 02 — Validação de formulários no frontend
 
 - **Objetivo:** impedir requests inválidas antes de sair do navegador.
 - **Descrição:** validar no JS os ranges já impostos no backend: epochs [1,1000],

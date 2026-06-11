@@ -616,6 +616,11 @@
   .modelos-treinar-btn:disabled { opacity:0.35; cursor:not-allowed; }
   .modelos-treinar-status { font-size:0.72rem; color:var(--muted); }
   .param-hint { font-size:0.68rem; color:var(--dim); margin-top:0.25rem; line-height:1.4; }
+  .field-invalid { border-color: var(--red) !important; }
+  .field-error-msg {
+    font-size:0.68rem; color:var(--red); margin-top:0.25rem; line-height:1.4; display:none;
+  }
+  .field-error-msg.visible { display:block; }
   .pred-config-card .card-desc { font-size:0.67rem; color:var(--dim); margin-top:0.3rem; line-height:1.4; }
   .pred-config-card.selected .card-desc { color:var(--muted); }
   .modelos-section-divider {
@@ -2294,8 +2299,9 @@ function renderModTreinar() {
       <div class="modelos-section-divider">2 · Identificação</div>
       <div class="modelos-nome-row">
         <label>Nome do treino</label>
-        <input type="text" id="predNome" placeholder="ex: treino_lua_v1">
+        <input type="text" id="predNome" placeholder="ex: treino_lua_v1" oninput="_validarFormTreino()">
         <div class="param-hint">Nome livre para identificar esta versão do modelo depois. Use algo descritivo, como <code style="color:var(--accent)">lua_100ep_seed42</code>. Evite espaços.</div>
+        <div class="field-error-msg" id="errPredNome"></div>
       </div>
 
       <div class="modelos-section-divider">3 · Hiperparâmetros</div>
@@ -2308,13 +2314,15 @@ function renderModTreinar() {
       <div class="pred-params" style="margin-bottom:0.5rem">
         <div class="pred-param">
           <label>Épocas</label>
-          <input type="number" id="predEpocas" value="40" min="1" max="500" oninput="_atualizarEstimativa()">
+          <input type="number" id="predEpocas" value="40" min="1" max="1000" oninput="_atualizarEstimativa(); _validarFormTreino()">
           <div class="param-hint">Quantas vezes o modelo percorre todo o conjunto de dados durante o treino. Mais épocas = aprendizado mais profundo, mas demora mais. <b>Recomendado: 40–100.</b></div>
+          <div class="field-error-msg" id="errPredEpocas"></div>
         </div>
         <div class="pred-param">
           <label>Janela histórico</label>
-          <input type="number" id="predJanela" value="50" min="10" max="200" oninput="_atualizarEstimativa()">
+          <input type="number" id="predJanela" value="50" min="5" max="500" oninput="_atualizarEstimativa(); _validarFormTreino()">
           <div class="param-hint">Quantos sorteios consecutivos o modelo "enxerga" de uma vez para aprender padrões de sequência. Janelas maiores capturam tendências mais longas. <b>Recomendado: 30–80.</b></div>
+          <div class="field-error-msg" id="errPredJanela"></div>
         </div>
         <div class="pred-param">
           <label>Seed</label>
@@ -2323,8 +2331,9 @@ function renderModTreinar() {
         </div>
         <div class="pred-param">
           <label>Concursos</label>
-          <input type="number" id="predConcursos" value="0" min="0" oninput="_atualizarEstimativa()">
+          <input type="number" id="predConcursos" value="0" min="0" oninput="_atualizarEstimativa(); _validarFormTreino()">
           <div class="param-hint"><b>0 = usa todos</b> os sorteios históricos disponíveis (~3.600+). Informe um número menor (ex: 500) para treinos mais rápidos ou para testar o fluxo antes de um treino completo.</div>
+          <div class="field-error-msg" id="errPredConcursos"></div>
         </div>
       </div>
 
@@ -2334,6 +2343,7 @@ function renderModTreinar() {
       </div>
       <div class="pred-warning" style="margin-top:1rem">⚠️ Resultados experimentais — modelos treinados com dados históricos não garantem acertos futuros.</div>
     </div>`;
+  _validarFormTreino();
 }
 
 function selectPredConfig(id) {
@@ -2357,6 +2367,7 @@ function aplicarPreset(nome) {
   set('predConcursos', p.n_draws);
   window._predFast = p.fast;
   _atualizarEstimativa();
+  _validarFormTreino();
 }
 
 function _atualizarEstimativa() {
@@ -2373,9 +2384,58 @@ function _atualizarEstimativa() {
   if (el) el.textContent = `Estimativa: ${label} · ${draws.toLocaleString('pt-BR')} sorteios · ${epochs} épocas${fast ? ' · modo rápido' : ''}`;
 }
 
-async function iniciarTreino() {
+function _setFieldError(inputId, errId, mensagem) {
+  const input = document.getElementById(inputId);
+  const err = document.getElementById(errId);
+  if (input) input.classList.toggle('field-invalid', !!mensagem);
+  if (err) {
+    err.textContent = mensagem || '';
+    err.classList.toggle('visible', !!mensagem);
+  }
+}
+
+function _validarFormTreino() {
+  let valido = true;
+
   const nome = (document.getElementById('predNome')?.value || '').trim();
-  if (!nome) { alert('Informe um nome para o treino.'); return; }
+  let erroNome = '';
+  if (!nome) erroNome = 'Informe um nome para o treino.';
+  else if (nome.length > 60) erroNome = 'Nome deve ter no máximo 60 caracteres.';
+  else if (!/^[a-zA-Z0-9_-]+$/.test(nome)) erroNome = 'Use apenas letras, números, "_" e "-" (sem espaços).';
+  _setFieldError('predNome', 'errPredNome', erroNome);
+  if (erroNome) valido = false;
+
+  const epochs = parseInt(document.getElementById('predEpocas')?.value);
+  let erroEpocas = '';
+  if (!Number.isFinite(epochs) || epochs < 1 || epochs > 1000) erroEpocas = 'Épocas deve estar entre 1 e 1000.';
+  _setFieldError('predEpocas', 'errPredEpocas', erroEpocas);
+  if (erroEpocas) valido = false;
+
+  const windowSize = parseInt(document.getElementById('predJanela')?.value);
+  let erroJanela = '';
+  if (!Number.isFinite(windowSize) || windowSize < 5 || windowSize > 500) erroJanela = 'Janela deve estar entre 5 e 500.';
+  _setFieldError('predJanela', 'errPredJanela', erroJanela);
+  if (erroJanela) valido = false;
+
+  const nDraws = parseInt(document.getElementById('predConcursos')?.value);
+  let erroConcursos = '';
+  if (!Number.isFinite(nDraws) || nDraws < 0) {
+    erroConcursos = 'Concursos deve ser 0 (todos) ou um número positivo.';
+  } else if (nDraws !== 0 && !erroJanela && nDraws < windowSize + 20) {
+    erroConcursos = `Concursos deve ser 0 (todos) ou pelo menos janela + 20 (≥ ${windowSize + 20}).`;
+  }
+  _setFieldError('predConcursos', 'errPredConcursos', erroConcursos);
+  if (erroConcursos) valido = false;
+
+  const btn = document.getElementById('modTreinoBtn');
+  if (btn) btn.disabled = !valido;
+
+  return valido;
+}
+
+async function iniciarTreino() {
+  if (!_validarFormTreino()) return;
+  const nome = (document.getElementById('predNome')?.value || '').trim();
   const btn = document.getElementById('modTreinoBtn');
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Iniciando...'; }
   const statusEl = document.getElementById('modTreinoStatus');
@@ -2818,6 +2878,7 @@ function retreinarModelo(id) {
     if (seed)      seed.value      = params.seed        ?? 42;
     if (concursos) concursos.value = params.n_draws     ?? 0;
     _atualizarEstimativa();
+    _validarFormTreino();
     nome?.focus();
   });
 }
@@ -2856,7 +2917,11 @@ function renderPredGerar() {
           ${completed.map(m=>`<option value="${m.id}"${m.id===sel?' selected':''}>${esc(m.nome)} (${esc(m.tipo_config)})</option>`).join('')}
         </select>
       </div>
-      <div class="pred-param"><label>Nº de jogos</label><input type="number" id="gerarNJogos" value="3" min="1" max="20"></div>
+      <div class="pred-param">
+        <label>Nº de jogos</label>
+        <input type="number" id="gerarNJogos" value="3" min="1" max="20" oninput="_validarFormGerar()">
+        <div class="field-error-msg" id="errGerarNJogos"></div>
+      </div>
       <div class="pred-param">
         <label>Números por jogo</label>
         <select id="gerarNNumeros">
@@ -2879,9 +2944,24 @@ function renderPredGerar() {
     <div class="pred-warning">⚠️ Resultados experimentais e estatísticos — não garantem acertos.</div>
     <div id="gerarResultados"></div>
     <div id="gerarRecentes"></div>`;
+  _validarFormGerar();
+}
+
+function _validarFormGerar() {
+  let valido = true;
+  const nJogos = parseInt(document.getElementById('gerarNJogos')?.value);
+  let erroNJogos = '';
+  if (!Number.isFinite(nJogos) || nJogos < 1 || nJogos > 20) erroNJogos = 'Nº de jogos deve estar entre 1 e 20.';
+  _setFieldError('gerarNJogos', 'errGerarNJogos', erroNJogos);
+  if (erroNJogos) valido = false;
+
+  const btn = document.getElementById('gerarBtn');
+  if (btn) btn.disabled = !valido;
+  return valido;
 }
 
 async function gerarJogos() {
+  if (!_validarFormGerar()) return;
   const modeloId = document.getElementById('gerarModeloSelect').value;
   if (!modeloId) { alert('Selecione um modelo treinado.'); return; }
   const btn = document.getElementById('gerarBtn');
