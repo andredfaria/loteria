@@ -33,7 +33,7 @@ lotofacil lab tune --config base+temp+priors --n-trials 5 --fast
   `--batch-size 64 --dropout 0.2` completa e meta.json reflete os valores.
 - **Commit:** `feat(lab): hiperparametros do neural expostos na CLI`
 
-### - [ ] 02 — Presets de treino (rápido / equilibrado / completo)
+### - [x] 02 — Presets de treino (rápido / equilibrado / completo)
 
 - **Objetivo:** usuário leigo escolhe 1 de 3 opções em vez de 8 números.
 - **Descrição:** `--preset rapido|equilibrado|completo` na CLI:

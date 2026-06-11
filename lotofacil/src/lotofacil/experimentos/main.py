@@ -27,7 +27,7 @@ _SRC = Path(__file__).resolve().parent.parent
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
-from lotofacil.experimentos.config import OUTPUT_DIR  # noqa: E402
+from lotofacil.experimentos.config import OUTPUT_DIR, PRESETS_TREINO  # noqa: E402
 
 app = typer.Typer(
     name="lotofacil-lab",
@@ -135,6 +135,22 @@ def backfill_lua(
 
 # ── train ──────────────────────────────────────────────────────────────────────
 
+def _resolver_preset(preset: str | None) -> dict:
+    """Retorna os overrides de hiperparâmetros do preset de treino.
+
+    Presets vêm de PRESETS_TREINO em config.py. Erro claro (PT-BR) se o
+    nome for inválido; None retorna dict vazio (sem preset).
+    """
+    if preset is None:
+        return {}
+    if preset not in PRESETS_TREINO:
+        validos = ", ".join(PRESETS_TREINO)
+        raise typer.BadParameter(
+            f"Preset inválido: {preset!r}. Opções válidas: {validos}."
+        )
+    return dict(PRESETS_TREINO[preset])
+
+
 def _parse_lstm_units(value: str) -> list[int]:
     """Parse a comma-separated string like '256,128,64' into a list of 3 ints."""
     try:
@@ -157,6 +173,9 @@ def train(
     seed: int = typer.Option(None, "--seed", help="Override RANDOM_SEED for reproducibility."),
     window_size: int = typer.Option(None, "--window-size", help="Override LSTM window (past draws as context)."),
     name: str = typer.Option(None, "--name", help="Custom model stem for versioning (e.g. 'abc1_meu_treino')."),
+    preset: str = typer.Option(None, "--preset",
+                                help="Preset de treino: rapido, equilibrado ou completo. "
+                                     "Flags explícitas sobrescrevem o preset."),
     fast: bool = typer.Option(False, "--fast", help="Use smaller LSTM model for faster CPU training."),
     batch_size: int = typer.Option(None, "--batch-size", help="Override training batch size."),
     learning_rate: float = typer.Option(None, "--learning-rate", help="Override Adam learning rate."),
@@ -171,6 +190,8 @@ def train(
 ) -> None:
     """Train a NeuralModular model for the given feature config and save it."""
     _setup_logging(debug)
+    # Valida o preset antes de importar TensorFlow (falha rápida em nome inválido).
+    preset_overrides = _resolver_preset(preset)
     try:
         import tensorflow  # noqa: F401
     except ImportError:
@@ -194,7 +215,8 @@ def train(
     else:
         console.print("Draws: 0 (no data loaded)")
 
-    hp_overrides: dict = {}
+    # Preset entra primeiro; flags explícitas abaixo sobrescrevem o preset.
+    hp_overrides: dict = dict(preset_overrides)
     if epochs:
         hp_overrides["LSTM_EPOCHS"] = epochs
     if seed:
@@ -216,9 +238,11 @@ def train(
     if lstm_units:
         hp_overrides["LSTM_UNITS"] = _parse_lstm_units(lstm_units)
 
+    if preset:
+        console.print(f"Preset de treino: [cyan]{preset}[/cyan]")
     if fast:
         console.print("[yellow]Modo rápido:[/yellow] modelo menor (LSTM 64/32/16) para treino mais rápido.")
-    model = NeuralModular(cfg, hp_overrides=hp_overrides, fast=fast)
+    model = NeuralModular(cfg, hp_overrides=hp_overrides, fast=fast, preset=preset)
     console.print("Training... (this may take a while)")
     model.fit(draws)
 

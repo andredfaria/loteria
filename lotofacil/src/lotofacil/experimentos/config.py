@@ -65,6 +65,30 @@ FOCAL_LOSS_GAMMA = 2.0
 FOCAL_LOSS_ALPHA = 0.75
 NEURAL_VAL_SPLIT = 0.15
 
+# ── Presets de treino (CLI `lotofacil lab train --preset`) ──────────────────────
+# Chaves = nomes das constantes de hiperparâmetros acima. Flags explícitas da
+# CLI sobrescrevem o preset. "completo" é vazio de propósito: usa os defaults
+# deste módulo (LSTM [256,128,64], epochs 100, patience 10).
+PRESETS_TREINO: dict[str, dict] = {
+    "rapido": {
+        "LSTM_UNITS": [64, 32, 16],
+        "LSTM_BATCH_SIZE": 64,
+        "LSTM_DROPOUT": 0.2,
+        "LSTM_DROPOUT_DENSE": 0.15,
+        "ATTENTION_HEADS": 2,
+        "ATTENTION_DIM": 16,
+        "LSTM_EPOCHS": 40,
+        "LSTM_PATIENCE": 5,
+    },
+    "equilibrado": {
+        "LSTM_UNITS": [128, 64, 32],
+        "LSTM_EPOCHS": 60,
+        "LSTM_PATIENCE": 8,
+        "LSTM_BATCH_SIZE": 32,
+    },
+    "completo": {},
+}
+
 # ── Walk-forward defaults ────────────────────────────────────────────────────────
 BACKTEST_MIN_TRAIN = 300
 BACKTEST_RETRAIN_EVERY = 50

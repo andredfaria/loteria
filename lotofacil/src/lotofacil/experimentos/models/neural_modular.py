@@ -53,11 +53,21 @@ class NeuralModular(BaseLabModel):
         config: FeatureConfig controlling which feature blocks are active.
         hp_overrides: Optional dict of hyperparameter overrides.
             Keys match config.py constant names (e.g. 'LSTM_UNITS', 'LSTM_LR').
+        preset: Nome do preset de treino usado na CLI (rapido/equilibrado/
+            completo), apenas para registro no meta.json. Os valores do preset
+            já devem vir aplicados em hp_overrides.
     """
 
-    def __init__(self, config: FeatureConfig, hp_overrides: dict | None = None, fast: bool = False):
+    def __init__(
+        self,
+        config: FeatureConfig,
+        hp_overrides: dict | None = None,
+        fast: bool = False,
+        preset: str | None = None,
+    ):
         self.config = config
         self._hp = hp_overrides or {}
+        self._preset = preset
         if fast:
             # Smaller model for faster CPU training
             self._hp.setdefault("LSTM_UNITS", [64, 32, 16])
@@ -249,6 +259,7 @@ class NeuralModular(BaseLabModel):
         meta = {
             "history": self._history,
             "config": self.config.to_dict(),
+            "preset": self._preset,
             "hp_overrides": self._hp,
             "hp_efetivos": self.hiperparametros_efetivos(),
         }
