@@ -96,7 +96,7 @@ lotofacil/
 ├── testes/                     # Domain & service tests (pytest, testpaths)
 │   ├── unidade/{dominio,servicos,infra,experimentos}/
 │   └── integracao/cli/
-├── tasks/                       # Historical refactor plan (executed, mostly informational)
+├── tasks/                       # Waves 01-08: executed refactor plan; BACKLOG.md + waves 09-12: product backlog
 ├── docs/                         # Architecture, strategy docs, dashboard, dataset dictionary
 ├── Dockerfile                    # PRODUCTION image (Python 3.12 + Gunicorn + TensorFlow)
 ├── entrypoint.sh

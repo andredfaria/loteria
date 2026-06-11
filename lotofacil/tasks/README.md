@@ -1,5 +1,9 @@
 # Tasks — Consolidação Estrutural do lotofacil/
 
+> **Backlog de produto:** as ondas 01–08 abaixo são o refactor estrutural (concluído).
+> O backlog de features novas (predição do próximo concurso, UX do dashboard,
+> treinamento, automação) está em **[BACKLOG.md](BACKLOG.md)** — ondas 09 a 12.
+
 Plano de execução do refactor descrito em:
 - **Spec:** `docs/superpowers/specs/2026-05-12-consolidacao-estrutural-design.md`
 - **Plano:** `docs/superpowers/plans/2026-05-13-consolidacao-estrutural.md`
