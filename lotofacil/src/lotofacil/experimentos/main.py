@@ -135,6 +135,19 @@ def backfill_lua(
 
 # ── train ──────────────────────────────────────────────────────────────────────
 
+def _parse_lstm_units(value: str) -> list[int]:
+    """Parse a comma-separated string like '256,128,64' into a list of 3 ints."""
+    try:
+        units = [int(p.strip()) for p in value.split(",") if p.strip()]
+    except ValueError as exc:
+        raise typer.BadParameter(f"--lstm-units inválido: {value!r}") from exc
+    if len(units) != 3:
+        raise typer.BadParameter("--lstm-units precisa de exatamente 3 valores, ex: 256,128,64")
+    if any(u <= 0 for u in units):
+        raise typer.BadParameter("--lstm-units precisa de valores positivos")
+    return units
+
+
 @app.command("train")
 def train(
     config_sig: str = typer.Option("base+temp+priors", "--config",
@@ -145,6 +158,15 @@ def train(
     window_size: int = typer.Option(None, "--window-size", help="Override LSTM window (past draws as context)."),
     name: str = typer.Option(None, "--name", help="Custom model stem for versioning (e.g. 'abc1_meu_treino')."),
     fast: bool = typer.Option(False, "--fast", help="Use smaller LSTM model for faster CPU training."),
+    batch_size: int = typer.Option(None, "--batch-size", help="Override training batch size."),
+    learning_rate: float = typer.Option(None, "--learning-rate", help="Override Adam learning rate."),
+    dropout: float = typer.Option(None, "--dropout", help="Override LSTM dropout rate (last LSTM layer)."),
+    patience: int = typer.Option(None, "--patience", help="Override EarlyStopping patience (epochs)."),
+    val_split: float = typer.Option(None, "--val-split", help="Override validation split fraction (0-1)."),
+    focal_gamma: float = typer.Option(None, "--focal-gamma", help="Override focal loss gamma."),
+    focal_alpha: float = typer.Option(None, "--focal-alpha", help="Override focal loss alpha."),
+    lstm_units: str = typer.Option(None, "--lstm-units",
+                                    help="Override LSTM layer sizes, comma-separated, ex: 256,128,64."),
     debug: bool = typer.Option(False, "--debug"),
 ) -> None:
     """Train a NeuralModular model for the given feature config and save it."""
@@ -156,7 +178,6 @@ def train(
         console.print("Reconstrua a imagem Docker: [bold]docker-compose build --no-cache[/bold]")
         raise typer.Exit(1)
     import dataclasses
-    import lotofacil.experimentos.config as lab_cfg
     from lotofacil.experimentos.config import MODELS_DIR
     from lotofacil.experimentos.data.feature_flags import FeatureConfig
     from lotofacil.experimentos.data.draws_loader import load_draws, load_draws_last_n
@@ -173,14 +194,31 @@ def train(
     else:
         console.print("Draws: 0 (no data loaded)")
 
+    hp_overrides: dict = {}
     if epochs:
-        lab_cfg.LSTM_EPOCHS = epochs
+        hp_overrides["LSTM_EPOCHS"] = epochs
     if seed:
-        lab_cfg.RANDOM_SEED = seed
+        hp_overrides["RANDOM_SEED"] = seed
+    if batch_size:
+        hp_overrides["LSTM_BATCH_SIZE"] = batch_size
+    if learning_rate:
+        hp_overrides["LSTM_LR"] = learning_rate
+    if dropout is not None:
+        hp_overrides["LSTM_DROPOUT"] = dropout
+    if patience:
+        hp_overrides["LSTM_PATIENCE"] = patience
+    if val_split is not None:
+        hp_overrides["NEURAL_VAL_SPLIT"] = val_split
+    if focal_gamma is not None:
+        hp_overrides["FOCAL_LOSS_GAMMA"] = focal_gamma
+    if focal_alpha is not None:
+        hp_overrides["FOCAL_LOSS_ALPHA"] = focal_alpha
+    if lstm_units:
+        hp_overrides["LSTM_UNITS"] = _parse_lstm_units(lstm_units)
 
     if fast:
         console.print("[yellow]Modo rápido:[/yellow] modelo menor (LSTM 64/32/16) para treino mais rápido.")
-    model = NeuralModular(cfg, fast=fast)
+    model = NeuralModular(cfg, hp_overrides=hp_overrides, fast=fast)
     console.print("Training... (this may take a while)")
     model.fit(draws)
 

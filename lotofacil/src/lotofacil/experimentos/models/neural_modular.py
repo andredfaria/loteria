@@ -76,6 +76,19 @@ class NeuralModular(BaseLabModel):
             return self._hp[name]
         return globals().get(name)
 
+    _HP_NAMES = (
+        "LSTM_UNITS", "ATTENTION_HEADS", "ATTENTION_DIM",
+        "LSTM_DROPOUT", "LSTM_DROPOUT_INPUT", "LSTM_DROPOUT_DENSE",
+        "LSTM_LR", "LSTM_LR_MIN", "LSTM_LR_FACTOR", "LSTM_LR_PATIENCE",
+        "LSTM_EPOCHS", "LSTM_BATCH_SIZE", "LSTM_PATIENCE",
+        "FOCAL_LOSS_GAMMA", "FOCAL_LOSS_ALPHA", "NEURAL_VAL_SPLIT",
+        "RANDOM_SEED",
+    )
+
+    def hiperparametros_efetivos(self) -> dict:
+        """Valores efetivos (override > config) de todos os hiperparâmetros."""
+        return {name: self._hp_val(name) for name in self._HP_NAMES}
+
     def fit(self, draws: list) -> None:
         """Train on historical draws using the active feature config."""
         try:
@@ -237,6 +250,7 @@ class NeuralModular(BaseLabModel):
             "history": self._history,
             "config": self.config.to_dict(),
             "hp_overrides": self._hp,
+            "hp_efetivos": self.hiperparametros_efetivos(),
         }
         path.with_suffix(".meta.json").write_text(
             json.dumps(meta, indent=2), encoding="utf-8"

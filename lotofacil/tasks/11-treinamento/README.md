@@ -19,7 +19,7 @@ lotofacil lab tune --config base+temp+priors --n-trials 5 --fast
 
 ## Tasks
 
-### - [ ] 01 — Expor hiperparâmetros do neural na CLI
+### - [x] 01 — Expor hiperparâmetros do neural na CLI
 
 - **Objetivo:** experimentar sem editar `config.py`.
 - **Descrição:** flags novas em `lotofacil lab train`: `--batch-size`,
