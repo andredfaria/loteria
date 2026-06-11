@@ -20,7 +20,7 @@ curl -s localhost:5000/api/predicao/proxima | python -m json.tool
 
 ## Tasks
 
-### - [ ] 01 — Serviço `predicao_proximo_concurso`
+### - [x] 01 — Serviço `predicao_proximo_concurso`
 
 - **Objetivo:** caso de uso único que consolida a predição do próximo concurso.
 - **Descrição:** novo serviço que: detecta o próximo concurso (último do DB + 1),
@@ -35,7 +35,7 @@ curl -s localhost:5000/api/predicao/proxima | python -m json.tool
   dados do próprio concurso alvo (sem vazamento).
 - **Commit:** `feat(servicos): predicao consolidada do proximo concurso`
 
-### - [ ] 02 — Endpoint `GET /api/predicao/proxima`
+### - [x] 02 — Endpoint `GET /api/predicao/proxima`
 
 - **Objetivo:** expor o serviço da task 01 no painel.
 - **Descrição:** endpoint que chama o serviço e devolve JSON; cache curto (60s);
@@ -48,7 +48,7 @@ curl -s localhost:5000/api/predicao/proxima | python -m json.tool
   teste de endpoint passa.
 - **Commit:** `feat(painel): endpoint /api/predicao/proxima`
 
-### - [ ] 03 — Modelo campeão (champion)
+### - [x] 03 — Modelo campeão (champion)
 
 - **Objetivo:** o sistema sabe qual é o melhor modelo e o usa por padrão.
 - **Descrição:** arquivo `saida/campeao.json` com `{modelo, tipo, arquivo,
@@ -64,7 +64,7 @@ curl -s localhost:5000/api/predicao/proxima | python -m json.tool
   sem validações suficientes, mantém ensemble e registra motivo.
 - **Commit:** `feat(modelo): selecao e promocao do modelo campeao`
 
-### - [ ] 04 — Tela hero "Próximo Concurso" no dashboard
+### - [x] 04 — Tela hero "Próximo Concurso" no dashboard
 
 - **Objetivo:** primeira coisa que o usuário vê = predição do próximo sorteio.
 - **Descrição:** nova aba/tela inicial em `dashboard.html`: número e data do

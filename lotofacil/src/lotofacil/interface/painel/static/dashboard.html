@@ -204,6 +204,48 @@
   .last-draw-date { color: var(--dim); white-space: nowrap; }
   .last-draw-balls { display: flex; gap: 3px; align-items: center; flex-wrap: wrap; }
   .ball-xs { width: 20px; height: 20px; font-size: 0.62rem; border-width: 1px; flex-shrink: 0; }
+  .ball-lg { width: 44px; height: 44px; font-size: 1rem; border-width: 2px; }
+
+  /* Próximo Concurso — hero */
+  .proximo-hero {
+    max-width: 720px; margin: 0 auto; padding: 1.5rem 1rem;
+    display: flex; flex-direction: column; gap: 1.25rem;
+  }
+  .proximo-header {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+    gap: 0.75rem; padding: 1rem 1.25rem; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 10px;
+  }
+  .proximo-concurso-info { display: flex; flex-direction: column; gap: 0.15rem; }
+  .proximo-label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+  .proximo-concurso-num { font-size: 1.6rem; font-weight: 800; color: var(--accent); }
+  .proximo-data { font-size: 0.78rem; color: var(--dim); }
+  .proximo-modelo-badge { display: flex; flex-direction: column; align-items: flex-end; gap: 0.2rem; }
+  .proximo-modelo-nome { font-size: 0.85rem; font-weight: 700; color: var(--text); }
+  .proximo-confianca {
+    font-size: 0.68rem; color: var(--accent); background: var(--accent-dim);
+    border-radius: 999px; padding: 2px 10px;
+  }
+  .proximo-balls {
+    display: flex; flex-wrap: wrap; gap: 0.6rem; justify-content: center;
+    padding: 1.25rem; background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  }
+  .proximo-baseline {
+    font-size: 0.75rem; color: var(--muted); line-height: 1.5;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+    padding: 0.75rem 1rem;
+  }
+  .proximo-actions { display: flex; flex-wrap: wrap; gap: 0.6rem; justify-content: center; }
+  .proximo-meta { font-size: 0.68rem; color: var(--dim); text-align: center; }
+  .proximo-empty {
+    display: flex; flex-direction: column; align-items: center; gap: 0.6rem;
+    text-align: center; padding: 3rem 1rem; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 10px;
+  }
+  .proximo-empty-icon { font-size: 2.5rem; }
+  .proximo-empty-title { font-size: 1rem; font-weight: 700; color: var(--text); }
+  .proximo-empty-msg { font-size: 0.8rem; color: var(--muted); max-width: 420px; }
+  .proximo-loading { text-align: center; padding: 3rem 1rem; color: var(--muted); font-size: 0.85rem; }
 
   /* Clima cell */
   .clima-wrap { display: flex; align-items: center; gap: 0.35rem; font-size: 0.78rem; }
@@ -812,6 +854,8 @@
         </div>
       </div>
 
+      <!-- Próximo Concurso Tab — populado por renderProximoConcurso() -->
+      <div id="tab-proximo" style="display:none;flex:1;overflow:auto;flex-direction:column"></div>
       <!-- Modelos Tab — populado por renderModelosPage() -->
       <div id="tab-modelos" style="display:none;flex:1;overflow:hidden;flex-direction:column"></div>
       <!-- ROI Lab Tab — populado por renderRoiLab() -->
@@ -862,6 +906,7 @@
       <button onclick="_closeShortcuts()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:1rem">✕</button>
     </div>
     <div style="font-size:0.75rem;display:grid;grid-template-columns:auto 1fr;gap:0.4rem 1rem;align-items:center">
+      <kbd style="background:rgba(255,255,255,0.1);border-radius:4px;padding:1px 6px;font-family:monospace">P</kbd><span>Ir para Próximo Concurso</span>
       <kbd style="background:rgba(255,255,255,0.1);border-radius:4px;padding:1px 6px;font-family:monospace">C</kbd><span>Ir para Coleta</span>
       <kbd style="background:rgba(255,255,255,0.1);border-radius:4px;padding:1px 6px;font-family:monospace">D</kbd><span>Ir para Dados</span>
       <kbd style="background:rgba(255,255,255,0.1);border-radius:4px;padding:1px 6px;font-family:monospace">M</kbd><span>Ir para Modelos</span>
@@ -898,7 +943,7 @@ function _handle401(resp) {
 const CONSOLE_LEVELS = ['info', 'success', 'warn', 'error', 'cmd'];
 
 const STATE = {
-  activeTab: 'coleta',
+  activeTab: 'proximo',
   runningTasks: new Set(),
   consoleLines: [],
   games: [],
@@ -1009,6 +1054,7 @@ function init() {
   loadStatus();
   setInterval(loadStatus, 30000);
   _loadBallFreq();
+  switchTab(STATE.activeTab);
 }
 
 
@@ -1063,6 +1109,7 @@ function migrateLegacyConsoleSchema() {
 // SIDEBAR
 // ═══════════════════════════════════════════════════════════════
 const CATEGORIES = [
+  { id: 'proximo',   icon: '🎯', label: 'Próximo' },
   { id: 'coleta',    icon: '📥', label: 'Coleta' },
   { id: 'dados',     icon: '🗃️', label: 'Dados' },
   { id: 'modelos',   icon: '🧠', label: 'Modelos' },
@@ -1114,9 +1161,14 @@ function switchTab(id) {
 
   tabModelos.style.display = id === 'modelos' ? 'flex' : 'none';
   document.getElementById('tab-roi-lab').style.display = id === 'roi_lab' ? 'flex' : 'none';
-  document.getElementById('consoleSection').style.display = (id === 'modelos' || id === 'roi_lab') ? 'none' : '';
+  document.getElementById('tab-proximo').style.display = id === 'proximo' ? 'flex' : 'none';
+  document.getElementById('consoleSection').style.display = (id === 'modelos' || id === 'roi_lab' || id === 'proximo') ? 'none' : '';
 
-  if (id === 'dados') {
+  if (id === 'proximo') {
+    numSec.style.display = 'none';
+    bar.innerHTML = '';
+    renderProximoConcurso();
+  } else if (id === 'dados') {
     numSec.style.display = '';
     bar.innerHTML = '';
     STATE.dadosPage = 1;
@@ -2014,6 +2066,96 @@ function showToast(msg, type = 'info') {
   toast.textContent = msg;
   container.appendChild(toast);
   setTimeout(() => { toast.remove(); }, 3000);
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+// PRÓXIMO CONCURSO — tela hero
+// ═══════════════════════════════════════════════════════════════
+async function renderProximoConcurso(refresh = false) {
+  const container = document.getElementById('tab-proximo');
+  if (!container) return;
+  container.innerHTML = `<div class="proximo-loading">Carregando predição do próximo concurso…</div>`;
+  try {
+    const url = '/api/predicao/proxima' + (refresh ? '?refresh=1' : '');
+    const r = await fetch(url);
+    if (_handle401(r)) return;
+    if (r.status === 400) {
+      const data = await r.json().catch(() => ({}));
+      _renderProximoEmptyState(container, data?.erro?.mensagem);
+      return;
+    }
+    if (!r.ok) {
+      const data = await r.json().catch(() => ({}));
+      throw new Error(data?.erro?.mensagem || `HTTP ${r.status}`);
+    }
+    const data = await r.json();
+    _renderProximoHero(container, data);
+    if (refresh) showToast('Predição atualizada', 'success');
+  } catch (e) {
+    container.innerHTML = `
+      <div class="proximo-hero">
+        <div class="proximo-empty">
+          <div class="proximo-empty-icon">⚠️</div>
+          <div class="proximo-empty-title">Erro ao carregar predição</div>
+          <div class="proximo-empty-msg">${e.message}</div>
+          <button class="action-btn" onclick="renderProximoConcurso()">↻ Tentar novamente</button>
+        </div>
+      </div>`;
+    showToast('Erro ao carregar predição do próximo concurso', 'error');
+  }
+}
+
+function _renderProximoEmptyState(container, mensagem) {
+  container.innerHTML = `
+    <div class="proximo-hero">
+      <div class="proximo-empty">
+        <div class="proximo-empty-icon">📭</div>
+        <div class="proximo-empty-title">Sem dados suficientes</div>
+        <div class="proximo-empty-msg">${esc(mensagem || 'Atualize a base e treine um modelo para ver a predição do próximo concurso.')}</div>
+        <button class="action-btn" onclick="switchTab('coleta')">📥 Ir para Coleta</button>
+      </div>
+    </div>`;
+}
+
+function _renderProximoHero(container, data) {
+  const dezenas = data.dezenas || [];
+  const ballsHtml = dezenas.map(n =>
+    `<span class="ball ball-lg ${_ballClass(n)}">${String(n).padStart(2, '0')}</span>`
+  ).join('');
+  const copyData = dezenas.map(n => String(n).padStart(2, '0')).join(' ');
+  const confiancaPct = ((data.confianca_media ?? 0) * 100).toFixed(2);
+  const baseline = (data.baseline_esperado ?? 9).toFixed(1);
+  const geradoEm = data.gerado_em ? new Date(data.gerado_em).toLocaleString('pt-BR') : '—';
+
+  container.innerHTML = `
+    <div class="proximo-hero">
+      <div class="proximo-header">
+        <div class="proximo-concurso-info">
+          <span class="proximo-label">Próximo concurso</span>
+          <span class="proximo-concurso-num">#${esc(data.concurso_alvo)}</span>
+          <span class="proximo-data">${esc(data.data_prevista)}</span>
+        </div>
+        <div class="proximo-modelo-badge">
+          <span class="proximo-modelo-nome">🧠 ${esc(data.modelo)}</span>
+          <span class="proximo-confianca">confiança média: ${confiancaPct}%</span>
+        </div>
+      </div>
+
+      <div class="proximo-balls">${ballsHtml}</div>
+
+      <div class="proximo-baseline">
+        ℹ️ Baseline aleatório: ~${baseline} acertos em 15 dezenas. Esta predição é estatística e não garante resultados.
+      </div>
+
+      <div class="proximo-actions">
+        <button class="action-btn" onclick="renderProximoConcurso(true)">🔄 Gerar predição</button>
+        <button class="action-btn" onclick="navigator.clipboard.writeText('${copyData}').then(()=>showToast('Dezenas copiadas','success'))">📋 Copiar dezenas</button>
+        <button class="action-btn" onclick="switchTab('roi_lab')">🎯 Ver jogos do portfolio</button>
+      </div>
+
+      <div class="proximo-meta">Gerado em ${esc(geradoEm)} · abordagem: ${esc(data.abordagem)}</div>
+    </div>`;
 }
 
 
@@ -3303,9 +3445,9 @@ function closeTreinoModal() {
 // ═══════════════════════════════════════════════════════════════
 // KEYBOARD SHORTCUTS + PAGE TITLE
 // ═══════════════════════════════════════════════════════════════
-const _TAB_KEYS = { 'c': 'coleta', 'd': 'dados', 'm': 'modelos', 'v': 'validacao' };
+const _TAB_KEYS = { 'p': 'proximo', 'c': 'coleta', 'd': 'dados', 'm': 'modelos', 'v': 'validacao' };
 const _SUBTAB_KEYS = { '1': 'treinar', '2': 'lista', '3': 'gerar', '4': 'comparar', '5': 'historico' };
-const _TAB_LABELS = { coleta: 'Coleta', dados: 'Dados', modelos: 'Modelos', validacao: 'Validação' };
+const _TAB_LABELS = { proximo: 'Próximo', coleta: 'Coleta', dados: 'Dados', modelos: 'Modelos', validacao: 'Validação' };
 
 function _openShortcuts()  { const m = document.getElementById('shortcutsModal'); if(m) m.style.display='flex'; }
 function _closeShortcuts() { const m = document.getElementById('shortcutsModal'); if(m) m.style.display='none'; }
