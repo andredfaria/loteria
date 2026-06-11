@@ -71,7 +71,7 @@ pytest src/lotofacil/interface/painel/tests/ -v
   derrubar o servidor por 10s durante poll → reconecta sozinho.
 - **Commit:** `feat(painel): timeout e reconexao no polling de jobs`
 
-### - [ ] 05 — Persistência de estado da UI (localStorage)
+### - [x] 05 — Persistência de estado da UI (localStorage)
 
 - **Objetivo:** refresh não joga fora o contexto do usuário.
 - **Descrição:** persistir em localStorage: aba ativa, filtros do histórico

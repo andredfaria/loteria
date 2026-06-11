@@ -1049,6 +1049,26 @@ const LS_KEY = 'lotofacil_console_v2';
 const LS_KEY_LEGACY = 'lotofacil_console_v1';
 const CONSOLE_SCHEMA_VERSION = 2;
 
+// ═══════════════════════════════════════════════════════════════
+// UI STATE PERSISTENCE (localStorage)
+// ═══════════════════════════════════════════════════════════════
+const LS_UI_KEY = 'lotofacil_ui_state_v1';
+
+function _loadUIState() {
+  try {
+    const raw = localStorage.getItem(LS_UI_KEY);
+    if (!raw) return {};
+    return JSON.parse(raw) || {};
+  } catch (e) { return {}; }
+}
+
+function _saveUIState(patch) {
+  try {
+    const atual = _loadUIState();
+    localStorage.setItem(LS_UI_KEY, JSON.stringify({ ...atual, ...patch }));
+  } catch (e) { /* localStorage indisponível */ }
+}
+
 
 // ═══════════════════════════════════════════════════════════════
 // LOGGING
@@ -1092,7 +1112,28 @@ function init() {
   loadStatus();
   setInterval(loadStatus, 30000);
   _loadBallFreq();
-  switchTab(STATE.activeTab);
+
+  const ui = _loadUIState();
+  if (ui.activeTab) STATE.activeTab = ui.activeTab;
+  if (ui.dadosPage) STATE.dadosPage = ui.dadosPage;
+  if (ui.dadosFilter != null) STATE.dadosFilter = ui.dadosFilter;
+  if (ui.dadosClimaFilter) STATE.dadosClimaFilter = ui.dadosClimaFilter;
+  if (ui.dadosLuaFilter) STATE.dadosLuaFilter = ui.dadosLuaFilter;
+  if (ui.dadosPerPage) STATE.dadosPerPage = ui.dadosPerPage;
+  if (ui.validacaoLastN) STATE.validacaoLastN = ui.validacaoLastN;
+  if (ui.historicoFiltroModelo != null) _historicoFiltroModelo = ui.historicoFiltroModelo;
+  if (ui.historicoSoPremiados != null) _historicoSoPremiados = ui.historicoSoPremiados;
+  if (ui.ultimoTreino) {
+    _ultimoTreino = ui.ultimoTreino;
+    if (_ultimoTreino.tipo_config) _predState.selectedConfig = _ultimoTreino.tipo_config;
+    if (_ultimoTreino.fast != null) window._predFast = _ultimoTreino.fast;
+  }
+  if (ui.ultimoGerar) {
+    _ultimoGerar = ui.ultimoGerar;
+    if (_ultimoGerar.modeloId) _predState.gerarModeloId = _ultimoGerar.modeloId;
+  }
+
+  switchTab(STATE.activeTab, true);
 }
 
 
@@ -1181,8 +1222,9 @@ function buildBottomNav() {
   }
 }
 
-function switchTab(id) {
+function switchTab(id, isInitial = false) {
   STATE.activeTab = id;
+  _saveUIState({ activeTab: id });
   _updatePageTitle?.();
   document.querySelectorAll('.sidebar .tab').forEach((el, i) => {
     el.classList.toggle('active', CATEGORIES[i].id === id);
@@ -1209,7 +1251,7 @@ function switchTab(id) {
   } else if (id === 'dados') {
     numSec.style.display = '';
     bar.innerHTML = '';
-    STATE.dadosPage = 1;
+    if (!isInitial) STATE.dadosPage = 1;
     renderDados();
   } else if (id === 'validacao') {
     numSec.style.display = '';
@@ -1574,6 +1616,14 @@ function renderPredictions(groups) {
 async function renderDados() {
   const section = document.getElementById('numbersSection');
   section.innerHTML = '';
+
+  _saveUIState({
+    dadosPage: STATE.dadosPage,
+    dadosFilter: STATE.dadosFilter,
+    dadosClimaFilter: STATE.dadosClimaFilter,
+    dadosLuaFilter: STATE.dadosLuaFilter,
+    dadosPerPage: STATE.dadosPerPage,
+  });
 
   section.appendChild(createLoadingSkeleton());
 
@@ -1943,7 +1993,10 @@ function _lbSortBy(key) {
 function _recalcValidacao() {
   const input = document.getElementById('validacaoLastNInput');
   const val = input ? parseInt(input.value) : 120;
-  if (!isNaN(val) && val >= 10 && val <= 500) STATE.validacaoLastN = val;
+  if (!isNaN(val) && val >= 10 && val <= 500) {
+    STATE.validacaoLastN = val;
+    _saveUIState({ validacaoLastN: val });
+  }
   renderValidacao();
 }
 
@@ -2222,6 +2275,9 @@ const PRED_CONFIGS = [
 
 window._predFast = false;
 
+let _ultimoTreino = {};
+let _ultimoGerar = {};
+
 const _predState = {
   activeSubTab: 'treinar',
   selectedConfig: 'base',
@@ -2334,24 +2390,24 @@ function renderModTreinar() {
       <div class="pred-params" style="margin-bottom:0.5rem">
         <div class="pred-param">
           <label>Épocas</label>
-          <input type="number" id="predEpocas" value="40" min="1" max="1000" oninput="_atualizarEstimativa(); _validarFormTreino()">
+          <input type="number" id="predEpocas" value="${_ultimoTreino.epochs ?? 40}" min="1" max="1000" oninput="_atualizarEstimativa(); _validarFormTreino()">
           <div class="param-hint">Quantas vezes o modelo percorre todo o conjunto de dados durante o treino. Mais épocas = aprendizado mais profundo, mas demora mais. <b>Recomendado: 40–100.</b></div>
           <div class="field-error-msg" id="errPredEpocas"></div>
         </div>
         <div class="pred-param">
           <label>Janela histórico</label>
-          <input type="number" id="predJanela" value="50" min="5" max="500" oninput="_atualizarEstimativa(); _validarFormTreino()">
+          <input type="number" id="predJanela" value="${_ultimoTreino.window_size ?? 50}" min="5" max="500" oninput="_atualizarEstimativa(); _validarFormTreino()">
           <div class="param-hint">Quantos sorteios consecutivos o modelo "enxerga" de uma vez para aprender padrões de sequência. Janelas maiores capturam tendências mais longas. <b>Recomendado: 30–80.</b></div>
           <div class="field-error-msg" id="errPredJanela"></div>
         </div>
         <div class="pred-param">
           <label>Seed</label>
-          <input type="number" id="predSeed" value="42" min="0">
+          <input type="number" id="predSeed" value="${_ultimoTreino.seed ?? 42}" min="0">
           <div class="param-hint">Semente do gerador aleatório. Manter o mesmo valor garante que dois treinos com os mesmos parâmetros produzam resultados idênticos — útil para comparar configurações.</div>
         </div>
         <div class="pred-param">
           <label>Concursos</label>
-          <input type="number" id="predConcursos" value="0" min="0" oninput="_atualizarEstimativa(); _validarFormTreino()">
+          <input type="number" id="predConcursos" value="${_ultimoTreino.n_draws ?? 0}" min="0" oninput="_atualizarEstimativa(); _validarFormTreino()">
           <div class="param-hint"><b>0 = usa todos</b> os sorteios históricos disponíveis (~3.600+). Informe um número menor (ex: 500) para treinos mais rápidos ou para testar o fluxo antes de um treino completo.</div>
           <div class="field-error-msg" id="errPredConcursos"></div>
         </div>
@@ -2470,6 +2526,9 @@ async function iniciarTreino() {
     fast: window._predFast || false,
   };
   if (!parametros.n_draws) delete parametros.n_draws;
+
+  _ultimoTreino = { ...parametros, n_draws: parametros.n_draws ?? 0, tipo_config: _predState.selectedConfig };
+  _saveUIState({ ultimoTreino: _ultimoTreino });
 
   try {
     const r = await fetch('/api/treinos/iniciar', {
@@ -2939,13 +2998,13 @@ function renderPredGerar() {
       </div>
       <div class="pred-param">
         <label>Nº de jogos</label>
-        <input type="number" id="gerarNJogos" value="3" min="1" max="20" oninput="_validarFormGerar()">
+        <input type="number" id="gerarNJogos" value="${_ultimoGerar.n_jogos ?? 3}" min="1" max="20" oninput="_validarFormGerar()">
         <div class="field-error-msg" id="errGerarNJogos"></div>
       </div>
       <div class="pred-param">
         <label>Números por jogo</label>
         <select id="gerarNNumeros">
-          ${[11,12,13,14,15].map(n=>`<option value="${n}"${n===15?' selected':''}>${n} números</option>`).join('')}
+          ${[11,12,13,14,15].map(n=>`<option value="${n}"${n===(_ultimoGerar.n_numeros ?? 15)?' selected':''}>${n} números</option>`).join('')}
         </select>
       </div>
       <div class="pred-param">
@@ -2989,6 +3048,9 @@ async function gerarJogos() {
   const n_jogos   = parseInt(document.getElementById('gerarNJogos').value)   || 3;
   const n_numeros = parseInt(document.getElementById('gerarNNumeros').value)  || 15;
   const concurso_alvo = parseInt(document.getElementById('gerarConcursoAlvo').value) || null;
+
+  _ultimoGerar = { n_jogos, n_numeros, modeloId };
+  _saveUIState({ ultimoGerar: _ultimoGerar });
   try {
     const r = await fetch(`/api/treinos/${modeloId}/gerar`, {
       method: 'POST',
@@ -3371,6 +3433,10 @@ function _onHistoricoFiltro() {
   _historicoFiltroModelo = sel ? sel.value : '';
   const chk = document.getElementById('historicoSoPremiados');
   _historicoSoPremiados = chk ? chk.checked : false;
+  _saveUIState({
+    historicoFiltroModelo: _historicoFiltroModelo,
+    historicoSoPremiados: _historicoSoPremiados,
+  });
   const panel = document.getElementById('mod-historico');
   if (panel) _renderHistoricoPanel(panel);
 }
