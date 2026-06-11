@@ -79,6 +79,13 @@ class TreinoRegistry:
                 conn.commit()
             except sqlite3.OperationalError:
                 pass  # column already exists
+            try:
+                conn.execute(
+                    "ALTER TABLE job_status ADD COLUMN progress TEXT"
+                )
+                conn.commit()
+            except sqlite3.OperationalError:
+                pass  # column already exists
         self._recover_orphans()
 
     def _recover_orphans(self) -> None:
@@ -247,6 +254,13 @@ class TreinoRegistry:
                 (task_id, text),
             )
 
+    def update_progress(self, task_id: str, progress: dict) -> None:
+        with self._conn() as conn:
+            conn.execute(
+                "UPDATE job_status SET progress = ? WHERE task_id = ?",
+                (json.dumps(progress, ensure_ascii=False), task_id),
+            )
+
     def finish_job(self, task_id: str, success: bool) -> None:
         with self._conn() as conn:
             conn.execute(
@@ -261,7 +275,7 @@ class TreinoRegistry:
                 (task_id, offset),
             ).fetchall()
             status_row = conn.execute(
-                "SELECT done, success FROM job_status WHERE task_id = ?",
+                "SELECT done, success, progress FROM job_status WHERE task_id = ?",
                 (task_id,),
             ).fetchone()
 
@@ -273,6 +287,11 @@ class TreinoRegistry:
 
         done = bool(status_row["done"])
         result: dict = {"lines": lines, "done": done, "next_offset": next_offset}
+        if status_row["progress"]:
+            try:
+                result["progress"] = json.loads(status_row["progress"])
+            except (TypeError, ValueError):
+                pass
         if done:
             result["success"] = bool(status_row["success"])
         return result

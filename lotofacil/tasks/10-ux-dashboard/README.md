@@ -45,7 +45,7 @@ pytest src/lotofacil/interface/painel/tests/ -v
   inline aparecem ao digitar valor inválido.
 - **Commit:** `feat(painel): validacao de formularios no frontend`
 
-### - [ ] 03 — Progresso real e ETA no modal de treino
+### - [x] 03 — Progresso real e ETA no modal de treino
 
 - **Objetivo:** treino longo deixa de ser caixa-preta.
 - **Descrição:** o stdout do Keras já traz `Epoch N/M` — parsear no backend

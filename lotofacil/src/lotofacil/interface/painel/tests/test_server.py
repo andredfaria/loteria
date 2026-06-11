@@ -83,6 +83,42 @@ def test_api_jobs_poll_offset_advances(client, tmp_path, monkeypatch):
     assert second["done"] is False
 
 
+@pytest.mark.parametrize(
+    "linha, esperado",
+    [
+        (
+            "EPOCH_PROGRESS: 5/40 loss=0.6931 val_loss=0.7012",
+            {"epoch_atual": 5, "epoch_total": 40, "loss": 0.6931, "val_loss_atual": 0.7012},
+        ),
+        (
+            "[12:30:01] EPOCH_PROGRESS: 1/15 loss=1.2000 val_loss=1.1500",
+            {"epoch_atual": 1, "epoch_total": 15, "loss": 1.2, "val_loss_atual": 1.15},
+        ),
+        ("188/188 [==============================] - 2s 11ms/step - loss: 0.6931 - val_loss: 0.6931", None),
+        ("Epoch 5/40", None),
+    ],
+)
+def test_parse_epoch_progress(linha, esperado):
+    assert server_module.parse_epoch_progress(linha) == esperado
+
+
+def test_api_jobs_poll_inclui_progress(client, tmp_path, monkeypatch):
+    reg = TreinoRegistry(tmp_path / "test_treinos.db")
+    monkeypatch.setattr(server_module, "_registry", reg)
+    reg.create_job("task_progress")
+    reg.write_line("task_progress", "EPOCH_PROGRESS: 3/10 loss=0.5 val_loss=0.6")
+    reg.update_progress(
+        "task_progress",
+        {"epoch_atual": 3, "epoch_total": 10, "loss": 0.5, "val_loss_atual": 0.6, "eta_segundos": 42},
+    )
+
+    r = client.get("/api/jobs/task_progress/poll?offset=0")
+    data = json.loads(r.data)
+    assert data["progress"] == {
+        "epoch_atual": 3, "epoch_total": 10, "loss": 0.5, "val_loss_atual": 0.6, "eta_segundos": 42,
+    }
+
+
 def test_api_jobs_poll_unknown_task(client, tmp_path, monkeypatch):
     reg = TreinoRegistry(tmp_path / "test_treinos.db")
     monkeypatch.setattr(server_module, "_registry", reg)

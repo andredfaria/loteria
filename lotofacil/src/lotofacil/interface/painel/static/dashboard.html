@@ -3435,8 +3435,10 @@ async function _pollTreino() {
     if (data.lines && data.lines.length > 0) {
       _treinoPollOffset = data.next_offset;
       _appendTreinoLog(data.lines);
-      _updateEpochFromLog(data.lines);
+      if (!data.progress) _updateEpochFromLog(data.lines);
     }
+
+    if (data.progress) _updateEpochFromProgress(data.progress);
 
     if (data.done) {
       clearInterval(_treinoPoller);
@@ -3473,6 +3475,22 @@ function _toggleTreinoLog() {
   const expanded = log.classList.toggle('expanded');
   btn.textContent = expanded ? '▴ recolher log' : '▾ ver log completo';
   if (expanded) log.scrollTop = log.scrollHeight;
+}
+
+function _updateEpochFromProgress(progress) {
+  const cur = progress.epoch_atual, total = progress.epoch_total;
+  if (!cur || !total) return;
+  const pct = Math.min(100, Math.round((cur / total) * 100));
+  document.getElementById('treinoProgressFill').style.width = `${pct}%`;
+
+  let etaStr = '';
+  if (progress.eta_segundos != null && cur < total) {
+    const remSec = progress.eta_segundos;
+    etaStr = remSec < 60 ? ` · ETA ${remSec}s` : ` · ETA ${Math.ceil(remSec/60)}min`;
+  }
+  const valLossStr = progress.val_loss_atual != null ? ` · val_loss: ${progress.val_loss_atual.toFixed(4)}` : '';
+  document.getElementById('treinoEpochLabel').textContent =
+    `Epoch ${cur}/${total} · ${pct}%${valLossStr}${etaStr}`;
 }
 
 function _updateEpochFromLog(lines) {

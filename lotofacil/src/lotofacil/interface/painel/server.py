@@ -46,6 +46,27 @@ _ANSI_RE = re.compile(r'\x1b(?:\[[0-9;]*[mGKHFABCDEFsuJKH]|[()][AB012])')
 _TF_NOISE_RE = re.compile(
     r"^(WARNING: All log messages|I\d{4} |W\d{4} |Skipping registering)"
 )
+_EPOCH_PROGRESS_RE = re.compile(
+    r"EPOCH_PROGRESS:\s*(\d+)/(\d+)\s+loss=([\d.]+)\s+val_loss=([\d.]+)"
+)
+
+
+def parse_epoch_progress(line: str) -> dict | None:
+    """Extrai progresso de época de uma linha `EPOCH_PROGRESS: N/M loss=X val_loss=Y`.
+
+    Retorna `None` se a linha não corresponder ao formato esperado.
+    """
+    m = _EPOCH_PROGRESS_RE.search(line)
+    if not m:
+        return None
+    return {
+        "epoch_atual": int(m.group(1)),
+        "epoch_total": int(m.group(2)),
+        "loss": float(m.group(3)),
+        "val_loss_atual": float(m.group(4)),
+    }
+
+
 _procs: dict[str, subprocess.Popen[str]] = {}
 _freq_cache: dict = {}           # {"data": {...}, "ts": float}
 _FREQ_TTL = 300                  # 5 minutes
@@ -1121,6 +1142,8 @@ def _run_command(
             env=env,
         )
         _procs[task_id] = proc
+        epoch_durations: list[float] = []
+        last_epoch_ts: float | None = None
         for line in iter(proc.stdout.readline, ""):
             clean = _strip_ansi(line.rstrip("\n"))
             LOGGER.info("TASK %s output: %s", task_id, clean)
@@ -1128,6 +1151,18 @@ def _run_command(
             if not _TF_NOISE_RE.match(clean):
                 ts = datetime.now().strftime("%H:%M:%S")
                 registry.write_line(task_id, f"[{ts}] {clean}" if clean else clean)
+
+            progress = parse_epoch_progress(clean)
+            if progress is not None:
+                now = time.monotonic()
+                if last_epoch_ts is not None:
+                    epoch_durations.append(now - last_epoch_ts)
+                last_epoch_ts = now
+                if epoch_durations:
+                    media = sum(epoch_durations) / len(epoch_durations)
+                    restantes = max(progress["epoch_total"] - progress["epoch_atual"], 0)
+                    progress["eta_segundos"] = round(media * restantes)
+                registry.update_progress(task_id, progress)
         proc.stdout.close()
         ret = proc.wait()
         LOGGER.info("TASK %s finished exit_code=%s", task_id, ret)
