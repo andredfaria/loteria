@@ -1062,6 +1062,22 @@ function _loadUIState() {
   } catch (e) { return {}; }
 }
 
+function _formatCacheAge(seconds) {
+  if (seconds == null) return '';
+  if (seconds < 5) return 'agora';
+  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}min`;
+  return `${Math.floor(seconds / 3600)}h`;
+}
+
+function _cacheBadgeHtml(cacheInfo, onRefresh) {
+  if (!cacheInfo) return '';
+  return `<span style="font-size:0.62rem;color:var(--dim);display:inline-flex;align-items:center;gap:0.3rem;white-space:nowrap">
+    🕓 atualizado há ${_formatCacheAge(cacheInfo.age_seconds)}
+    <button class="action-btn" onclick="${onRefresh}" title="Forçar atualização (ignora cache)" style="font-size:0.6rem;padding:0.05rem 0.35rem;line-height:1.4">↻</button>
+  </span>`;
+}
+
 function _saveUIState(patch) {
   try {
     const atual = _loadUIState();
@@ -1613,7 +1629,7 @@ function renderPredictions(groups) {
 // ═══════════════════════════════════════════════════════════════
 // DADOS — COMPLETE REFACTOR
 // ═══════════════════════════════════════════════════════════════
-async function renderDados() {
+async function renderDados(refreshFreq = false) {
   const section = document.getElementById('numbersSection');
   section.innerHTML = '';
 
@@ -1633,7 +1649,7 @@ async function renderDados() {
   try {
     const [r, freqR, atrasoR] = await Promise.all([
       fetch(`/api/dados?page=${page}&per_page=${perPage}`),
-      fetch('/api/dados/frequencia'),
+      fetch(`/api/dados/frequencia${refreshFreq ? '?refresh=1' : ''}`),
       fetch('/api/dados/atraso'),
     ]);
     const d = await r.json();
@@ -1676,9 +1692,12 @@ async function renderDados() {
       const avgF = freqData.expected_avg || 0;
       const freqDiv = document.createElement('div');
       freqDiv.style.cssText = 'margin-bottom:0.75rem;padding:0.75rem;background:var(--surface);border-radius:8px;border:1px solid var(--border)';
-      let fHtml = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem">
+      let fHtml = `<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.4rem;margin-bottom:0.5rem">
         <span style="font-size:0.72rem;font-weight:600;color:var(--text)">Frequência histórica — ${freqData.total_draws} sorteios</span>
-        <span style="font-size:0.65rem;color:var(--dim)">esperado: ${avgF}x · max: ${maxF}x · min: ${minF}x</span>
+        <span style="display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap">
+          <span style="font-size:0.65rem;color:var(--dim)">esperado: ${avgF}x · max: ${maxF}x · min: ${minF}x</span>
+          ${_cacheBadgeHtml(freqData.cache_info, 'renderDados(true)')}
+        </span>
       </div><div style="display:flex;gap:3px;flex-wrap:nowrap;overflow-x:auto">`;
       for (let n = 1; n <= 25; n++) {
         const f = freq[n] || 0;
@@ -2000,12 +2019,12 @@ function _recalcValidacao() {
   renderValidacao();
 }
 
-async function renderValidacao() {
+async function renderValidacao(refresh = false) {
   const grid = document.getElementById('numbersSection');
   grid.innerHTML = '<div class="empty-state"><span class="big-icon">⏳</span><p>Carregando...</p></div>';
   try {
     const [qualityResp, trendResp, lbResp, alertsResp] = await Promise.all([
-      fetch(`/api/models/quality?last_n=${STATE.validacaoLastN}`),
+      fetch(`/api/models/quality?last_n=${STATE.validacaoLastN}${refresh ? '&refresh=1' : ''}`),
       fetch('/api/models/trend'),
       fetch('/api/leaderboard'),
       fetch('/api/alerts'),
@@ -2043,7 +2062,10 @@ async function renderValidacao() {
     }
     if (quality.models?.length) {
       html += `<div style="grid-column:1/-1;margin-top:0.75rem">
-        <div class="health-title" style="margin-bottom:0.5rem">QUALIDADE POR ABORDAGEM</div>
+        <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.5rem">
+          <div class="health-title" style="margin:0">QUALIDADE POR ABORDAGEM</div>
+          ${_cacheBadgeHtml(quality.cache_info, 'renderValidacao(true)')}
+        </div>
         <div class="models-grid">`;
       const sortedQ = [...quality.models].sort((a,b) => (b.mean_hits||0) - (a.mean_hits||0));
       for (const [qi, q] of sortedQ.entries()) {
@@ -2294,6 +2316,8 @@ const _predState = {
   listaBusca: '',
   expandedModelId: null,
   listaPage: 0,
+  modelosLoaded: false,
+  qualidadeCacheInfo: null,
 };
 const LISTA_PAGE_SIZE = 10;
 
@@ -2325,7 +2349,12 @@ function renderModelosPage() {
         <div id="mod-historico" class="modelos-page-panel${_predState.activeSubTab==='historico'?' active':''}"></div>
       </div>
     </div>`;
-  _renderActiveModSubTab();
+  if (!_predState.modelosLoaded && ['lista', 'gerar', 'comparar'].includes(_predState.activeSubTab)) {
+    const panel = document.getElementById(`mod-${_predState.activeSubTab}`);
+    if (panel) panel.innerHTML = `<div style="color:var(--muted);font-size:0.78rem;padding:1rem 0">⏳ Carregando modelos…</div>`;
+  } else {
+    _renderActiveModSubTab();
+  }
   loadModelosAndRender();
 }
 
@@ -2558,9 +2587,11 @@ async function loadModelosAndRender() {
     ]);
     _predState.modelos = Array.isArray(treinosRes) ? treinosRes : [];
     _predState.qualidade = qualRes.models || [];
+    _predState.qualidadeCacheInfo = qualRes.cache_info || null;
     _predState.lastConcurso = statusRes?.last_concurso?.concurso || 0;
     _predState.lastDraw = statusRes?.last_concurso || null;
     _predState.lastUpdatedAt = Date.now();
+    _predState.modelosLoaded = true;
     _updateListaBadge();
     const t = _predState.activeSubTab;
     if (t === 'lista')    renderModLista();
@@ -2614,6 +2645,7 @@ function renderModLista() {
   html += `<div class="modelos-qualidade-section">
     <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.5rem">
       <div class="modelos-section-title" style="margin:0">Qualidade — Backtest</div>
+      ${_cacheBadgeHtml(_predState.qualidadeCacheInfo, '_recalcBacktest(true)')}
       <div style="display:flex;align-items:center;gap:0.3rem;margin-left:auto">
         <label style="font-size:0.68rem;color:var(--muted)">Últimos</label>
         <input type="number" id="backtestLastN" value="${_predState.backtestLastN}" min="10" max="500"
@@ -2901,16 +2933,17 @@ async function _limparFalhas() {
   await loadModelosAndRender();
 }
 
-async function _recalcBacktest() {
+async function _recalcBacktest(refresh = false) {
   const input = document.getElementById('backtestLastN');
   const val = input ? parseInt(input.value) : 120;
   if (!isNaN(val) && val >= 10 && val <= 500) {
     _predState.backtestLastN = val;
   }
   try {
-    const res = await fetch(`/api/models/quality?last_n=${_predState.backtestLastN}`);
+    const res = await fetch(`/api/models/quality?last_n=${_predState.backtestLastN}${refresh ? '&refresh=1' : ''}`);
     const data = await res.json();
     _predState.qualidade = data.models || [];
+    _predState.qualidadeCacheInfo = data.cache_info || null;
   } catch(e) { _predState.qualidade = []; }
   renderModLista();
 }
@@ -3193,7 +3226,10 @@ function renderPredComparar() {
   if (!panel) return;
   const completed = (_predState.modelos||[]).filter(m => m.status==='completed');
   panel.innerHTML = `
-    <h3 style="font-size:0.85rem;font-weight:600;margin-bottom:0.75rem">Comparar Treinos</h3>
+    <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.75rem">
+      <h3 style="font-size:0.85rem;font-weight:600;margin:0">Comparar Treinos</h3>
+      ${_cacheBadgeHtml(_predState.qualidadeCacheInfo, '_recalcBacktest().then(()=>renderPredComparar())')}
+    </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:1rem;align-items:end">
       <div class="pred-param">
         <label>Modelo A</label>

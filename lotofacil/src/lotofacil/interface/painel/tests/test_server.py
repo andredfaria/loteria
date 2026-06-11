@@ -171,6 +171,34 @@ def test_api_models_quality_returns_models_key(client):
     assert isinstance(data["models"], list)
 
 
+def test_api_models_quality_inclui_cache_info(client):
+    resp = client.get("/api/models/quality?last_n=50")
+    assert resp.status_code == 200
+    cache_info = resp.get_json()["cache_info"]
+    assert cache_info["age_seconds"] == 0
+    assert cache_info["ttl_seconds"] == server_module._QUALITY_TTL
+    assert "cached_at" in cache_info
+
+    cached_resp = client.get("/api/models/quality?last_n=50")
+    assert cached_resp.get_json()["cache_info"]["age_seconds"] >= 0
+
+    refreshed = client.get("/api/models/quality?last_n=50&refresh=1")
+    assert refreshed.get_json()["cache_info"]["age_seconds"] == 0
+
+
+def test_api_dados_frequencia_inclui_cache_info(client):
+    resp = client.get("/api/dados/frequencia")
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert "frequency" in data
+    cache_info = data["cache_info"]
+    assert cache_info["ttl_seconds"] == server_module._FREQ_TTL
+    assert cache_info["age_seconds"] == 0
+
+    refreshed = client.get("/api/dados/frequencia?refresh=1")
+    assert refreshed.get_json()["cache_info"]["age_seconds"] == 0
+
+
 def test_api_treinos_iniciar_returns_ids(client, monkeypatch):
     import threading
     monkeypatch.setattr(threading, "Thread", lambda *a, **kw: type("T", (), {"start": lambda s: None})())

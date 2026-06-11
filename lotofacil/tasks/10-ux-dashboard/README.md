@@ -95,7 +95,7 @@ pytest src/lotofacil/interface/painel/tests/ -v
   visível; endpoint testado.
 - **Commit:** `feat(painel): grafico de acertos por modelo vs baseline`
 
-### - [ ] 07 — Indicadores de frescor de cache e loading states
+### - [x] 07 — Indicadores de frescor de cache e loading states
 
 - **Objetivo:** o usuário sabe quando o dado é cacheado e quando algo está carregando.
 - **Descrição:** cards servidos por cache (`/api/models/quality` TTL 120s,

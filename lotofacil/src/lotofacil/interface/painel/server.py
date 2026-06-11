@@ -12,7 +12,7 @@ import uuid
 import hmac
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import numpy as np
 import secrets
@@ -76,6 +76,15 @@ _predicao_proxima_cache: dict = {}  # {"data": {...}, "ts": float}
 _PREDICAO_PROXIMA_TTL = 60       # 1 minute
 _SRC = Path(__file__).resolve().parent.parent.parent.parent.parent / "src"
 _LOTOFACIL_BIN = str(Path(sys.executable).parent / "lotofacil")
+
+
+def _cache_info(ts: float, ttl: int) -> dict:
+    """Metadados de frescor de cache para o frontend (selo "atualizado há Xs")."""
+    return {
+        "cached_at": datetime.fromtimestamp(ts, tz=timezone.utc).isoformat(),
+        "age_seconds": max(0, round(time.time() - ts)),
+        "ttl_seconds": ttl,
+    }
 
 
 def _strip_ansi(text: str) -> str:
@@ -893,12 +902,14 @@ def api_models_status():
 def api_models_quality():
     last_n = request.args.get("last_n", default=120, type=int)
     last_n = max(10, min(last_n or 120, 500))
+    refresh = request.args.get("refresh", default="0") == "1"
     cached = _quality_cache.get(last_n)
-    if cached and (time.time() - cached["ts"]) < _QUALITY_TTL:
-        return jsonify(cached["data"])
+    if cached and not refresh and (time.time() - cached["ts"]) < _QUALITY_TTL:
+        return jsonify({**cached["data"], "cache_info": _cache_info(cached["ts"], _QUALITY_TTL)})
     result = _build_quality_payload(window_size=last_n)
-    _quality_cache[last_n] = {"data": result, "ts": time.time()}
-    return jsonify(result)
+    ts = time.time()
+    _quality_cache[last_n] = {"data": result, "ts": ts}
+    return jsonify({**result, "cache_info": _cache_info(ts, _QUALITY_TTL)})
 
 
 def _invalidate_quality_cache() -> None:
@@ -977,8 +988,9 @@ def api_dados():
 
 @app.route("/api/dados/frequencia")
 def api_dados_frequencia():
-    if _freq_cache and (time.time() - _freq_cache.get("ts", 0)) < _FREQ_TTL:
-        return jsonify(_freq_cache["data"])
+    refresh = request.args.get("refresh", default="0") == "1"
+    if _freq_cache and not refresh and (time.time() - _freq_cache.get("ts", 0)) < _FREQ_TTL:
+        return jsonify({**_freq_cache["data"], "cache_info": _cache_info(_freq_cache["ts"], _FREQ_TTL)})
     freq: dict[int, int] = {i: 0 for i in range(1, 26)}
     total = 0
     for f in sorted(DADOS_DIR.glob("concurso_*.json"), key=_concurso_num):
@@ -993,9 +1005,10 @@ def api_dados_frequencia():
             pass
     avg = round((total * 15) / 25, 1) if total else 0
     result = {"frequency": freq, "total_draws": total, "expected_avg": avg}
+    ts = time.time()
     _freq_cache["data"] = result
-    _freq_cache["ts"] = time.time()
-    return jsonify(result)
+    _freq_cache["ts"] = ts
+    return jsonify({**result, "cache_info": _cache_info(ts, _FREQ_TTL)})
 
 
 @app.route("/api/dados/atraso")
