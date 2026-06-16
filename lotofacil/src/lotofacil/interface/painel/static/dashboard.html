@@ -57,6 +57,31 @@
   .sidebar .tab:hover { background: rgba(255,255,255,0.05); color: var(--text); }
   .sidebar .tab.active { background: var(--accent-dim); color: var(--accent); font-weight: 600; }
   .sidebar .tab .icon { font-size: 1.1rem; width: 1.5rem; text-align: center; flex-shrink: 0; }
+  .sidebar .separator {
+    height: 1px; background: var(--border);
+    margin: 0.4rem 0.5rem; flex-shrink: 0;
+  }
+  .sidebar .advanced-toggle {
+    display: flex; align-items: center; gap: 0.6rem;
+    padding: 0.65rem 0.75rem; border-radius: var(--radius);
+    font-size: 0.82rem; cursor: pointer; transition: all var(--transition);
+    color: var(--muted); border: none; background: none; text-align: left;
+    white-space: nowrap; font-weight: 500; width: 100%;
+  }
+  .sidebar .advanced-toggle:hover { background: rgba(255,255,255,0.05); color: var(--text); }
+  .sidebar .advanced-toggle .icon { font-size: 1.1rem; width: 1.5rem; text-align: center; flex-shrink: 0; }
+  .sidebar .advanced-toggle .arrow { margin-left: auto; font-size: 0.7rem; transition: transform var(--transition); }
+  .sidebar .advanced-toggle.open .arrow { transform: rotate(90deg); }
+  .sidebar .sub-tab {
+    display: flex; align-items: center; gap: 0.6rem;
+    padding: 0.5rem 0.75rem 0.5rem 2.2rem;
+    border-radius: var(--radius); font-size: 0.78rem; cursor: pointer;
+    transition: all var(--transition); color: var(--dim);
+    border: none; background: none; text-align: left; white-space: nowrap; font-weight: 500;
+  }
+  .sidebar .sub-tab:hover { background: rgba(255,255,255,0.04); color: var(--muted); }
+  .sidebar .sub-tab.active { background: var(--accent-dim); color: var(--accent); font-weight: 600; }
+  .sidebar .sub-tab .icon { font-size: 0.95rem; width: 1.25rem; text-align: center; flex-shrink: 0; }
 
   /* Main */
   .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
@@ -912,6 +937,7 @@ const STATE = {
   dadosClimaFilter: 'todos',
   dadosLuaFilter: 'todos',
   validacaoLastN: 120,
+  advancedOpen: localStorage.getItem('sidebar_advanced_open') === 'true',
 };
 
 // ── Ball frequency coloring ────────────────────────────────────
@@ -1063,23 +1089,59 @@ function migrateLegacyConsoleSchema() {
 // SIDEBAR
 // ═══════════════════════════════════════════════════════════════
 const CATEGORIES = [
-  { id: 'coleta',    icon: '📥', label: 'Coleta' },
-  { id: 'dados',     icon: '🗃️', label: 'Dados' },
-  { id: 'modelos',   icon: '🧠', label: 'Modelos' },
+  { id: 'coleta',  icon: '📥', label: 'Coleta'  },
+  { id: 'modelos', icon: '🧠', label: 'Modelos' },
+];
+
+const ADVANCED_CATEGORIES = [
+  { id: 'dados',     icon: '🗃️', label: 'Dados'     },
   { id: 'validacao', icon: '✅', label: 'Validação' },
-  { id: 'roi_lab',   icon: '🧪', label: 'ROI Lab' },
+  { id: 'roi_lab',   icon: '🧪', label: 'ROI Lab'   },
 ];
 
 function buildSidebar() {
   const el = document.getElementById('sidebar');
   el.innerHTML = '';
+
+  // Core tabs
   for (const cat of CATEGORIES) {
     const btn = document.createElement('button');
     btn.className = 'tab' + (cat.id === STATE.activeTab ? ' active' : '');
+    btn.dataset.tabId = cat.id;
     btn.innerHTML = `<span class="icon">${cat.icon}</span><span class="label">${cat.label}</span>`;
     btn.onclick = () => switchTab(cat.id);
     el.appendChild(btn);
   }
+
+  // Separator
+  const sep = document.createElement('div');
+  sep.className = 'separator';
+  el.appendChild(sep);
+
+  // Avançado toggle
+  const toggle = document.createElement('button');
+  toggle.className = 'advanced-toggle' + (STATE.advancedOpen ? ' open' : '');
+  toggle.id = 'advancedToggle';
+  toggle.innerHTML = `<span class="icon">⚙️</span><span class="label">Avançado</span><span class="arrow">▶</span>`;
+  toggle.onclick = () => {
+    STATE.advancedOpen = !STATE.advancedOpen;
+    localStorage.setItem('sidebar_advanced_open', STATE.advancedOpen);
+    buildSidebar();
+  };
+  el.appendChild(toggle);
+
+  // Sub-items (only when open)
+  if (STATE.advancedOpen) {
+    for (const cat of ADVANCED_CATEGORIES) {
+      const btn = document.createElement('button');
+      btn.className = 'sub-tab' + (cat.id === STATE.activeTab ? ' active' : '');
+      btn.dataset.tabId = cat.id;
+      btn.innerHTML = `<span class="icon">${cat.icon}</span><span class="label">${cat.label}</span>`;
+      btn.onclick = () => switchTab(cat.id);
+      el.appendChild(btn);
+    }
+  }
+
   buildBottomNav();
 }
 
@@ -1087,9 +1149,11 @@ function buildBottomNav() {
   const el = document.getElementById('bottomNav');
   if (!el) return;
   el.innerHTML = '';
-  for (const cat of CATEGORIES) {
+  const allCats = [...CATEGORIES, ...ADVANCED_CATEGORIES];
+  for (const cat of allCats) {
     const btn = document.createElement('button');
     btn.className = 'bn-tab' + (cat.id === STATE.activeTab ? ' active' : '');
+    btn.dataset.tabId = cat.id;
     btn.innerHTML = `<span class="bn-icon">${cat.icon}</span><span>${cat.label}</span>`;
     btn.onclick = () => switchTab(cat.id);
     el.appendChild(btn);
@@ -1099,12 +1163,18 @@ function buildBottomNav() {
 function switchTab(id) {
   STATE.activeTab = id;
   _updatePageTitle?.();
-  document.querySelectorAll('.sidebar .tab').forEach((el, i) => {
-    el.classList.toggle('active', CATEGORIES[i].id === id);
+
+  // Atualizar classes da sidebar (tabs core + sub-tabs)
+  document.querySelectorAll('.sidebar .tab').forEach(el => {
+    el.classList.toggle('active', el.dataset.tabId === id);
   });
-  document.querySelectorAll('.bottom-nav .bn-tab').forEach((el, i) => {
-    el.classList.toggle('active', CATEGORIES[i].id === id);
+  document.querySelectorAll('.sidebar .sub-tab').forEach(el => {
+    el.classList.toggle('active', el.dataset.tabId === id);
   });
+  document.querySelectorAll('.bottom-nav .bn-tab').forEach(el => {
+    el.classList.toggle('active', el.dataset.tabId === id);
+  });
+
   const cs = document.querySelector('.content-split');
   cs.classList.toggle('dados-mode', id === 'dados');
 
