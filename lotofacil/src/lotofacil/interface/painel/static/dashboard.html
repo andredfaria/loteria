@@ -113,13 +113,10 @@
   /* Content area */
   .content-split { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
 
-  /* Dados mode: full-height */
-  .content-split.dados-mode .numbers-section { flex: 1; border-bottom: none; max-height: none; }
-
   /* Numbers section (dados tab) */
   .numbers-section {
-    padding: 0; border-bottom: 1px solid var(--border);
-    flex-shrink: 0; max-height: 50%; overflow-y: auto;
+    padding: 0;
+    flex: 1; overflow-y: auto;
     background: var(--bg);
   }
   .dados-header {
@@ -1288,9 +1285,6 @@ function switchTab(id) {
     el.classList.toggle('active', el.dataset.tabId === id);
   });
 
-  const cs = document.querySelector('.content-split');
-  cs.classList.toggle('dados-mode', id === 'dados');
-
   const numSec = document.getElementById('numbersSection');
   const bar = document.getElementById('actionsBar');
   const tabModelos = document.getElementById('tab-modelos');
@@ -1400,6 +1394,7 @@ async function runCommand(actionId) {
       updateButtonState(actionId, false);
       return;
     }
+    openConsole();
     listenJob(data.task_id, actionId, label);
   } catch (e) {
     logClient('error', 'Erro de conexão ao gerar comando', { actionId, error: e.message });
@@ -1412,7 +1407,6 @@ async function runCommand(actionId) {
 }
 
 function listenJob(taskId, actionId, label) {
-  openConsole();
   const es = new EventSource(`/api/jobs/${taskId}/stream`);
 
   es.onmessage = (e) => {
