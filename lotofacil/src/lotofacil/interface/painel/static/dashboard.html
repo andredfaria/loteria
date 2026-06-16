@@ -596,6 +596,47 @@
   .modelos-page-panel { display:none; padding:1.25rem 1.5rem; }
   .modelos-page-panel.active { display:block; }
 
+  .modelos-two-sections { display: flex; flex-direction: column; }
+  .modelos-section-block {
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .modelos-section-block:last-child { border-bottom: none; }
+  .modelos-section-block-title {
+    font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.07em;
+    color: var(--dim); font-weight: 700; margin-bottom: 1.25rem;
+    display: flex; align-items: center; gap: 0.5rem;
+  }
+  .modelos-section-block-title::after {
+    content: ''; flex: 1; height: 1px; background: var(--border);
+  }
+  .modelos-gerar-select {
+    width: 100%; background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 0.5rem 0.75rem;
+    color: var(--text); font-size: 0.82rem; margin-bottom: 0.75rem;
+    cursor: pointer;
+  }
+  .modelos-gerar-select:focus { border-color: var(--accent); outline: none; }
+  .modelos-gerar-result {
+    margin-top: 1rem; padding: 1rem;
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: var(--radius); display: none;
+  }
+  .modelos-gerar-result.visible { display: block; }
+  .modelos-gerar-result .result-balls {
+    display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.5rem;
+  }
+  .modelos-gerar-result .result-ball {
+    width: 30px; height: 30px; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 0.72rem; font-weight: 700;
+    background: var(--surface); border: 2px solid var(--border);
+    color: var(--text); font-variant-numeric: tabular-nums;
+  }
+  .modelos-gerar-result .result-ball.hit {
+    border-color: var(--green); background: rgba(74,222,128,0.15); color: var(--green);
+  }
+
   .modelos-qualidade-section { margin-bottom:2rem; }
   .modelos-section-title {
     font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em;
@@ -2219,26 +2260,162 @@ function renderModelosPage() {
     <div class="modelos-page">
       <div class="modelos-page-header">
         <span class="modelos-page-title">🧠 Modelos</span>
-        <div class="pred-subnav-inline" id="modelosSubnav">
-          ${['treinar','lista','gerar','comparar','historico'].map(t =>
-            `<button class="pred-tab-btn${_predState.activeSubTab===t?' active':''}"
-               onclick="showModelosSubTab('${t}')">${_subTabLabel(t)}</button>`
-          ).join('')}
-        </div>
         <span id="modelosLastUpdated" style="font-size:0.62rem;color:var(--dim);margin-left:auto"></span>
         <button class="action-btn" onclick="loadModelosAndRender()"
           style="font-size:0.72rem;padding:0.25rem 0.6rem">↻ Atualizar</button>
       </div>
       <div class="modelos-page-body">
-        <div id="mod-treinar"   class="modelos-page-panel${_predState.activeSubTab==='treinar'  ?' active':''}"></div>
-        <div id="mod-lista"     class="modelos-page-panel${_predState.activeSubTab==='lista'    ?' active':''}"></div>
-        <div id="mod-gerar"     class="modelos-page-panel${_predState.activeSubTab==='gerar'    ?' active':''}"></div>
-        <div id="mod-comparar"  class="modelos-page-panel${_predState.activeSubTab==='comparar' ?' active':''}"></div>
-        <div id="mod-historico" class="modelos-page-panel${_predState.activeSubTab==='historico'?' active':''}"></div>
+        <div class="modelos-two-sections">
+          <div class="modelos-section-block">
+            <div class="modelos-section-block-title">Treinar</div>
+            <div id="mod-treinar-inline"></div>
+            <div id="mod-lista-inline" style="margin-top:1.25rem"></div>
+          </div>
+          <div class="modelos-section-block">
+            <div class="modelos-section-block-title">Gerar Jogo</div>
+            <div id="mod-gerar-inline"></div>
+          </div>
+        </div>
       </div>
     </div>`;
-  _renderActiveModSubTab();
+  _renderModelosTreinar();
+  _renderModelosGerar();
   loadModelosAndRender();
+}
+
+function _renderModelosTreinar() {
+  const panel = document.getElementById('mod-treinar-inline');
+  if (!panel) return;
+  const tmp = document.createElement('div');
+  tmp.id = 'mod-treinar';
+  tmp.style.display = 'none';
+  document.body.appendChild(tmp);
+  renderModTreinar();
+  panel.innerHTML = tmp.innerHTML;
+  tmp.remove();
+}
+
+function _renderModelosGerar() {
+  const panel = document.getElementById('mod-gerar-inline');
+  if (!panel) return;
+  const modelos = (_predState.modelos || []).filter(m => m.status === 'completed');
+
+  if (!modelos.length) {
+    panel.innerHTML = `<div class="empty-state" style="padding:1.5rem 0">
+      <span class="big-icon">🧠</span>
+      <p>Nenhum modelo treinado ainda. Treine um modelo acima primeiro.</p>
+    </div>`;
+    return;
+  }
+
+  const options = modelos.map(m =>
+    `<option value="${esc(m.id)}">${esc(m.nome || m.id)} — ${esc(m.tipo_config || '')}</option>`
+  ).join('');
+
+  panel.innerHTML = `
+    <p style="font-size:0.75rem;color:var(--muted);margin-bottom:0.75rem;line-height:1.5">
+      Selecione um modelo concluído, defina quantos jogos gerar e clique em Gerar.
+    </p>
+    <select id="gerarModeloSelect" class="modelos-gerar-select">
+      <option value="">— Selecione um modelo —</option>
+      ${options}
+    </select>
+    <div style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-bottom:0.75rem">
+      <div class="pred-param" style="flex:0 0 auto">
+        <label>Jogos</label>
+        <input type="number" id="gerarNJogos" value="1" min="1" max="20"
+          style="width:64px">
+      </div>
+      <div class="pred-param" style="flex:0 0 auto">
+        <label>Números</label>
+        <select id="gerarNNumeros"
+          style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:0.35rem 0.5rem;color:var(--text);font-size:0.82rem">
+          <option value="15" selected>15</option>
+          <option value="11">11</option>
+        </select>
+      </div>
+    </div>
+    <button class="modelos-treinar-btn" id="gerarJogoBtn" onclick="_gerarJogoInline()">⚡ Gerar</button>
+    <div id="gerarJogoResult" class="modelos-gerar-result"></div>
+    <div class="pred-warning" style="margin-top:1rem">⚠️ Resultados experimentais — não garantem acertos futuros.</div>
+  `;
+}
+
+async function _gerarJogoInline() {
+  const modeloId = document.getElementById('gerarModeloSelect')?.value;
+  if (!modeloId) { showToast('Selecione um modelo primeiro.', 'warn'); return; }
+  const nJogos = parseInt(document.getElementById('gerarNJogos')?.value) || 1;
+  const nNumeros = parseInt(document.getElementById('gerarNNumeros')?.value) || 15;
+  const btn = document.getElementById('gerarJogoBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Gerando...'; }
+
+  try {
+    const r = await fetch(`/api/treinos/${modeloId}/gerar`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ n_jogos: nJogos, n_numeros: nNumeros }),
+    });
+    const data = await r.json();
+    if (data.error) throw new Error(data.error);
+
+    const resultEl = document.getElementById('gerarJogoResult');
+    if (!resultEl) return;
+
+    const realSet = new Set(data.dezenas_reais || []);
+    let html = `<div style="font-size:0.72rem;color:var(--muted);margin-bottom:0.5rem">
+      Concurso alvo: <b style="color:var(--text)">#${data.concurso}</b>
+      ${data.dezenas_reais ? ` · Resultado já disponível` : ''}
+    </div>`;
+
+    (data.jogos || []).forEach((jogo, i) => {
+      const acertos = data.acertos_por_jogo?.[i];
+      html += `<div style="margin-bottom:0.6rem">`;
+      if (data.jogos.length > 1) {
+        html += `<div style="font-size:0.68rem;color:var(--dim);margin-bottom:0.25rem">Jogo ${i+1}${acertos !== undefined ? ` · ${acertos} acertos` : ''}</div>`;
+      }
+      html += `<div class="result-balls">`;
+      html += jogo.map(n => {
+        const isHit = realSet.has(n);
+        return `<span class="result-ball${isHit ? ' hit' : ''}">${String(n).padStart(2,'0')}</span>`;
+      }).join('');
+      html += `</div></div>`;
+    });
+
+    resultEl.innerHTML = html;
+    resultEl.classList.add('visible');
+    showToast(`${nJogos} jogo(s) gerado(s) com sucesso`, 'success');
+  } catch (e) {
+    showToast(`Erro: ${e.message}`, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '⚡ Gerar'; }
+  }
+}
+
+function _renderModelosListaInline() {
+  const panel = document.getElementById('mod-lista-inline');
+  if (!panel) return;
+  const modelos = _predState.modelos || [];
+  if (!modelos.length) {
+    panel.innerHTML = '';
+    return;
+  }
+  const running = modelos.filter(m => m.status === 'running');
+  const done = modelos.filter(m => m.status !== 'running').slice(0, 5);
+  let html = `<div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--dim);margin-bottom:0.5rem">Treinos recentes</div>`;
+  for (const m of [...running, ...done]) {
+    const statusColor = m.status === 'completed' ? 'var(--green)' : m.status === 'running' ? 'var(--yellow)' : m.status === 'failed' ? 'var(--red)' : 'var(--muted)';
+    const statusIcon = m.status === 'completed' ? '✅' : m.status === 'running' ? '⏳' : m.status === 'failed' ? '❌' : '○';
+    html += `<div style="display:flex;align-items:center;gap:0.5rem;padding:0.4rem 0;border-bottom:1px solid var(--border-light);font-size:0.78rem">
+      <span>${statusIcon}</span>
+      <span style="flex:1;font-weight:500">${esc(m.nome || m.id)}</span>
+      <span style="color:var(--dim);font-size:0.7rem">${esc(m.tipo_config || '')}</span>
+      <span style="color:${statusColor};font-size:0.7rem">${esc(m.status)}</span>
+    </div>`;
+  }
+  if (modelos.length > 5) {
+    html += `<div style="font-size:0.7rem;color:var(--dim);padding-top:0.4rem">+${modelos.length - 5} mais</div>`;
+  }
+  panel.innerHTML = html;
 }
 
 function showModelosSubTab(name) {
@@ -2418,6 +2595,11 @@ async function loadModelosAndRender() {
     if (t === 'lista')    renderModLista();
     if (t === 'gerar')    renderPredGerar();
     if (t === 'comparar') renderPredComparar();
+    // Re-renderizar seções inline se estiver na aba Modelos
+    if (STATE.activeTab === 'modelos') {
+      _renderModelosListaInline();
+      _renderModelosGerar();
+    }
     const hasRunning = _predState.modelos.some(m => m.status === 'running');
     if (!hasRunning && _predState.pollingInterval) {
       clearInterval(_predState.pollingInterval); _predState.pollingInterval = null;
