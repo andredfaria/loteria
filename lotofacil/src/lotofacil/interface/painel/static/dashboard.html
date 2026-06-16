@@ -995,6 +995,7 @@ function _handle401(resp) {
 // STATE
 // ═══════════════════════════════════════════════════════════════
 const CONSOLE_LEVELS = ['info', 'success', 'warn', 'error', 'cmd'];
+const LS_KEY_SIDEBAR_ADVANCED = 'sidebar_advanced_open';
 
 const STATE = {
   activeTab: 'coleta',
@@ -1065,7 +1066,6 @@ const CONSOLE_MAX = 150;
 const CONSOLE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const LS_KEY = 'lotofacil_console_v2';
 const LS_KEY_LEGACY = 'lotofacil_console_v1';
-const LS_KEY_SIDEBAR_ADVANCED = 'sidebar_advanced_open';
 const CONSOLE_SCHEMA_VERSION = 2;
 
 
@@ -1377,6 +1377,7 @@ async function runCommand(actionId) {
   }
   STATE.runningTasks.add(actionId);
   _updateConsoleTrigger();
+  openConsole();
   updateButtonState(actionId, true);
   addConsoleLine(`▶ Executando: ${label}`, 'cmd');
   addConsoleLine('', 'sep');
@@ -1394,7 +1395,6 @@ async function runCommand(actionId) {
       updateButtonState(actionId, false);
       return;
     }
-    openConsole();
     listenJob(data.task_id, actionId, label);
   } catch (e) {
     logClient('error', 'Erro de conexão ao gerar comando', { actionId, error: e.message });
