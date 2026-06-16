@@ -286,27 +286,32 @@
     color: var(--text); font-size: 0.76rem; cursor: pointer;
   }
 
-  /* Console */
-  .console-section {
-    flex: 1; display: flex; flex-direction: column; overflow: hidden;
-    position: relative;
+  /* Console Lateral Panel */
+  .console-panel {
+    position: fixed; top: var(--nav-h); right: 0; bottom: 0;
+    width: 35%; min-width: 320px; max-width: 560px;
+    background: var(--surface); border-left: 1px solid var(--border);
+    display: flex; flex-direction: column;
+    transform: translateX(100%); transition: transform 0.25s ease;
+    z-index: 80; box-shadow: -4px 0 24px rgba(0,0,0,0.3);
   }
-  .console-section .section-header {
+  .console-panel.open { transform: translateX(0); }
+  .console-panel .section-header {
     display: flex; align-items: center; gap: 0.5rem;
-    padding: 0.4rem 1.5rem; border-bottom: 1px solid var(--border);
+    padding: 0.5rem 1rem; border-bottom: 1px solid var(--border);
     flex-shrink: 0;
   }
-  .console-section .section-header h3 {
+  .console-panel .section-header h3 {
     font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;
     color: var(--dim); font-weight: 600;
   }
-  .console-section .section-header .clear-btn {
-    margin-left: auto; font-size: 0.7rem; color: var(--dim);
+  .console-panel .section-header .close-panel-btn {
+    margin-left: auto; font-size: 0.85rem; color: var(--dim);
     cursor: pointer; background: none; border: none; padding: 2px 6px;
     border-radius: 4px; transition: color var(--transition);
   }
-  .console-section .section-header .clear-btn:hover { color: var(--text); }
-  .console-controls { margin-left: auto; display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+  .console-panel .section-header .close-panel-btn:hover { color: var(--text); }
+  .console-controls { display: flex; gap: 0.35rem; align-items: center; flex-wrap: wrap; padding: 0.4rem 1rem; border-bottom: 1px solid var(--border); flex-shrink: 0; }
   .console-filter-btn {
     font-size: 0.67rem; border: 1px solid var(--border); background: var(--surface-2);
     color: var(--muted); border-radius: 999px; padding: 0.15rem 0.5rem; cursor: pointer;
@@ -315,7 +320,7 @@
   .console-filter-btn.active { color: var(--text); border-color: var(--accent); background: var(--accent-dim); }
   .console-filter-btn:hover { color: var(--text); }
   .console-output {
-    flex: 1; overflow-y: auto; padding: 0.75rem 1.5rem;
+    flex: 1; overflow-y: auto; padding: 0.75rem 1rem;
     font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
     font-size: 0.78rem; line-height: 1.6; background: #0b1120;
   }
@@ -326,6 +331,30 @@
   .console-output .line.warn { color: var(--yellow); }
   .console-output .line.error { color: var(--red); }
   .console-output .line.sep { border-top: 1px solid var(--border); margin: 0.5rem 0; padding-top: 0.5rem; }
+
+  /* Console trigger button */
+  .console-trigger {
+    position: fixed; bottom: 1.25rem; right: 1.25rem;
+    display: flex; align-items: center; gap: 0.4rem;
+    padding: 0.5rem 0.9rem; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 999px;
+    color: var(--muted); font-size: 0.78rem; font-family: inherit;
+    cursor: pointer; z-index: 70; transition: all var(--transition);
+    box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+  }
+  .console-trigger:hover { border-color: var(--accent); color: var(--accent); }
+  .console-trigger.has-running { border-color: var(--yellow); color: var(--yellow); animation: pulse-border 1.5s infinite; }
+  .console-badge {
+    display: none; background: var(--yellow); color: #000;
+    border-radius: 999px; padding: 0 5px; font-size: 0.65rem;
+    font-weight: 700; line-height: 1.5; min-width: 16px; text-align: center;
+  }
+  .console-badge.visible { display: inline-block; }
+
+  @media (max-width: 767px) {
+    .console-panel { width: 100%; min-width: unset; max-width: unset; top: 0; }
+    .console-trigger { bottom: calc(var(--bottom-nav-h) + 0.75rem); right: 0.75rem; }
+  }
 
   /* Modal */
   .modal-overlay {
@@ -816,26 +845,7 @@
         <!-- Populated dynamically by JS -->
       </div>
 
-      <!-- Console Section -->
-      <div class="console-section" id="consoleSection">
-        <div class="section-header">
-          <h3>📜 Console</h3>
-          <div class="console-controls" id="consoleControls">
-            <button class="console-filter-btn active" data-level="info" onclick="toggleLevelFilter('info')">info</button>
-            <button class="console-filter-btn active" data-level="success" onclick="toggleLevelFilter('success')">success</button>
-            <button class="console-filter-btn active" data-level="warn" onclick="toggleLevelFilter('warn')">warn</button>
-            <button class="console-filter-btn active" data-level="error" onclick="toggleLevelFilter('error')">error</button>
-            <button class="console-filter-btn active" data-level="cmd" onclick="toggleLevelFilter('cmd')">cmd</button>
-            <button class="console-filter-btn" id="autoscrollBtn" onclick="toggleAutoscroll()">⏸ autoscroll</button>
-            <button class="console-filter-btn" onclick="exportConsole('json')">⬇ json</button>
-            <button class="console-filter-btn" onclick="exportConsole('txt')">⬇ txt</button>
-            <button class="console-filter-btn" onclick="clearConsole()">✕ limpar</button>
-          </div>
-        </div>
-        <div class="console-output" id="consoleOutput">
-          <div class="line dim">Bem-vindo ao Lotofácil Dashboard. Selecione uma ação para começar.</div>
-        </div>
-      </div>
+      <!-- Console placeholder (empty — content moved to panel) -->
 
       <!-- Modelos Tab — populado por renderModelosPage() -->
       <div id="tab-modelos" style="display:none;flex:1;overflow:hidden;flex-direction:column"></div>
@@ -844,6 +854,33 @@
     </div>
   </div>
 </div>
+
+<!-- Console Lateral Panel -->
+<div id="consolePanel" class="console-panel">
+  <div class="section-header">
+    <h3>📜 Console</h3>
+    <button class="close-panel-btn" onclick="closeConsole()">✕</button>
+  </div>
+  <div class="console-controls" id="consoleControls">
+    <button class="console-filter-btn active" data-level="info" onclick="toggleLevelFilter('info')">info</button>
+    <button class="console-filter-btn active" data-level="success" onclick="toggleLevelFilter('success')">success</button>
+    <button class="console-filter-btn active" data-level="warn" onclick="toggleLevelFilter('warn')">warn</button>
+    <button class="console-filter-btn active" data-level="error" onclick="toggleLevelFilter('error')">error</button>
+    <button class="console-filter-btn active" data-level="cmd" onclick="toggleLevelFilter('cmd')">cmd</button>
+    <button class="console-filter-btn" id="autoscrollBtn" onclick="toggleAutoscroll()">⏸ autoscroll</button>
+    <button class="console-filter-btn" onclick="exportConsole('json')">⬇ json</button>
+    <button class="console-filter-btn" onclick="exportConsole('txt')">⬇ txt</button>
+    <button class="console-filter-btn" onclick="clearConsole()">✕ limpar</button>
+  </div>
+  <div class="console-output" id="consoleOutput">
+    <div class="line dim">Bem-vindo ao Lotofácil Dashboard. Selecione uma ação para começar.</div>
+  </div>
+</div>
+
+<!-- Console trigger button -->
+<button id="consoleTrigger" class="console-trigger" onclick="toggleConsole()">
+  ⌨ Log <span id="consoleBadge" class="console-badge"></span>
+</button>
 
 <!-- Modal de progresso de treino -->
 <div class="treino-modal-overlay" id="treinoModalOverlay">
@@ -1192,7 +1229,6 @@ function switchTab(id) {
 
   tabModelos.style.display = id === 'modelos' ? 'flex' : 'none';
   document.getElementById('tab-roi-lab').style.display = id === 'roi_lab' ? 'flex' : 'none';
-  document.getElementById('consoleSection').style.display = (id === 'modelos' || id === 'roi_lab') ? 'none' : '';
 
   if (id === 'dados') {
     numSec.style.display = '';
