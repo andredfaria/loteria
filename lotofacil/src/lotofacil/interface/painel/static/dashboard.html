@@ -974,6 +974,7 @@ const STATE = {
   dadosLuaFilter: 'todos',
   validacaoLastN: 120,
   advancedOpen: localStorage.getItem(LS_KEY_SIDEBAR_ADVANCED) === 'true',
+  consoleOpen: false,
 };
 
 // ── Ball frequency coloring ────────────────────────────────────
@@ -1029,6 +1030,33 @@ const LS_KEY_LEGACY = 'lotofacil_console_v1';
 const LS_KEY_SIDEBAR_ADVANCED = 'sidebar_advanced_open';
 const CONSOLE_SCHEMA_VERSION = 2;
 
+
+// ═══════════════════════════════════════════════════════════════
+// CONSOLE PANEL
+// ═══════════════════════════════════════════════════════════════
+function openConsole() {
+  STATE.consoleOpen = true;
+  document.getElementById('consolePanel')?.classList.add('open');
+}
+
+function closeConsole() {
+  STATE.consoleOpen = false;
+  document.getElementById('consolePanel')?.classList.remove('open');
+}
+
+function toggleConsole() {
+  STATE.consoleOpen ? closeConsole() : openConsole();
+}
+
+function _updateConsoleTrigger() {
+  const trigger = document.getElementById('consoleTrigger');
+  const badge = document.getElementById('consoleBadge');
+  if (!trigger || !badge) return;
+  const n = STATE.runningTasks.size;
+  trigger.classList.toggle('has-running', n > 0);
+  badge.textContent = n > 0 ? String(n) : '';
+  badge.classList.toggle('visible', n > 0);
+}
 
 // ═══════════════════════════════════════════════════════════════
 // LOGGING
@@ -1313,6 +1341,7 @@ async function runCommand(actionId) {
     }
   }
   STATE.runningTasks.add(actionId);
+  _updateConsoleTrigger();
   updateButtonState(actionId, true);
   addConsoleLine(`▶ Executando: ${label}`, 'cmd');
   addConsoleLine('', 'sep');
@@ -1326,6 +1355,7 @@ async function runCommand(actionId) {
     if (data.error) {
       addConsoleLine(`❌ ${data.error}`, 'error');
       STATE.runningTasks.delete(actionId);
+      _updateConsoleTrigger();
       updateButtonState(actionId, false);
       return;
     }
@@ -1334,12 +1364,14 @@ async function runCommand(actionId) {
     logClient('error', 'Erro de conexão ao gerar comando', { actionId, error: e.message });
     addConsoleLine(`❌ Erro de conexão: ${e.message}`, 'error');
     STATE.runningTasks.delete(actionId);
+    _updateConsoleTrigger();
     updateButtonState(actionId, false);
     showToast('Erro ao conectar ao servidor', 'error');
   }
 }
 
 function listenJob(taskId, actionId, label) {
+  openConsole();
   const es = new EventSource(`/api/jobs/${taskId}/stream`);
 
   es.onmessage = (e) => {
@@ -1352,6 +1384,7 @@ function listenJob(taskId, actionId, label) {
   es.addEventListener('done', (e) => {
     es.close();
     STATE.runningTasks.delete(actionId);
+    _updateConsoleTrigger();
     updateButtonState(actionId, false);
     addConsoleLine('', 'sep');
     let success = true;
@@ -1359,6 +1392,7 @@ function listenJob(taskId, actionId, label) {
     if (success) {
       addConsoleLine(`✅ ${label} concluído`, 'success');
       showToast(`${label} concluído com sucesso`, 'success');
+      setTimeout(() => { if (STATE.runningTasks.size === 0) closeConsole(); }, 3000);
     } else {
       addConsoleLine(`❌ ${label} falhou — veja o log acima`, 'error');
       showToast(`${label} falhou`, 'error');
@@ -1371,6 +1405,7 @@ function listenJob(taskId, actionId, label) {
   es.onerror = () => {
     es.close();
     STATE.runningTasks.delete(actionId);
+    _updateConsoleTrigger();
     updateButtonState(actionId, false);
     addConsoleLine(`⚠️ Conexão SSE interrompida para ${taskId}`, 'warn');
     showToast(`${label} — conexão interrompida`, 'warn');
