@@ -2283,7 +2283,10 @@ function renderModelosPage() {
   loadModelosAndRender();
 }
 
-function _renderModelosTreinar() {
+  // NOTE: This function uses a temporary DOM node trick.
+  // renderModTreinar() must only write to getElementById('mod-treinar').
+  // Do not add DOM reads to renderModTreinar() without updating this function.
+  function _renderModelosTreinar() {
   const panel = document.getElementById('mod-treinar-inline');
   if (!panel) return;
   const tmp = document.createElement('div');
@@ -2355,6 +2358,12 @@ async function _gerarJogoInline() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ n_jogos: nJogos, n_numeros: nNumeros }),
     });
+    if (!r.ok) {
+      let msg;
+      try { const d = await r.json(); msg = d.error || r.statusText; }
+      catch { msg = r.statusText; }
+      throw new Error(msg);
+    }
     const data = await r.json();
     if (data.error) throw new Error(data.error);
 
