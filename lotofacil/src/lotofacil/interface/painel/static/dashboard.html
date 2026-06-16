@@ -937,7 +937,7 @@ const STATE = {
   dadosClimaFilter: 'todos',
   dadosLuaFilter: 'todos',
   validacaoLastN: 120,
-  advancedOpen: localStorage.getItem('sidebar_advanced_open') === 'true',
+  advancedOpen: localStorage.getItem(LS_KEY_SIDEBAR_ADVANCED) === 'true',
 };
 
 // ── Ball frequency coloring ────────────────────────────────────
@@ -990,6 +990,7 @@ const CONSOLE_MAX = 150;
 const CONSOLE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const LS_KEY = 'lotofacil_console_v2';
 const LS_KEY_LEGACY = 'lotofacil_console_v1';
+const LS_KEY_SIDEBAR_ADVANCED = 'sidebar_advanced_open';
 const CONSOLE_SCHEMA_VERSION = 2;
 
 
@@ -1125,7 +1126,7 @@ function buildSidebar() {
   toggle.innerHTML = `<span class="icon">⚙️</span><span class="label">Avançado</span><span class="arrow">▶</span>`;
   toggle.onclick = () => {
     STATE.advancedOpen = !STATE.advancedOpen;
-    localStorage.setItem('sidebar_advanced_open', STATE.advancedOpen);
+    localStorage.setItem(LS_KEY_SIDEBAR_ADVANCED, STATE.advancedOpen);
     buildSidebar();
   };
   el.appendChild(toggle);
@@ -1163,6 +1164,13 @@ function buildBottomNav() {
 function switchTab(id) {
   STATE.activeTab = id;
   _updatePageTitle?.();
+
+  // Auto-expand Avançado if navigating to one of its children
+  if (ADVANCED_CATEGORIES.some(c => c.id === id) && !STATE.advancedOpen) {
+    STATE.advancedOpen = true;
+    localStorage.setItem(LS_KEY_SIDEBAR_ADVANCED, 'true');
+    buildSidebar();
+  }
 
   // Atualizar classes da sidebar (tabs core + sub-tabs)
   document.querySelectorAll('.sidebar .tab').forEach(el => {
