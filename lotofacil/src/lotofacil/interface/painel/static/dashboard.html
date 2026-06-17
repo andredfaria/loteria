@@ -4128,7 +4128,18 @@ function renderGeracao() {
         <div class="pred-warning" style="margin-top:0.7rem">⚠️ O fechamento controla a DISTRIBUIÇÃO de prêmios de uma aposta fixa, não o valor esperado (que segue negativo). A garantia é condicional às suas dezenas do pool serem sorteadas.</div>
       </div>
       <div id="gerFechResultado"></div>
+      <div style="margin-top:1.5rem;border-top:1px solid var(--border);padding-top:1rem">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem">
+          <span style="font-size:0.85rem;font-weight:700">🎲 Jogos Gerados por Modelos</span>
+          <button class="action-btn" onclick="switchTab('modelos');setTimeout(()=>showModelosSubTab('historico'),50)"
+            style="font-size:0.72rem;padding:0.25rem 0.6rem">📋 Ver histórico completo</button>
+        </div>
+        <div id="gerModelJogos">
+          <div style="color:var(--muted);font-size:0.78rem">Carregando jogos gerados…</div>
+        </div>
+      </div>
     </div>`;
+  carregarJogosGerados();
 }
 
 async function gerarFechamento() {
@@ -4182,6 +4193,77 @@ function _renderFechamentoResultado(d) {
         <div style="font-size:0.68rem;color:var(--muted);margin-top:0.7rem;line-height:1.4">${d.nota_ev}</div>
       </div>
     </div>`;
+}
+
+async function carregarJogosGerados() {
+  const div = document.getElementById('gerModelJogos');
+  if (!div) return;
+  try {
+    const r = await fetch('/api/jogos-gerados?limit=10');
+    if (!r.ok) throw new Error('Erro ao carregar');
+    const items = await r.json();
+    if (!Array.isArray(items) || items.length === 0) {
+      div.innerHTML = `<div style="padding:1.5rem 0;text-align:center;color:var(--muted);font-size:0.78rem">
+        Nenhum jogo gerado ainda. Use <b>Modelos → Gerar</b> para criar apostas a partir de um modelo treinado.</div>`;
+      return;
+    }
+
+    const totalJogos = items.reduce((s, item) => s + (Array.isArray(item.jogos) ? item.jogos.length : 0), 0);
+    const todosAcertos = items.flatMap(item => item.acertos_por_jogo || []);
+    const media = todosAcertos.length ? (todosAcertos.reduce((s, v) => s + v, 0) / todosAcertos.length).toFixed(1) : null;
+    const melhor = todosAcertos.length ? Math.max(...todosAcertos) : null;
+    const premiados = todosAcertos.filter(h => h >= 11).length;
+
+    let html = `<div style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:0.75rem">
+      <div style="font-size:0.72rem;color:var(--muted)">Gerações: <b style="color:var(--text)">${items.length}</b></div>
+      <div style="font-size:0.72rem;color:var(--muted)">Jogos: <b style="color:var(--text)">${totalJogos}</b></div>
+      ${media !== null ? `<div style="font-size:0.72rem;color:var(--muted)">Média acertos: <b style="color:var(--accent)">${media}</b></div>` : ''}
+      ${melhor !== null ? `<div style="font-size:0.72rem;color:var(--muted)">Melhor: <b style="color:var(--green)">${melhor}/15</b></div>` : ''}
+      ${premiados > 0 ? `<div style="font-size:0.72rem;color:var(--muted)">Premiados (11+): <b style="color:var(--green)">${premiados}</b></div>` : ''}
+    </div>`;
+
+    for (const item of items) {
+      const dt = item.criado_em ? new Date(item.criado_em).toLocaleString('pt-BR') : '—';
+      const jogosArr = Array.isArray(item.jogos) ? item.jogos : [];
+      const acertos = item.acertos_por_jogo || [];
+      const real = item.dezenas_reais;
+      const realSet = real ? new Set(real) : null;
+
+      html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:0.65rem 0.85rem;margin-bottom:0.5rem">
+        <div style="display:flex;align-items:center;flex-wrap:wrap;gap:0.3rem 0.75rem;margin-bottom:0.4rem">
+          <span style="font-size:0.72rem;font-weight:600;color:var(--accent)">${esc(item.treino_nome || item.treino_id)}</span>
+          <span style="font-size:0.68rem;color:var(--muted)">concurso ${item.concurso}</span>
+          <span style="font-size:0.62rem;color:var(--dim)">${dt}</span>
+        </div>`;
+
+      for (let i = 0; i < jogosArr.length; i++) {
+        const jogo = jogosArr[i];
+        if (!Array.isArray(jogo)) continue;
+        const hits = acertos[i];
+        const hasHits = hits != null;
+        const premio = hasHits && jogo.length === 15 ? _premioCat(hits) : null;
+        const badge = premio
+          ? `<span style="font-size:0.62rem;font-weight:600;color:${premio.color};margin-left:0.35rem">${hits}/15 — ${premio.label}</span>`
+          : hits !== undefined
+            ? `<span style="font-size:0.62rem;color:var(--dim);margin-left:0.35rem">${hits}/15</span>`
+            : '';
+        const balls = jogo.map(n => {
+          const isHit = realSet && realSet.has(n);
+          const style = real ? (isHit ? 'outline:2px solid var(--green);opacity:1' : 'opacity:0.35') : '';
+          return `<span class="ball ${_ballClass(n)}" style="${style}">${String(n).padStart(2,'0')}</span>`;
+        }).join('');
+        html += `<div style="display:flex;align-items:center;flex-wrap:wrap;gap:0.2rem 0;margin-bottom:0.15rem">
+          <span style="font-size:0.62rem;color:var(--dim);min-width:22px;flex-shrink:0">J${i+1}</span>
+          <span class="pred-balls" style="display:inline-flex;gap:2px;flex-wrap:wrap">${balls}</span>${badge}
+        </div>`;
+      }
+      html += `</div>`;
+    }
+    div.innerHTML = html;
+  } catch (e) {
+    div.innerHTML = `<div style="color:var(--red);font-size:0.78rem;padding:0.5rem 0">❌ Erro: ${esc(e.message)}</div>`;
+    logClient('error', 'carregarJogosGerados', { error: e.message });
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════
