@@ -110,3 +110,59 @@ def get_coverage_pct(draws) -> float:
         return 0.0
     covered = sum(1 for d in draws if d.concurso in climate_map)
     return covered / len(draws) * 100
+
+
+def fetch_climate_from_api(date_iso: str) -> dict | None:
+    """Fetch climate data from Open-Meteo Archive API for a single date.
+
+    Returns a resumo dict (same format as saved climate files) or None.
+    """
+    import logging
+    import requests as req_lib
+    logger = logging.getLogger(__name__)
+    try:
+        from lotofacil.experimentos.config import ARCHIVE_API_URL, LATITUDE, LONGITUDE, TIMEZONE
+        params = {
+            "latitude": LATITUDE,
+            "longitude": LONGITUDE,
+            "start_date": date_iso,
+            "end_date": date_iso,
+            "hourly": "temperature_2m,precipitation,precipitation_probability,weathercode",
+            "timezone": TIMEZONE,
+        }
+        resp = req_lib.get(ARCHIVE_API_URL, params=params, timeout=30)
+        resp.raise_for_status()
+        data = resp.json()
+        hourly = data.get("hourly", {})
+        times = hourly.get("time", [])
+        if not times:
+            return None
+
+        temps = [t for t in hourly.get("temperature_2m", []) if t is not None]
+        precip_prob = [p for p in hourly.get("precipitation_probability", []) if p is not None]
+        codes = [c for c in hourly.get("weathercode", []) if c is not None]
+        hora_sorteio = 21
+
+        def _at(lst, idx):
+            return lst[idx] if len(lst) > idx and lst[idx] is not None else None
+
+        code_counts: dict[int, int] = {}
+        for c in codes:
+            if c is not None:
+                code_counts[c] = code_counts.get(c, 0) + 1
+        code_dominante = max(code_counts, key=code_counts.get) if code_counts else None
+
+        resumo = {
+            "temp_min": round(min(temps), 1) if temps else None,
+            "temp_max": round(max(temps), 1) if temps else None,
+            "temp_media": round(sum(temps) / len(temps), 1) if temps else None,
+            "temp_sorteio": _at(hourly.get("temperature_2m", []), hora_sorteio),
+            "precipitacao_media": round(sum(precip_prob) / len(precip_prob), 1) if precip_prob else None,
+            "precipitacao_sorteio": _at(hourly.get("precipitation_probability", []), hora_sorteio),
+            "weathercode_sorteio": _at(hourly.get("weathercode", []), hora_sorteio),
+            "weathercode_dominante": code_dominante,
+        }
+        return resumo
+    except Exception as exc:
+        logger.warning("Climate API fetch failed for %s: %s", date_iso, exc)
+        return None

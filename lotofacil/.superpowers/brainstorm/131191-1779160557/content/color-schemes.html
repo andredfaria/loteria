@@ -1,0 +1,149 @@
+<style>
+  .balls-row { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 18px; }
+  .b {
+    width: 34px; height: 34px; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 0.72rem; font-weight: 700; flex-shrink: 0;
+    border: 1.5px solid rgba(255,255,255,0.15);
+  }
+  .scheme-title { font-size: 0.78rem; color: #94a3b8; margin-bottom: 4px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }
+  .leg { display: flex; align-items: center; gap: 5px; font-size: 0.68rem; color: #94a3b8; }
+  .leg-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+</style>
+
+<h2>Qual critério de cor faz mais sentido para as dezenas?</h2>
+<p class="subtitle">Cada opção usa um critério diferente para colorir os números 1–25. Clique na que preferir.</p>
+
+<div class="cards" style="grid-template-columns: 1fr; gap: 20px;">
+
+  <!-- A: Frequência histórica -->
+  <div class="card" data-choice="frequencia" onclick="toggleSelect(this)">
+    <div class="card-body">
+      <h3>A — Frequência histórica (quente / frio)</h3>
+      <p>Cor baseada em quantas vezes cada número foi sorteado nos últimos 500 concursos. Verde = mais sorteado, vermelho = menos sorteado, azul = médio.</p>
+      <div class="legend">
+        <div class="leg"><div class="leg-dot" style="background:#4ade80"></div> quente (top 30%)</div>
+        <div class="leg"><div class="leg-dot" style="background:#60a5fa"></div> médio</div>
+        <div class="leg"><div class="leg-dot" style="background:#f87171"></div> frio (bottom 30%)</div>
+      </div>
+      <div class="balls-row">
+        <!-- simulated: random hot/cold distribution -->
+        <span class="b" style="background:#1a3d1a;color:#4ade80;border-color:rgba(74,222,128,0.3)">01</span>
+        <span class="b" style="background:#1e3a5f;color:#60a5fa;border-color:rgba(96,165,250,0.3)">02</span>
+        <span class="b" style="background:#3d1a1a;color:#f87171;border-color:rgba(248,113,113,0.3)">03</span>
+        <span class="b" style="background:#1a3d1a;color:#4ade80;border-color:rgba(74,222,128,0.3)">04</span>
+        <span class="b" style="background:#1e3a5f;color:#60a5fa;border-color:rgba(96,165,250,0.3)">05</span>
+        <span class="b" style="background:#3d1a1a;color:#f87171;border-color:rgba(248,113,113,0.3)">06</span>
+        <span class="b" style="background:#1e3a5f;color:#60a5fa;border-color:rgba(96,165,250,0.3)">07</span>
+        <span class="b" style="background:#1a3d1a;color:#4ade80;border-color:rgba(74,222,128,0.3)">08</span>
+        <span class="b" style="background:#3d1a1a;color:#f87171;border-color:rgba(248,113,113,0.3)">09</span>
+        <span class="b" style="background:#1e3a5f;color:#60a5fa;border-color:rgba(96,165,250,0.3)">10</span>
+        <span class="b" style="background:#1a3d1a;color:#4ade80;border-color:rgba(74,222,128,0.3)">11</span>
+        <span class="b" style="background:#3d1a1a;color:#f87171;border-color:rgba(248,113,113,0.3)">12</span>
+        <span class="b" style="background:#1e3a5f;color:#60a5fa;border-color:rgba(96,165,250,0.3)">13</span>
+        <span class="b" style="background:#1a3d1a;color:#4ade80;border-color:rgba(74,222,128,0.3)">14</span>
+        <span class="b" style="background:#1e3a5f;color:#60a5fa;border-color:rgba(96,165,250,0.3)">15</span>
+        <span class="b" style="background:#3d1a1a;color:#f87171;border-color:rgba(248,113,113,0.3)">16</span>
+        <span class="b" style="background:#1e3a5f;color:#60a5fa;border-color:rgba(96,165,250,0.3)">17</span>
+        <span class="b" style="background:#1a3d1a;color:#4ade80;border-color:rgba(74,222,128,0.3)">18</span>
+        <span class="b" style="background:#3d1a1a;color:#f87171;border-color:rgba(248,113,113,0.3)">19</span>
+        <span class="b" style="background:#1e3a5f;color:#60a5fa;border-color:rgba(96,165,250,0.3)">20</span>
+        <span class="b" style="background:#1a3d1a;color:#4ade80;border-color:rgba(74,222,128,0.3)">21</span>
+        <span class="b" style="background:#3d1a1a;color:#f87171;border-color:rgba(248,113,113,0.3)">22</span>
+        <span class="b" style="background:#1e3a5f;color:#60a5fa;border-color:rgba(96,165,250,0.3)">23</span>
+        <span class="b" style="background:#1a3d1a;color:#4ade80;border-color:rgba(74,222,128,0.3)">24</span>
+        <span class="b" style="background:#3d1a1a;color:#f87171;border-color:rgba(248,113,113,0.3)">25</span>
+      </div>
+      <p style="font-size:0.68rem;color:#64748b">As cores mudam a cada carregamento conforme os dados reais do banco.</p>
+    </div>
+  </div>
+
+  <!-- B: Grupos de 5 -->
+  <div class="card" data-choice="grupos" onclick="toggleSelect(this)">
+    <div class="card-body">
+      <h3>B — Grupos de 5 dezenas</h3>
+      <p>Divide o intervalo 1–25 em 5 faixas de igual tamanho, cada uma com uma cor distinta. Fácil de ler, estável, sem dependência de dados.</p>
+      <div class="legend">
+        <div class="leg"><div class="leg-dot" style="background:#3b82f6"></div> 1–5</div>
+        <div class="leg"><div class="leg-dot" style="background:#8b5cf6"></div> 6–10</div>
+        <div class="leg"><div class="leg-dot" style="background:#10b981"></div> 11–15</div>
+        <div class="leg"><div class="leg-dot" style="background:#f59e0b"></div> 16–20</div>
+        <div class="leg"><div class="leg-dot" style="background:#ef4444"></div> 21–25</div>
+      </div>
+      <div class="balls-row">
+        <span class="b" style="background:#1e2d5f;color:#60a5fa;border-color:rgba(59,130,246,0.35)">01</span>
+        <span class="b" style="background:#1e2d5f;color:#60a5fa;border-color:rgba(59,130,246,0.35)">02</span>
+        <span class="b" style="background:#1e2d5f;color:#60a5fa;border-color:rgba(59,130,246,0.35)">03</span>
+        <span class="b" style="background:#1e2d5f;color:#60a5fa;border-color:rgba(59,130,246,0.35)">04</span>
+        <span class="b" style="background:#1e2d5f;color:#60a5fa;border-color:rgba(59,130,246,0.35)">05</span>
+        <span class="b" style="background:#2d1f5f;color:#a78bfa;border-color:rgba(139,92,246,0.35)">06</span>
+        <span class="b" style="background:#2d1f5f;color:#a78bfa;border-color:rgba(139,92,246,0.35)">07</span>
+        <span class="b" style="background:#2d1f5f;color:#a78bfa;border-color:rgba(139,92,246,0.35)">08</span>
+        <span class="b" style="background:#2d1f5f;color:#a78bfa;border-color:rgba(139,92,246,0.35)">09</span>
+        <span class="b" style="background:#2d1f5f;color:#a78bfa;border-color:rgba(139,92,246,0.35)">10</span>
+        <span class="b" style="background:#1a3d2e;color:#34d399;border-color:rgba(16,185,129,0.35)">11</span>
+        <span class="b" style="background:#1a3d2e;color:#34d399;border-color:rgba(16,185,129,0.35)">12</span>
+        <span class="b" style="background:#1a3d2e;color:#34d399;border-color:rgba(16,185,129,0.35)">13</span>
+        <span class="b" style="background:#1a3d2e;color:#34d399;border-color:rgba(16,185,129,0.35)">14</span>
+        <span class="b" style="background:#1a3d2e;color:#34d399;border-color:rgba(16,185,129,0.35)">15</span>
+        <span class="b" style="background:#3d2e1a;color:#fbbf24;border-color:rgba(245,158,11,0.35)">16</span>
+        <span class="b" style="background:#3d2e1a;color:#fbbf24;border-color:rgba(245,158,11,0.35)">17</span>
+        <span class="b" style="background:#3d2e1a;color:#fbbf24;border-color:rgba(245,158,11,0.35)">18</span>
+        <span class="b" style="background:#3d2e1a;color:#fbbf24;border-color:rgba(245,158,11,0.35)">19</span>
+        <span class="b" style="background:#3d2e1a;color:#fbbf24;border-color:rgba(245,158,11,0.35)">20</span>
+        <span class="b" style="background:#3d1a1a;color:#f87171;border-color:rgba(239,68,68,0.35)">21</span>
+        <span class="b" style="background:#3d1a1a;color:#f87171;border-color:rgba(239,68,68,0.35)">22</span>
+        <span class="b" style="background:#3d1a1a;color:#f87171;border-color:rgba(239,68,68,0.35)">23</span>
+        <span class="b" style="background:#3d1a1a;color:#f87171;border-color:rgba(239,68,68,0.35)">24</span>
+        <span class="b" style="background:#3d1a1a;color:#f87171;border-color:rgba(239,68,68,0.35)">25</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- C: Propriedades matemáticas -->
+  <div class="card" data-choice="matematica" onclick="toggleSelect(this)">
+    <div class="card-body">
+      <h3>C — Propriedades matemáticas</h3>
+      <p>Cada número recebe cor conforme sua natureza matemática. Útil porque os filtros estatísticos da lotofácil (primos, fibonacci, par/ímpar) já usam esses conceitos.</p>
+      <div class="legend">
+        <div class="leg"><div class="leg-dot" style="background:#a78bfa"></div> primo</div>
+        <div class="leg"><div class="leg-dot" style="background:#fbbf24"></div> fibonacci</div>
+        <div class="leg"><div class="leg-dot" style="background:#34d399"></div> primo + fibonacci</div>
+        <div class="leg"><div class="leg-dot" style="background:#60a5fa"></div> outros</div>
+      </div>
+      <div class="balls-row">
+        <!-- 1=fib, 2=primo+fib, 3=primo+fib, 4=, 5=primo+fib, 6=, 7=primo, 8=fib, 9=, 10=, 11=primo, 12=, 13=primo+fib, 14=, 15=, 16=, 17=primo, 18=, 19=primo, 20=, 21=fib, 22=, 23=primo, 24=, 25= -->
+        <span class="b" style="background:#2a1f4a;color:#fbbf24;border-color:rgba(251,191,36,0.35)">01</span>
+        <span class="b" style="background:#1a3d2e;color:#34d399;border-color:rgba(52,211,153,0.35)">02</span>
+        <span class="b" style="background:#1a3d2e;color:#34d399;border-color:rgba(52,211,153,0.35)">03</span>
+        <span class="b" style="background:#1e3a5f;color:#60a5fa;border-color:rgba(96,165,250,0.3)">04</span>
+        <span class="b" style="background:#1a3d2e;color:#34d399;border-color:rgba(52,211,153,0.35)">05</span>
+        <span class="b" style="background:#1e3a5f;color:#60a5fa;border-color:rgba(96,165,250,0.3)">06</span>
+        <span class="b" style="background:#2d1f5f;color:#a78bfa;border-color:rgba(167,139,250,0.35)">07</span>
+        <span class="b" style="background:#2a1f4a;color:#fbbf24;border-color:rgba(251,191,36,0.35)">08</span>
+        <span class="b" style="background:#1e3a5f;color:#60a5fa;border-color:rgba(96,165,250,0.3)">09</span>
+        <span class="b" style="background:#1e3a5f;color:#60a5fa;border-color:rgba(96,165,250,0.3)">10</span>
+        <span class="b" style="background:#2d1f5f;color:#a78bfa;border-color:rgba(167,139,250,0.35)">11</span>
+        <span class="b" style="background:#1e3a5f;color:#60a5fa;border-color:rgba(96,165,250,0.3)">12</span>
+        <span class="b" style="background:#1a3d2e;color:#34d399;border-color:rgba(52,211,153,0.35)">13</span>
+        <span class="b" style="background:#1e3a5f;color:#60a5fa;border-color:rgba(96,165,250,0.3)">14</span>
+        <span class="b" style="background:#1e3a5f;color:#60a5fa;border-color:rgba(96,165,250,0.3)">15</span>
+        <span class="b" style="background:#1e3a5f;color:#60a5fa;border-color:rgba(96,165,250,0.3)">16</span>
+        <span class="b" style="background:#2d1f5f;color:#a78bfa;border-color:rgba(167,139,250,0.35)">17</span>
+        <span class="b" style="background:#1e3a5f;color:#60a5fa;border-color:rgba(96,165,250,0.3)">18</span>
+        <span class="b" style="background:#2d1f5f;color:#a78bfa;border-color:rgba(167,139,250,0.35)">19</span>
+        <span class="b" style="background:#1e3a5f;color:#60a5fa;border-color:rgba(96,165,250,0.3)">20</span>
+        <span class="b" style="background:#2a1f4a;color:#fbbf24;border-color:rgba(251,191,36,0.35)">21</span>
+        <span class="b" style="background:#1e3a5f;color:#60a5fa;border-color:rgba(96,165,250,0.3)">22</span>
+        <span class="b" style="background:#2d1f5f;color:#a78bfa;border-color:rgba(167,139,250,0.35)">23</span>
+        <span class="b" style="background:#1e3a5f;color:#60a5fa;border-color:rgba(96,165,250,0.3)">24</span>
+        <span class="b" style="background:#1e3a5f;color:#60a5fa;border-color:rgba(96,165,250,0.3)">25</span>
+      </div>
+      <p style="font-size:0.68rem;color:#64748b">Primos: 2,3,5,7,11,13,17,19,23 · Fibonacci: 1,2,3,5,8,13,21</p>
+    </div>
+  </div>
+
+</div>
+
+<p class="subtitle" style="margin-top: 8px;">Clique em uma opção no browser ou diga no terminal qual preferiu — ou combine ("quero A + grupos de 5").</p>

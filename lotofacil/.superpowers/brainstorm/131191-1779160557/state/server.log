@@ -1,0 +1,5 @@
+{"type":"server-started","port":49250,"host":"127.0.0.1","url_host":"localhost","url":"http://localhost:49250","screen_dir":"/home/andre/Documentos/projetos/loteria/lotofacil/.superpowers/brainstorm/131191-1779160557/content","state_dir":"/home/andre/Documentos/projetos/loteria/lotofacil/.superpowers/brainstorm/131191-1779160557/state"}
+{"type":"screen-added","file":"/home/andre/Documentos/projetos/loteria/lotofacil/.superpowers/brainstorm/131191-1779160557/content/color-schemes.html"}
+{"type":"screen-added","file":"/home/andre/Documentos/projetos/loteria/lotofacil/.superpowers/brainstorm/131191-1779160557/content/waiting.html"}
+{"type":"screen-added","file":"/home/andre/Documentos/projetos/loteria/lotofacil/.superpowers/brainstorm/131191-1779160557/content/hot-cold-preview.html"}
+{"type":"server-stopped","reason":"idle timeout"}

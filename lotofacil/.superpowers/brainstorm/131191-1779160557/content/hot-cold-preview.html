@@ -1,0 +1,78 @@
+<style>
+  .b {
+    width: 34px; height: 34px; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 0.72rem; font-weight: 700; flex-shrink: 0;
+    border: 1.5px solid transparent;
+  }
+  .b.hot  { background:#3d1a1a; color:#f87171; border-color:rgba(248,113,113,0.35); }
+  .b.warm { background:#2a2520; color:#d4a76a; border-color:rgba(212,167,106,0.25); }
+  .b.cold { background:#1e3a5f; color:#60a5fa; border-color:rgba(96,165,250,0.3); }
+  .balls-row { display:flex; flex-wrap:wrap; gap:6px; margin:10px 0; }
+  .leg { display:flex; align-items:center; gap:6px; font-size:0.72rem; color:#94a3b8; margin-right:16px; }
+  .leg-dot { width:14px; height:14px; border-radius:50%; flex-shrink:0; }
+  .section-lbl { font-size:0.7rem; color:#64748b; margin:14px 0 4px; text-transform:uppercase; letter-spacing:.05em; }
+</style>
+
+<h2>Preview — Quente / Morno / Frio</h2>
+<p class="subtitle">Cores baseadas na frequência histórica real de cada número nos sorteios. Simulação com dados aproximados.</p>
+
+<div style="display:flex;flex-wrap:wrap;gap:0;margin-bottom:14px">
+  <div class="leg"><div class="leg-dot" style="background:#f87171"></div> Quente — top 30% mais sorteados</div>
+  <div class="leg"><div class="leg-dot" style="background:#d4a76a"></div> Morno — faixa intermediária</div>
+  <div class="leg"><div class="leg-dot" style="background:#60a5fa"></div> Frio — bottom 30% menos sorteados</div>
+</div>
+
+<div class="section-lbl">Exemplo: 25 bolas com frequência simulada</div>
+<div class="balls-row">
+  <!-- Simulated distribution based on typical lotofácil frequencies -->
+  <span class="b hot" title="🔥 quente">01</span>
+  <span class="b cold" title="❄️ frio">02</span>
+  <span class="b hot" title="🔥 quente">03</span>
+  <span class="b warm" title="🌡 morno">04</span>
+  <span class="b hot" title="🔥 quente">05</span>
+  <span class="b cold" title="❄️ frio">06</span>
+  <span class="b warm" title="🌡 morno">07</span>
+  <span class="b hot" title="🔥 quente">08</span>
+  <span class="b cold" title="❄️ frio">09</span>
+  <span class="b warm" title="🌡 morno">10</span>
+  <span class="b hot" title="🔥 quente">11</span>
+  <span class="b warm" title="🌡 morno">12</span>
+  <span class="b cold" title="❄️ frio">13</span>
+  <span class="b warm" title="🌡 morno">14</span>
+  <span class="b hot" title="🔥 quente">15</span>
+  <span class="b cold" title="❄️ frio">16</span>
+  <span class="b warm" title="🌡 morno">17</span>
+  <span class="b hot" title="🔥 quente">18</span>
+  <span class="b cold" title="❄️ frio">19</span>
+  <span class="b warm" title="🌡 morno">20</span>
+  <span class="b hot" title="🔥 quente">21</span>
+  <span class="b cold" title="❄️ frio">22</span>
+  <span class="b warm" title="🌡 morno">23</span>
+  <span class="b cold" title="❄️ frio">24</span>
+  <span class="b hot" title="🔥 quente">25</span>
+</div>
+
+<div class="section-lbl" style="margin-top:20px">Como vai aparecer em um jogo gerado</div>
+<div style="background:#0f172a;border:1px solid #1e293b;border-radius:10px;padding:14px 18px;display:inline-block">
+  <div style="font-size:0.65rem;color:#475569;margin-bottom:8px">Jogo 1 — 15 números · concurso 3686</div>
+  <div class="balls-row" style="margin:0">
+    <span class="b hot">01</span>
+    <span class="b warm">04</span>
+    <span class="b hot">05</span>
+    <span class="b warm">07</span>
+    <span class="b hot">08</span>
+    <span class="b warm">10</span>
+    <span class="b hot">11</span>
+    <span class="b warm">14</span>
+    <span class="b hot">15</span>
+    <span class="b cold">16</span>
+    <span class="b warm">17</span>
+    <span class="b hot">18</span>
+    <span class="b warm">20</span>
+    <span class="b hot">21</span>
+    <span class="b warm">23</span>
+  </div>
+</div>
+
+<p class="subtitle" style="margin-top:20px">Ficou bom assim? Ou prefere apenas <strong>frio</strong> (azul) e <strong>quente</strong> (vermelho) sem o morno âmbar?</p>
