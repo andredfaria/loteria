@@ -891,6 +891,8 @@
       <div id="tab-roi-lab" style="display:none;flex:1;overflow:auto;flex-direction:column"></div>
       <!-- Geração Tab — populado por renderGeracao() -->
       <div id="tab-geracao" style="display:none;flex:1;overflow:auto;flex-direction:column"></div>
+      <!-- Jogos Tab — populado por renderJogosPage() -->
+      <div id="tab-jogos" style="display:none;flex:1;overflow:auto;flex-direction:column"></div>
     </div>
   </div>
 </div>
@@ -967,13 +969,13 @@
       <kbd style="background:rgba(255,255,255,0.1);border-radius:4px;padding:1px 6px;font-family:monospace">C</kbd><span>Ir para Coleta</span>
       <kbd style="background:rgba(255,255,255,0.1);border-radius:4px;padding:1px 6px;font-family:monospace">D</kbd><span>Ir para Dados</span>
       <kbd style="background:rgba(255,255,255,0.1);border-radius:4px;padding:1px 6px;font-family:monospace">M</kbd><span>Ir para Modelos</span>
+      <kbd style="background:rgba(255,255,255,0.1);border-radius:4px;padding:1px 6px;font-family:monospace">J</kbd><span>Ir para Jogos</span>
       <kbd style="background:rgba(255,255,255,0.1);border-radius:4px;padding:1px 6px;font-family:monospace">V</kbd><span>Ir para Validação</span>
       <div style="grid-column:1/-1;height:1px;background:var(--border);margin:0.25rem 0"></div>
       <kbd style="background:rgba(255,255,255,0.1);border-radius:4px;padding:1px 6px;font-family:monospace">1</kbd><span>Modelos → Treinar</span>
       <kbd style="background:rgba(255,255,255,0.1);border-radius:4px;padding:1px 6px;font-family:monospace">2</kbd><span>Modelos → Lista</span>
       <kbd style="background:rgba(255,255,255,0.1);border-radius:4px;padding:1px 6px;font-family:monospace">3</kbd><span>Modelos → Gerar</span>
       <kbd style="background:rgba(255,255,255,0.1);border-radius:4px;padding:1px 6px;font-family:monospace">4</kbd><span>Modelos → Comparar</span>
-      <kbd style="background:rgba(255,255,255,0.1);border-radius:4px;padding:1px 6px;font-family:monospace">5</kbd><span>Modelos → Histórico</span>
       <div style="grid-column:1/-1;height:1px;background:var(--border);margin:0.25rem 0"></div>
       <kbd style="background:rgba(255,255,255,0.1);border-radius:4px;padding:1px 6px;font-family:monospace">Esc</kbd><span>Fechar modal de treino</span>
       <kbd style="background:rgba(255,255,255,0.1);border-radius:4px;padding:1px 6px;font-family:monospace">?</kbd><span>Mostrar/fechar atalhos</span>
@@ -1062,6 +1064,114 @@ function _premioCat(hits) {
   if (hits === 12) return { label: '12 pontos', color: 'var(--yellow)' };
   if (hits === 11) return { label: '11 pontos', color: 'var(--yellow)' };
   return { label: 'Sem prêmio', color: 'var(--red)' };
+}
+
+// ── Jogos gerados — helpers compartilhados ─────────────────────
+// Usados pela aba canônica "Jogos" (renderJogosPage) e pelo mini-widget
+// "Gerações anteriores" em Modelos→Gerar (_loadGerarRecentes).
+function jogosStats(items) {
+  let totalJogos = 0, melhor = null, premiados = 0;
+  const acertos = [];
+  for (const item of (items || [])) {
+    const arr = Array.isArray(item.jogos) ? item.jogos : [];
+    totalJogos += arr.length;
+    for (const h of (item.acertos_por_jogo || [])) {
+      acertos.push(h);
+      if (melhor === null || h > melhor) melhor = h;
+      if (h >= 11) premiados++;
+    }
+  }
+  const media = acertos.length
+    ? (acertos.reduce((s, v) => s + v, 0) / acertos.length).toFixed(2)
+    : null;
+  return {
+    totalGeracoes: (items || []).length,
+    totalJogos, media, melhor,
+    comResultado: acertos.length, premiados,
+  };
+}
+
+function jogosStatsStripHtml(stats) {
+  return `<div style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:0.75rem">
+    <div style="font-size:0.72rem;color:var(--muted)">Gerações: <b style="color:var(--text)">${stats.totalGeracoes}</b></div>
+    <div style="font-size:0.72rem;color:var(--muted)">Jogos: <b style="color:var(--text)">${stats.totalJogos}</b></div>
+    ${stats.media != null ? `<div style="font-size:0.72rem;color:var(--muted)">Média acertos: <b style="color:var(--accent)">${stats.media}</b></div>` : ''}
+    ${stats.melhor != null ? `<div style="font-size:0.72rem;color:var(--muted)">Melhor: <b style="color:var(--green)">${stats.melhor}/15</b></div>` : ''}
+    ${stats.premiados > 0 ? `<div style="font-size:0.72rem;color:var(--muted)">Premiados (11+): <b style="color:var(--green)">${stats.premiados}</b></div>` : ''}
+    ${stats.comResultado > 0 ? `<div style="font-size:0.72rem;color:var(--dim)">${stats.comResultado} jogo${stats.comResultado>1?'s':''} com resultado</div>` : ''}
+  </div>`;
+}
+
+// Renderiza as bolas de um jogo. realSet = Set(dezenas sorteadas) ou null.
+// opts.dim aplica opacidade reduzida (usado no mini-widget de gerações anteriores).
+function renderJogoBalls(jogo, realSet, opts = {}) {
+  if (!Array.isArray(jogo)) return '—';
+  return jogo.map(n => {
+    const isHit = realSet && realSet.has(n);
+    let style = '';
+    if (realSet) style = isHit ? 'outline:2px solid var(--green);opacity:1' : 'opacity:0.35';
+    else if (opts.dim) style = 'opacity:0.6';
+    return `<span class="ball ${_ballClass(n)}" style="${style}">${String(n).padStart(2,'0')}</span>`;
+  }).join('');
+}
+
+// Card de uma geração: cabeçalho (modelo · concurso · data) + uma linha por jogo
+// com badge de acerto/prêmio quando o concurso já ocorreu.
+function renderGeracaoCard(item) {
+  const dt = item.criado_em ? new Date(item.criado_em).toLocaleString('pt-BR') : '—';
+  const jogosArr = Array.isArray(item.jogos) ? item.jogos : [];
+  const acertos = item.acertos_por_jogo || [];
+  const real = item.dezenas_reais;
+  const realSet = real ? new Set(real) : null;
+
+  let html = `<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:0.65rem 0.85rem;margin-bottom:0.5rem">
+    <div style="display:flex;align-items:center;flex-wrap:wrap;gap:0.3rem 0.75rem;margin-bottom:0.4rem">
+      <span style="font-size:0.72rem;font-weight:600;color:var(--accent)">${esc(item.treino_nome || item.treino_id)}</span>
+      <span style="font-size:0.68rem;color:var(--muted)">concurso ${item.concurso}</span>
+      <span style="font-size:0.62rem;color:var(--dim)">${dt}</span>
+    </div>`;
+
+  for (let i = 0; i < jogosArr.length; i++) {
+    const jogo = jogosArr[i];
+    if (!Array.isArray(jogo)) continue;
+    const hits = acertos[i];
+    const hasHits = hits != null;
+    const premio = hasHits && jogo.length === 15 ? _premioCat(hits) : null;
+    const badge = premio
+      ? `<span style="font-size:0.62rem;font-weight:600;color:${premio.color};margin-left:0.35rem">${hits}/15 — ${premio.label}</span>`
+      : hasHits
+        ? `<span style="font-size:0.62rem;color:var(--dim);margin-left:0.35rem">${hits}/${jogo.length}</span>`
+        : '';
+    const copyData = jogo.join('-');
+    const copyBtn = `<button onclick="navigator.clipboard.writeText('${copyData}').then(()=>showToast('Dezenas copiadas','success'))"
+      style="font-size:0.6rem;padding:1px 5px;background:none;border:1px solid var(--border);border-radius:3px;color:var(--muted);cursor:pointer;margin-left:5px" title="Copiar dezenas">⎘</button>`;
+    html += `<div style="display:flex;align-items:center;flex-wrap:wrap;gap:0.2rem 0;margin-bottom:0.15rem">
+      <span style="font-size:0.62rem;color:var(--dim);min-width:22px;flex-shrink:0">J${i+1}</span>
+      <span class="pred-balls" style="display:inline-flex;gap:2px;flex-wrap:wrap">${renderJogoBalls(jogo, realSet)}</span>${badge}${copyBtn}
+    </div>`;
+  }
+  html += `</div>`;
+  return html;
+}
+
+// Gera e dispara o download de um CSV com todos os jogos das gerações fornecidas.
+function jogosGeradosCSV(items) {
+  const rows = [['data', 'modelo', 'concurso', 'jogo', 'dezenas', 'acertos']];
+  for (const item of (items || [])) {
+    const dt = item.criado_em ? new Date(item.criado_em).toLocaleString('pt-BR') : '';
+    const modelo = item.treino_nome || item.treino_id || '';
+    const arr = Array.isArray(item.jogos) ? item.jogos : [];
+    const acertos = item.acertos_por_jogo || [];
+    arr.forEach((jogo, i) => {
+      rows.push([dt, modelo, item.concurso, `J${i+1}`, Array.isArray(jogo) ? jogo.join(' ') : '', acertos[i] ?? '']);
+    });
+  }
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'jogos_gerados.csv'; a.click();
+  URL.revokeObjectURL(url);
 }
 // ──────────────────────────────────────────────────────────────
 
@@ -1197,6 +1307,7 @@ function migrateLegacyConsoleSchema() {
 const CATEGORIES = [
   { id: 'coleta',  icon: '📥', label: 'Coleta'  },
   { id: 'modelos', icon: '🧠', label: 'Modelos' },
+  { id: 'jogos',   icon: '🎲', label: 'Jogos'   },
 ];
 
 const ADVANCED_CATEGORIES = [
@@ -1296,7 +1407,8 @@ function switchTab(id) {
   tabModelos.style.display = id === 'modelos' ? 'flex' : 'none';
   document.getElementById('tab-roi-lab').style.display = id === 'roi_lab' ? 'flex' : 'none';
   document.getElementById('tab-geracao').style.display = id === 'geracao' ? 'flex' : 'none';
-  document.getElementById('consoleSection').style.display = (id === 'modelos' || id === 'roi_lab' || id === 'geracao') ? 'none' : '';
+  document.getElementById('tab-jogos').style.display = id === 'jogos' ? 'flex' : 'none';
+  document.getElementById('consoleSection').style.display = (id === 'modelos' || id === 'roi_lab' || id === 'geracao' || id === 'jogos') ? 'none' : '';
 
   if (id === 'dados') {
     numSec.style.display = '';
@@ -1331,6 +1443,10 @@ function switchTab(id) {
     numSec.style.display = 'none';
     bar.innerHTML = '<div class="section-title">🎯 Geração — Fechamento garantido</div>';
     renderGeracao();
+  } else if (id === 'jogos') {
+    numSec.style.display = 'none';
+    bar.innerHTML = '<div class="section-title">🎲 Jogos Gerados por Modelos</div>';
+    renderJogosPage();
   } else {
     numSec.style.display = '';
     renderActions();
@@ -2255,7 +2371,7 @@ const _predState = {
 const LISTA_PAGE_SIZE = 10;
 
 function _subTabLabel(t) {
-  return { treinar: '▶ Treinar', lista: '📋 Lista', gerar: '⚡ Gerar', comparar: '⚖️ Comparar', historico: '🗂 Histórico' }[t] || t;
+  return { treinar: '▶ Treinar', lista: '📋 Lista', gerar: '⚡ Gerar', comparar: '⚖️ Comparar' }[t] || t;
 }
 
 function renderModelosPage() {
@@ -2448,7 +2564,6 @@ function _renderActiveModSubTab() {
   if (t === 'lista')    renderModLista();
   if (t === 'gerar')    renderPredGerar();
   if (t === 'comparar') renderPredComparar();
-  if (t === 'historico') renderPredHistorico();
 }
 
 // ── Treinar ────────────────────────────────────────────────────
@@ -3133,7 +3248,7 @@ async function _loadGerarRecentes() {
         </div>`;
       for (const jogo of jogosArr) {
         html += `<div class="pred-balls" style="display:inline-flex;gap:2px;margin-right:0.5rem;margin-bottom:2px">
-          ${jogo.map(n=>`<span class="ball ${_ballClass(n)}" style="opacity:0.6">${String(n).padStart(2,'0')}</span>`).join('')}
+          ${renderJogoBalls(jogo, null, { dim: true })}
         </div>`;
       }
       html += `</div>`;
@@ -3343,166 +3458,88 @@ function renderComparacao(data) {
     </div>`;
 }
 
-// ── Histórico de jogos gerados ─────────────────────────────────
-let _historicoData = [];
-let _historicoFiltroModelo = '';
-let _historicoSoPremiados = false;
+// ── Jogos gerados — aba canônica ───────────────────────────────
+// Única visão completa dos jogos gerados por modelos. Reaproveita os helpers
+// compartilhados (jogosStats / renderGeracaoCard / jogosGeradosCSV). Substituiu
+// a antiga aba Histórico (que ficou inacessível ao remover #modelosSubnav).
+let _jogosData = [];
+let _jogosFiltroModelo = '';
+let _jogosSoPremiados = false;
 
-async function renderPredHistorico() {
-  const panel = document.getElementById('mod-historico');
-  if (!panel) return;
-  panel.innerHTML = `<div style="color:var(--muted);font-size:0.78rem;padding:1rem 0">Carregando histórico…</div>`;
+async function renderJogosPage() {
+  const el = document.getElementById('tab-jogos');
+  if (!el) return;
+  el.innerHTML = `<div style="padding:1rem;max-width:920px;margin:0 auto;width:100%">
+    <div style="color:var(--muted);font-size:0.78rem;padding:1rem 0">Carregando jogos gerados…</div></div>`;
   try {
     const r = await fetch('/api/jogos-gerados');
-    _historicoData = await r.json();
-    _renderHistoricoPanel(panel);
-  } catch(e) {
-    panel.innerHTML = `<div style="color:var(--red);font-size:0.78rem;padding:1rem 0">❌ Erro ao carregar histórico: ${esc(e.message)}</div>`;
+    if (!r.ok) throw new Error('Erro ao carregar');
+    _jogosData = await r.json();
+    _renderJogosBody();
+  } catch (e) {
+    el.innerHTML = `<div style="padding:1rem;max-width:920px;margin:0 auto;width:100%">
+      <div style="color:var(--red);font-size:0.78rem;padding:1rem 0">❌ Erro ao carregar jogos gerados: ${esc(e.message)}</div></div>`;
+    logClient('error', 'renderJogosPage', { error: e.message });
   }
 }
 
-function _historicoStats(items) {
-  let totalJogos = 0, acertosAll = [], melhor = null, premiados = 0;
-  for (const item of items) {
-    const arr = Array.isArray(item.jogos) ? item.jogos : [];
-    totalJogos += arr.length;
-    const ac = item.acertos_por_jogo || [];
-    for (const h of ac) {
-      acertosAll.push(h);
-      if (melhor === null || h > melhor) melhor = h;
-      if (h >= 11) premiados++;
-    }
-  }
-  const media = acertosAll.length
-    ? (acertosAll.reduce((s, v) => s + v, 0) / acertosAll.length).toFixed(2)
-    : null;
-  return { totalGeracoes: items.length, totalJogos, media, melhor, comResultado: acertosAll.length, premiados };
-}
-
-function _renderHistoricoPanel(panel) {
-  const jogos = _historicoData;
-  if (!Array.isArray(jogos) || jogos.length === 0) {
-    panel.innerHTML = `<div style="padding:2rem 0;text-align:center;color:var(--muted)">
-      Nenhum jogo gerado ainda. Use <b>⚡ Gerar</b> para criar apostas a partir de um modelo treinado.</div>`;
-    return;
-  }
-
-  // unique model names for filter
-  const modelos = [...new Set(jogos.map(j => j.treino_nome || j.treino_id))].sort();
-  const byModel = _historicoFiltroModelo
-    ? jogos.filter(j => (j.treino_nome || j.treino_id) === _historicoFiltroModelo)
-    : jogos;
-  const filtered = _historicoSoPremiados
+function _jogosFiltrados() {
+  const all = Array.isArray(_jogosData) ? _jogosData : [];
+  const byModel = _jogosFiltroModelo
+    ? all.filter(j => (j.treino_nome || j.treino_id) === _jogosFiltroModelo)
+    : all;
+  return _jogosSoPremiados
     ? byModel.filter(j => (j.acertos_por_jogo || []).some(h => h >= 11))
     : byModel;
+}
 
-  const stats = _historicoStats(filtered);
-  const statsHtml = `
-    <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:0.75rem">
-      <div style="font-size:0.72rem;color:var(--muted)">Gerações: <b style="color:var(--text)">${stats.totalGeracoes}</b></div>
-      <div style="font-size:0.72rem;color:var(--muted)">Jogos: <b style="color:var(--text)">${stats.totalJogos}</b></div>
-      ${stats.media != null ? `<div style="font-size:0.72rem;color:var(--muted)">Média acertos: <b style="color:var(--accent)">${stats.media}</b></div>` : ''}
-      ${stats.melhor != null ? `<div style="font-size:0.72rem;color:var(--muted)">Melhor: <b style="color:var(--green)">${stats.melhor}/15</b></div>` : ''}
-      ${stats.premiados > 0 ? `<div style="font-size:0.72rem;color:var(--muted)">Premiados (11+): <b style="color:var(--green)">${stats.premiados}</b></div>` : ''}
-      ${stats.comResultado > 0 ? `<div style="font-size:0.72rem;color:var(--dim)">${stats.comResultado} jogo${stats.comResultado>1?'s':''} com resultado</div>` : ''}
-    </div>`;
-
-  let html = `
-    <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.5rem;flex-wrap:wrap">
-      <div class="modelos-section-title" style="margin:0">🗂 Histórico de Jogos Gerados</div>
-      <select id="historicoFiltroModelo" onchange="_onHistoricoFiltro()"
-        style="font-size:0.72rem;padding:0.2rem 0.4rem;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:4px">
-        <option value="">Todos os modelos</option>
-        ${modelos.map(m => `<option value="${esc(m)}"${_historicoFiltroModelo===m?' selected':''}>${esc(m)}</option>`).join('')}
-      </select>
-      <label style="display:flex;align-items:center;gap:0.3rem;font-size:0.72rem;cursor:pointer;color:var(--muted)">
-        <input type="checkbox" id="historicoSoPremiados" onchange="_onHistoricoFiltro()"${_historicoSoPremiados?' checked':''}>
-        Só premiados
-      </label>
-      <button class="action-btn" onclick="_exportHistoricoCSV()"
-        style="font-size:0.72rem;padding:0.2rem 0.5rem;margin-left:auto">⬇ CSV</button>
-    </div>
-    ${statsHtml}`;
-
-  if (filtered.length === 0) {
-    html += `<div style="color:var(--muted);font-size:0.78rem">Nenhum jogo para o modelo selecionado.</div>`;
-    panel.innerHTML = html;
+function _renderJogosBody() {
+  const el = document.getElementById('tab-jogos');
+  if (!el) return;
+  const all = Array.isArray(_jogosData) ? _jogosData : [];
+  if (all.length === 0) {
+    el.innerHTML = `<div style="padding:1rem;max-width:920px;margin:0 auto;width:100%">
+      <div style="padding:2rem 0;text-align:center;color:var(--muted)">
+        Nenhum jogo gerado ainda. Use <b>Modelos → Gerar</b> para criar apostas a partir de um modelo treinado.</div></div>`;
     return;
   }
 
-  html += `<table class="pred-table"><thead><tr>
-    <th>Data</th><th>Modelo</th><th>Concurso</th><th>Jogos</th>
-  </tr></thead><tbody>`;
+  const modelos = [...new Set(all.map(j => j.treino_nome || j.treino_id))].sort();
+  const filtered = _jogosFiltrados();
 
-  for (const item of filtered) {
-    const dt = item.criado_em ? new Date(item.criado_em).toLocaleString('pt-BR') : '—';
-    const jogosArr = Array.isArray(item.jogos) ? item.jogos : [];
-    const acertos  = item.acertos_por_jogo || [];
-    const real     = item.dezenas_reais;
+  let html = `<div style="padding:1rem;max-width:920px;margin:0 auto;width:100%">
+    <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.75rem;flex-wrap:wrap">
+      <select id="jogosFiltroModelo" onchange="_onJogosFiltro()"
+        style="font-size:0.72rem;padding:0.2rem 0.4rem;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:4px">
+        <option value="">Todos os modelos</option>
+        ${modelos.map(m => `<option value="${esc(m)}"${_jogosFiltroModelo===m?' selected':''}>${esc(m)}</option>`).join('')}
+      </select>
+      <label style="display:flex;align-items:center;gap:0.3rem;font-size:0.72rem;cursor:pointer;color:var(--muted)">
+        <input type="checkbox" id="jogosSoPremiados" onchange="_onJogosFiltro()"${_jogosSoPremiados?' checked':''}>
+        Só premiados
+      </label>
+      <button class="action-btn" onclick="jogosGeradosCSV(_jogosFiltrados())"
+        style="font-size:0.72rem;padding:0.2rem 0.5rem;margin-left:auto">⬇ CSV</button>
+    </div>
+    ${jogosStatsStripHtml(jogosStats(filtered))}`;
 
-    const jogosHtml = jogosArr.map((jogo, i) => {
-      const hits = acertos[i];
-      const hasReal = hits != null;
-      const hitColor = hasReal ? (hits >= 13 ? 'var(--green)' : hits >= 11 ? 'var(--yellow)' : 'var(--red)') : '';
-      const premioNome = hasReal && Array.isArray(jogo) && jogo.length === 15 ? ` — ${_premioCat(hits).label}` : '';
-      const badge = hasReal
-        ? `<span style="font-size:0.6rem;font-weight:700;padding:1px 4px;border-radius:3px;background:rgba(255,255,255,0.07);color:${hitColor};margin-left:4px">${hits}/15${premioNome} ✓</span>`
-        : '';
-      const balls = Array.isArray(jogo)
-        ? jogo.map(n => {
-            const isHit = real && real.includes(n);
-            return `<span class="ball ${_ballClass(n)}" style="${isHit?'outline:2px solid var(--green);opacity:1':'opacity:0.75'}">${String(n).padStart(2,'0')}</span>`;
-          }).join('')
-        : '—';
-      const copyData = Array.isArray(jogo) ? jogo.join('-') : '';
-      const copyBtn = `<button onclick="navigator.clipboard.writeText('${copyData}').then(()=>showToast('Dezenas copiadas','success'))"
-        style="font-size:0.6rem;padding:1px 5px;background:none;border:1px solid var(--border);border-radius:3px;color:var(--muted);cursor:pointer;margin-left:5px" title="Copiar dezenas">⎘</button>`;
-      return `<div style="margin-bottom:0.35rem;display:flex;align-items:center">
-        <span style="font-size:0.65rem;color:var(--muted);margin-right:0.3rem;min-width:18px">J${i+1}</span>
-        <span class="pred-balls" style="display:inline-flex;gap:2px">${balls}</span>${badge}${copyBtn}
-      </div>`;
-    }).join('');
-
-    html += `<tr>
-      <td style="color:var(--dim);white-space:nowrap">${dt}</td>
-      <td style="font-weight:600">${esc(item.treino_nome || item.treino_id)}</td>
-      <td style="font-family:monospace;text-align:center">${item.concurso}</td>
-      <td>${jogosHtml}</td>
-    </tr>`;
+  if (filtered.length === 0) {
+    html += `<div style="color:var(--muted);font-size:0.78rem">Nenhum jogo para o filtro selecionado.</div></div>`;
+    el.innerHTML = html;
+    return;
   }
-  html += `</tbody></table>`;
-  panel.innerHTML = html;
+
+  for (const item of filtered) html += renderGeracaoCard(item);
+  html += `</div>`;
+  el.innerHTML = html;
 }
 
-function _onHistoricoFiltro() {
-  const sel = document.getElementById('historicoFiltroModelo');
-  _historicoFiltroModelo = sel ? sel.value : '';
-  const chk = document.getElementById('historicoSoPremiados');
-  _historicoSoPremiados = chk ? chk.checked : false;
-  const panel = document.getElementById('mod-historico');
-  if (panel) _renderHistoricoPanel(panel);
-}
-
-function _exportHistoricoCSV() {
-  const jogos = _historicoFiltroModelo
-    ? _historicoData.filter(j => (j.treino_nome || j.treino_id) === _historicoFiltroModelo)
-    : _historicoData;
-  const rows = [['data', 'modelo', 'concurso', 'jogo', 'dezenas', 'acertos']];
-  for (const item of jogos) {
-    const dt = item.criado_em ? new Date(item.criado_em).toLocaleString('pt-BR') : '';
-    const modelo = item.treino_nome || item.treino_id || '';
-    const arr = Array.isArray(item.jogos) ? item.jogos : [];
-    const acertos = item.acertos_por_jogo || [];
-    arr.forEach((jogo, i) => {
-      rows.push([dt, modelo, item.concurso, `J${i+1}`, Array.isArray(jogo) ? jogo.join(' ') : '', acertos[i] ?? '']);
-    });
-  }
-  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = 'jogos_gerados.csv'; a.click();
-  URL.revokeObjectURL(url);
+function _onJogosFiltro() {
+  const sel = document.getElementById('jogosFiltroModelo');
+  _jogosFiltroModelo = sel ? sel.value : '';
+  const chk = document.getElementById('jogosSoPremiados');
+  _jogosSoPremiados = chk ? chk.checked : false;
+  _renderJogosBody();
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -3668,9 +3705,9 @@ function closeTreinoModal() {
 // ═══════════════════════════════════════════════════════════════
 // KEYBOARD SHORTCUTS + PAGE TITLE
 // ═══════════════════════════════════════════════════════════════
-const _TAB_KEYS = { 'c': 'coleta', 'd': 'dados', 'm': 'modelos', 'v': 'validacao' };
-const _SUBTAB_KEYS = { '1': 'treinar', '2': 'lista', '3': 'gerar', '4': 'comparar', '5': 'historico' };
-const _TAB_LABELS = { coleta: 'Coleta', dados: 'Dados', modelos: 'Modelos', validacao: 'Validação' };
+const _TAB_KEYS = { 'c': 'coleta', 'd': 'dados', 'm': 'modelos', 'j': 'jogos', 'v': 'validacao' };
+const _SUBTAB_KEYS = { '1': 'treinar', '2': 'lista', '3': 'gerar', '4': 'comparar' };
+const _TAB_LABELS = { coleta: 'Coleta', dados: 'Dados', modelos: 'Modelos', jogos: 'Jogos', validacao: 'Validação' };
 
 function _openShortcuts()  { const m = document.getElementById('shortcutsModal'); if(m) m.style.display='flex'; }
 function _closeShortcuts() { const m = document.getElementById('shortcutsModal'); if(m) m.style.display='none'; }
@@ -3696,14 +3733,14 @@ document.addEventListener('keydown', e => {
   // ? → shortcuts help
   if (e.key === '?' && !e.ctrlKey && !e.metaKey) { _openShortcuts(); return; }
 
-  // Tab shortcuts: C=Coleta, D=Dados, M=Modelos, V=Validação
+  // Tab shortcuts: C=Coleta, D=Dados, M=Modelos, J=Jogos, V=Validação
   const tabTarget = _TAB_KEYS[e.key.toLowerCase()];
   if (tabTarget && !e.ctrlKey && !e.metaKey && !e.altKey) {
     switchTab(tabTarget);
     return;
   }
 
-  // Sub-tab shortcuts (only in Modelos): 1=Treinar, 2=Lista, 3=Gerar, 4=Comparar, 5=Histórico
+  // Sub-tab shortcuts (only in Modelos): 1=Treinar, 2=Lista, 3=Gerar, 4=Comparar
   if (STATE.activeTab === 'modelos' && !e.ctrlKey && !e.metaKey && !e.altKey) {
     const subTarget = _SUBTAB_KEYS[e.key];
     if (subTarget) { showModelosSubTab(subTarget); return; }
@@ -4128,18 +4165,10 @@ function renderGeracao() {
         <div class="pred-warning" style="margin-top:0.7rem">⚠️ O fechamento controla a DISTRIBUIÇÃO de prêmios de uma aposta fixa, não o valor esperado (que segue negativo). A garantia é condicional às suas dezenas do pool serem sorteadas.</div>
       </div>
       <div id="gerFechResultado"></div>
-      <div style="margin-top:1.5rem;border-top:1px solid var(--border);padding-top:1rem">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem">
-          <span style="font-size:0.85rem;font-weight:700">🎲 Jogos Gerados por Modelos</span>
-          <button class="action-btn" onclick="switchTab('modelos');setTimeout(()=>showModelosSubTab('historico'),50)"
-            style="font-size:0.72rem;padding:0.25rem 0.6rem">📋 Ver histórico completo</button>
-        </div>
-        <div id="gerModelJogos">
-          <div style="color:var(--muted);font-size:0.78rem">Carregando jogos gerados…</div>
-        </div>
+      <div style="margin-top:1.25rem;font-size:0.72rem;color:var(--dim)">
+        Os jogos gerados pelos modelos ficam na aba <b style="color:var(--muted)">🎲 Jogos</b>.
       </div>
     </div>`;
-  carregarJogosGerados();
 }
 
 async function gerarFechamento() {
@@ -4193,77 +4222,6 @@ function _renderFechamentoResultado(d) {
         <div style="font-size:0.68rem;color:var(--muted);margin-top:0.7rem;line-height:1.4">${d.nota_ev}</div>
       </div>
     </div>`;
-}
-
-async function carregarJogosGerados() {
-  const div = document.getElementById('gerModelJogos');
-  if (!div) return;
-  try {
-    const r = await fetch('/api/jogos-gerados?limit=10');
-    if (!r.ok) throw new Error('Erro ao carregar');
-    const items = await r.json();
-    if (!Array.isArray(items) || items.length === 0) {
-      div.innerHTML = `<div style="padding:1.5rem 0;text-align:center;color:var(--muted);font-size:0.78rem">
-        Nenhum jogo gerado ainda. Use <b>Modelos → Gerar</b> para criar apostas a partir de um modelo treinado.</div>`;
-      return;
-    }
-
-    const totalJogos = items.reduce((s, item) => s + (Array.isArray(item.jogos) ? item.jogos.length : 0), 0);
-    const todosAcertos = items.flatMap(item => item.acertos_por_jogo || []);
-    const media = todosAcertos.length ? (todosAcertos.reduce((s, v) => s + v, 0) / todosAcertos.length).toFixed(1) : null;
-    const melhor = todosAcertos.length ? Math.max(...todosAcertos) : null;
-    const premiados = todosAcertos.filter(h => h >= 11).length;
-
-    let html = `<div style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:0.75rem">
-      <div style="font-size:0.72rem;color:var(--muted)">Gerações: <b style="color:var(--text)">${items.length}</b></div>
-      <div style="font-size:0.72rem;color:var(--muted)">Jogos: <b style="color:var(--text)">${totalJogos}</b></div>
-      ${media !== null ? `<div style="font-size:0.72rem;color:var(--muted)">Média acertos: <b style="color:var(--accent)">${media}</b></div>` : ''}
-      ${melhor !== null ? `<div style="font-size:0.72rem;color:var(--muted)">Melhor: <b style="color:var(--green)">${melhor}/15</b></div>` : ''}
-      ${premiados > 0 ? `<div style="font-size:0.72rem;color:var(--muted)">Premiados (11+): <b style="color:var(--green)">${premiados}</b></div>` : ''}
-    </div>`;
-
-    for (const item of items) {
-      const dt = item.criado_em ? new Date(item.criado_em).toLocaleString('pt-BR') : '—';
-      const jogosArr = Array.isArray(item.jogos) ? item.jogos : [];
-      const acertos = item.acertos_por_jogo || [];
-      const real = item.dezenas_reais;
-      const realSet = real ? new Set(real) : null;
-
-      html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:0.65rem 0.85rem;margin-bottom:0.5rem">
-        <div style="display:flex;align-items:center;flex-wrap:wrap;gap:0.3rem 0.75rem;margin-bottom:0.4rem">
-          <span style="font-size:0.72rem;font-weight:600;color:var(--accent)">${esc(item.treino_nome || item.treino_id)}</span>
-          <span style="font-size:0.68rem;color:var(--muted)">concurso ${item.concurso}</span>
-          <span style="font-size:0.62rem;color:var(--dim)">${dt}</span>
-        </div>`;
-
-      for (let i = 0; i < jogosArr.length; i++) {
-        const jogo = jogosArr[i];
-        if (!Array.isArray(jogo)) continue;
-        const hits = acertos[i];
-        const hasHits = hits != null;
-        const premio = hasHits && jogo.length === 15 ? _premioCat(hits) : null;
-        const badge = premio
-          ? `<span style="font-size:0.62rem;font-weight:600;color:${premio.color};margin-left:0.35rem">${hits}/15 — ${premio.label}</span>`
-          : hits !== undefined
-            ? `<span style="font-size:0.62rem;color:var(--dim);margin-left:0.35rem">${hits}/15</span>`
-            : '';
-        const balls = jogo.map(n => {
-          const isHit = realSet && realSet.has(n);
-          const style = real ? (isHit ? 'outline:2px solid var(--green);opacity:1' : 'opacity:0.35') : '';
-          return `<span class="ball ${_ballClass(n)}" style="${style}">${String(n).padStart(2,'0')}</span>`;
-        }).join('');
-        html += `<div style="display:flex;align-items:center;flex-wrap:wrap;gap:0.2rem 0;margin-bottom:0.15rem">
-          <span style="font-size:0.62rem;color:var(--dim);min-width:22px;flex-shrink:0">J${i+1}</span>
-          <span class="pred-balls" style="display:inline-flex;gap:2px;flex-wrap:wrap">${balls}</span>${badge}
-        </div>`;
-      }
-      html += `</div>`;
-    }
-    div.innerHTML = html;
-  } catch (e) {
-    div.innerHTML = `<div style="color:var(--red);font-size:0.78rem;padding:0.5rem 0">❌ Erro: ${esc(e.message)}</div>`;
-    logClient('error', 'carregarJogosGerados', { error: e.message });
-  }
 }
 
 // ═══════════════════════════════════════════════════════════════
