@@ -11,7 +11,8 @@ Monorepo com sistemas de análise estatística, geração de jogos e Machine Lea
 | Projeto | Descrição | Status |
 |---------|-----------|--------|
 | [lotofacil/](lotofacil/) | Sistema completo: coleta, análise, ML, dashboard web | Ativo |
-| [super-sete/](super-sete/) | Coleta e análise estatística por coluna | Ativo |
+| [super-sete/](super-sete/) | Coleta e análise estatística por coluna | Pausado |
+| [dia-de-sorte/](dia-de-sorte/) | Coleta e análise estatística | Pausado |
 | [megasena/](megasena/) | Em desenvolvimento | Planejado |
 
 Cada subprojeto é autônomo com seu próprio `requirements.txt` / `pyproject.toml` e ambiente virtual.

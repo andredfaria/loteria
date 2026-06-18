@@ -71,6 +71,13 @@ AGENTS.md
 docs/superpowers/
 .cursor/
 .claude/
+.superpowers/
+.claude-flow/
+.swarm/
+.worktrees/
+ruvector.db
+*.db-shm
+*.db-wal
 prompt*.md
 promtp*.md
 PROMPT*.md
