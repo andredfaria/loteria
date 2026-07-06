@@ -3480,10 +3480,116 @@ function renderBacktestPage() {
   _loadBacktestHistory();
 }
 
-function _renderBacktestForm() {
+const BACKTEST_CONFIGS = [
+  { sig: 'base+temp+priors',           label: 'Padrão' },
+  { sig: 'base+temp+priors+lua',       label: '+ Lua' },
+  { sig: 'base+temp+priors+clima',     label: '+ Clima' },
+  { sig: 'base+temp+priors+lua+clima', label: '+ Lua + Clima' },
+];
+
+async function _renderBacktestForm() {
   const el = document.getElementById('backtestForm');
   if (!el) return;
-  el.innerHTML = `<div style="color:var(--muted);font-size:0.75rem">Carregando formulário…</div>`;
+
+  let maxConcurso = 0, minConcurso = 1;
+  try {
+    const status = await fetch('/api/status').then(r => r.json());
+    maxConcurso = (status.last_concurso && status.last_concurso.concurso) || 0;
+    const totalDraws = status.total_draws || 0;
+    minConcurso = totalDraws ? Math.max(1, maxConcurso - totalDraws + 1) : 1;
+  } catch (e) {
+    logClient('warn', 'Falha ao carregar status para backtest', { error: e.message });
+  }
+
+  const defaultEnd = maxConcurso || 100;
+  const defaultStart = Math.max(minConcurso, defaultEnd - 50);
+
+  const checks = BACKTEST_CONFIGS.map((c, i) => `
+    <label style="display:flex;align-items:center;gap:0.35rem;font-size:0.78rem;cursor:pointer">
+      <input type="checkbox" class="backtest-config-check" value="${c.sig}" ${i === 0 ? 'checked' : ''}>
+      ${esc(c.label)}
+    </label>`).join('');
+
+  el.innerHTML = `
+    <div style="border:1px solid var(--border);border-radius:8px;padding:1rem">
+      <div class="section-title" style="margin-bottom:0.6rem">🧪 Novo Backtest</div>
+      <div style="display:flex;flex-direction:column;gap:0.25rem;margin-bottom:0.75rem">
+        ${checks}
+      </div>
+      <div style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:flex-end;margin-bottom:0.5rem">
+        <div>
+          <label style="display:block;font-size:0.68rem;color:var(--muted)">Concurso inicial</label>
+          <input type="number" id="backtestStart" value="${defaultStart}" min="${minConcurso}" max="${maxConcurso}"
+            style="width:90px;padding:3px 6px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:3px">
+        </div>
+        <div>
+          <label style="display:block;font-size:0.68rem;color:var(--muted)">Concurso final</label>
+          <input type="number" id="backtestEnd" value="${defaultEnd}" min="${minConcurso}" max="${maxConcurso}"
+            style="width:90px;padding:3px 6px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:3px">
+        </div>
+        <div>
+          <label style="display:block;font-size:0.68rem;color:var(--muted)">Retrain a cada</label>
+          <input type="number" id="backtestRetrainEvery" value="50" min="1" max="500"
+            style="width:70px;padding:3px 6px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:3px">
+        </div>
+        <button class="action-btn" id="backtestSubmitBtn" onclick="_iniciarBacktest()">▶ Iniciar Backtest</button>
+      </div>
+      <div id="backtestEstimate" style="font-size:0.68rem;color:var(--dim)"></div>
+      <div id="backtestFormError" style="font-size:0.72rem;color:#e57373;margin-top:0.4rem"></div>
+    </div>`;
+
+  const updateEstimate = () => {
+    const start = parseInt(document.getElementById('backtestStart').value) || 0;
+    const end = parseInt(document.getElementById('backtestEnd').value) || 0;
+    const retrainEvery = parseInt(document.getElementById('backtestRetrainEvery').value) || 1;
+    const nConfigs = document.querySelectorAll('.backtest-config-check:checked').length;
+    const span = Math.max(0, end - start + 1);
+    const retreinos = retrainEvery > 0 ? Math.ceil(span / retrainEvery) : span;
+    document.getElementById('backtestEstimate').textContent = span > 0
+      ? `~${span} concursos testados · ~${retreinos} retreino(s) por modelo · ${nConfigs} modelo(s) selecionado(s)`
+      : '';
+  };
+  el.querySelectorAll('#backtestStart, #backtestEnd, #backtestRetrainEvery').forEach(i => i.addEventListener('input', updateEstimate));
+  el.querySelectorAll('.backtest-config-check').forEach(i => i.addEventListener('change', updateEstimate));
+  updateEstimate();
+}
+
+async function _iniciarBacktest() {
+  const configs = [...document.querySelectorAll('.backtest-config-check:checked')].map(i => i.value);
+  const start = parseInt(document.getElementById('backtestStart').value);
+  const end = parseInt(document.getElementById('backtestEnd').value);
+  const retrainEvery = parseInt(document.getElementById('backtestRetrainEvery').value) || 50;
+  const errEl = document.getElementById('backtestFormError');
+  errEl.textContent = '';
+
+  if (!configs.length) { errEl.textContent = 'Selecione ao menos uma config.'; return; }
+  if (!Number.isFinite(start) || !Number.isFinite(end) || start >= end) {
+    errEl.textContent = 'Concurso inicial deve ser menor que o final.';
+    return;
+  }
+
+  const btn = document.getElementById('backtestSubmitBtn');
+  btn.disabled = true;
+  btn.textContent = 'Iniciando…';
+  try {
+    const res = await fetch('/api/backtests/iniciar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ configs, start, end, retrain_every: retrainEvery }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      errEl.textContent = data.error || 'Falha ao iniciar backtest.';
+      return;
+    }
+    openBacktestModal(data.task_id, data.backtest_id, configs.length + 2);
+  } catch (e) {
+    errEl.textContent = 'Erro de rede ao iniciar backtest.';
+    logClient('error', 'Falha ao iniciar backtest', { error: e.message });
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '▶ Iniciar Backtest';
+  }
 }
 
 function _loadBacktestHistory() {
