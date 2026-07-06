@@ -43,6 +43,18 @@ CREATE TABLE IF NOT EXISTS jogos_gerados (
     jogos      TEXT NOT NULL,
     criado_em  TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS backtests (
+    id TEXT PRIMARY KEY,
+    configs TEXT NOT NULL,
+    start_concurso INTEGER NOT NULL,
+    end_concurso INTEGER NOT NULL,
+    retrain_every INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'running',
+    resultado_path TEXT,
+    criado_em TEXT NOT NULL,
+    concluido_em TEXT
+);
 """
 
 _INDEXES = """
@@ -65,6 +77,16 @@ def _row_to_dict(row: sqlite3.Row) -> dict:
     return d
 
 
+def _row_to_dict_backtest(row: sqlite3.Row) -> dict:
+    d = dict(row)
+    if d.get("configs"):
+        try:
+            d["configs"] = json.loads(d["configs"])
+        except Exception:
+            pass
+    return d
+
+
 class TreinoRegistry:
     def __init__(self, db_path: Path) -> None:
         self._db = Path(db_path)
@@ -82,11 +104,16 @@ class TreinoRegistry:
         self._recover_orphans()
 
     def _recover_orphans(self) -> None:
-        """Mark treinos stuck as 'running' from a previous server instance as failed."""
+        """Mark treinos/backtests stuck as 'running' from a previous server instance as failed."""
         now = _now()
         with self._conn() as conn:
             conn.execute(
                 "UPDATE treinos SET status = 'failed', concluido_em = ? "
+                "WHERE status = 'running'",
+                (now,),
+            )
+            conn.execute(
+                "UPDATE backtests SET status = 'failed', concluido_em = ? "
                 "WHERE status = 'running'",
                 (now,),
             )
@@ -212,6 +239,55 @@ class TreinoRegistry:
                     pass
             result.append(d)
         return result
+
+    # ── Backtests ────────────────────────────────────────────────
+
+    def criar_backtest(
+        self, backtest_id: str, configs: list[str],
+        start_concurso: int, end_concurso: int, retrain_every: int,
+    ) -> dict:
+        with self._conn() as conn:
+            conn.execute(
+                "INSERT INTO backtests "
+                "(id, configs, start_concurso, end_concurso, retrain_every, status, criado_em) "
+                "VALUES (?, ?, ?, ?, ?, 'running', ?)",
+                (backtest_id, json.dumps(configs, ensure_ascii=False),
+                 start_concurso, end_concurso, retrain_every, _now()),
+            )
+        return self.buscar_backtest(backtest_id)
+
+    def registrar_resultado_backtest(self, backtest_id: str, resultado_path: str) -> None:
+        with self._conn() as conn:
+            conn.execute(
+                "UPDATE backtests SET resultado_path = ?, status = 'completed', concluido_em = ? WHERE id = ?",
+                (str(resultado_path), _now(), backtest_id),
+            )
+
+    def marcar_falha_backtest(self, backtest_id: str) -> None:
+        with self._conn() as conn:
+            conn.execute(
+                "UPDATE backtests SET status = 'failed', concluido_em = ? WHERE id = ?",
+                (_now(), backtest_id),
+            )
+
+    def listar_backtests(self) -> list[dict]:
+        with self._conn() as conn:
+            rows = conn.execute(
+                "SELECT * FROM backtests ORDER BY criado_em DESC"
+            ).fetchall()
+        return [_row_to_dict_backtest(r) for r in rows]
+
+    def buscar_backtest(self, backtest_id: str) -> dict | None:
+        with self._conn() as conn:
+            row = conn.execute(
+                "SELECT * FROM backtests WHERE id = ?", (backtest_id,)
+            ).fetchone()
+        return _row_to_dict_backtest(row) if row else None
+
+    def deletar_backtest(self, backtest_id: str) -> bool:
+        with self._conn() as conn:
+            cur = conn.execute("DELETE FROM backtests WHERE id = ?", (backtest_id,))
+        return cur.rowcount > 0
 
     # ── Job output ───────────────────────────────────────────────
 

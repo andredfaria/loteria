@@ -57,3 +57,46 @@ def test_poll_unknown_task_returns_done_false(reg):
     assert result["done"] is True
     assert result["success"] is False
     assert result["lines"] == []
+
+
+def test_criar_e_buscar_backtest(reg):
+    reg.criar_backtest("bt_001", ["base+temp+priors"], 100, 200, 25)
+    bt = reg.buscar_backtest("bt_001")
+    assert bt["status"] == "running"
+    assert bt["configs"] == ["base+temp+priors"]
+    assert bt["start_concurso"] == 100
+    assert bt["end_concurso"] == 200
+    assert bt["retrain_every"] == 25
+
+
+def test_registrar_resultado_backtest_marca_completed(reg):
+    reg.criar_backtest("bt_002", ["base+temp+priors"], 100, 200, 25)
+    reg.registrar_resultado_backtest("bt_002", "/tmp/backtest_bt_002.json")
+    bt = reg.buscar_backtest("bt_002")
+    assert bt["status"] == "completed"
+    assert bt["resultado_path"] == "/tmp/backtest_bt_002.json"
+    assert bt["concluido_em"] is not None
+
+
+def test_marcar_falha_backtest(reg):
+    reg.criar_backtest("bt_003", ["base+temp+priors"], 100, 200, 25)
+    reg.marcar_falha_backtest("bt_003")
+    bt = reg.buscar_backtest("bt_003")
+    assert bt["status"] == "failed"
+
+
+def test_listar_backtests_ordenado_por_criacao_desc(reg):
+    reg.criar_backtest("bt_004", ["base+temp+priors"], 1, 2, 1)
+    reg.criar_backtest("bt_005", ["base+temp+priors+lua"], 1, 2, 1)
+    listagem = reg.listar_backtests()
+    assert [b["id"] for b in listagem] == ["bt_005", "bt_004"]
+
+
+def test_deletar_backtest(reg):
+    reg.criar_backtest("bt_006", ["base+temp+priors"], 1, 2, 1)
+    assert reg.deletar_backtest("bt_006") is True
+    assert reg.buscar_backtest("bt_006") is None
+
+
+def test_buscar_backtest_inexistente_retorna_none(reg):
+    assert reg.buscar_backtest("nao_existe") is None
