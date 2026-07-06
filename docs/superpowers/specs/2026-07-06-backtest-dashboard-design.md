@@ -117,9 +117,9 @@ Nova entrada de topo na sidebar (ao lado de Modelos, ROI Lab, Geração, Jogos),
 **Progresso:** reaproveita o modal/log-tail de treino já existente (título trocado para "Rodando backtest…", uma linha de log por config concluída).
 
 **Resultados** (após conclusão, ou ao reabrir um item do histórico):
-- Tabela de comparação: modelo | concursos testados | média de acertos | taxa ≥11/≥13/≥14/≥15 | ROI% | p-valor vs. aleatório — ordenada por média de acertos desc (mesma ordenação que o `report` já traz).
-- Gráfico de acertos por concurso: uma série por modelo selecionado + baselines, eixo X = concurso.
-- Histograma de distribuição de acertos (11 a 15) por modelo, lado a lado.
+- Tabela de comparação: modelo | concursos testados (`n_evaluated`) | média de acertos (`mean_hits`) | taxa ≥11 (`rate_ge_11`) | taxa ≥13 (`rate_ge_13`) | ROI% (`roi_pct`) | p-valor vs. aleatório (`p_value_vs_random`) — ordenada por média de acertos desc (mesma ordenação que o `report` já traz). Só `rate_ge_11`/`rate_ge_13` são calculados pelo runner hoje; taxas ≥12/≥14/≥15 (se exibidas) são derivadas no frontend a partir de `hits_distribution`.
+- Gráfico de acertos por concurso: uma série por modelo selecionado + baselines, eixo X = concurso (dados vêm de `raw_results` de cada entry).
+- Histograma de distribuição de acertos (11 a 15) por modelo, lado a lado — construído a partir de `hits_distribution` (dict `{hits: contagem}`) de cada entry.
 
 **Histórico:** lista de execuções passadas (data, intervalo, configs, retrain_every, status), clicável para recarregar os resultados sem rodar de novo.
 
