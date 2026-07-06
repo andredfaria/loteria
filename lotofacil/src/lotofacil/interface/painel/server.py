@@ -28,6 +28,7 @@ from lotofacil.servicos.roi_lab import (
     rodar_backtest_roi as _rodar_backtest_roi,
     auto_descobrir_roi as _auto_descobrir_roi,
 )
+from lotofacil.servicos.rodar_backtest_lab import CONFIGS_CONHECIDAS
 from lotofacil.infra.avaliacao.metricas import LotofacilMetrics
 from lotofacil.infra.avaliacao.significancia import compare_vs_baseline
 from lotofacil.infra.config import (
@@ -1140,6 +1141,20 @@ def _extract_model_path_from_output(lines: list[str]) -> str | None:
     return None
 
 
+def _extract_backtest_result_path_from_output(lines: list[str]) -> str | None:
+    for i, line in enumerate(lines):
+        if line.startswith("BACKTEST_RESULT_PATH:"):
+            rest = line.split(":", 1)[1].strip()
+            if not rest and i + 1 < len(lines):
+                rest = lines[i + 1].strip()
+                j = i + 2
+                while not rest.endswith(".json") and j < len(lines):
+                    rest += lines[j].strip()
+                    j += 1
+            return rest or None
+    return None
+
+
 def _repair_model_path(t: dict) -> str | None:
     """Tenta reconstruir o caminho do .keras de um treino cujo arquivo gravado
     não existe (ex.: caminho truncado por versões antigas do CLI).
@@ -1493,6 +1508,96 @@ def _compute_acertos(jogos: list[list[int]], dezenas_reais: list[int] | None) ->
         return None
     real_set = set(dezenas_reais)
     return [len(set(j) & real_set) for j in jogos]
+
+
+# ─── Backtest — API routes ──────────────────────────────────────
+
+@app.route("/api/backtests/iniciar", methods=["POST"])
+def api_backtests_iniciar():
+    body = request.get_json(force=True) or {}
+    configs = body.get("configs") or []
+    start = body.get("start")
+    end = body.get("end")
+    retrain_every = int(body.get("retrain_every") or 50)
+
+    if not configs or not isinstance(configs, list):
+        return jsonify({"error": "Selecione ao menos uma config."}), 400
+    invalidas = [c for c in configs if c not in CONFIGS_CONHECIDAS]
+    if invalidas:
+        return jsonify({"error": f"Configs inválidas: {', '.join(invalidas)}"}), 400
+    if not isinstance(start, int) or not isinstance(end, int):
+        return jsonify({"error": "start/end devem ser inteiros."}), 400
+    if start >= end:
+        return jsonify({"error": f"start ({start}) deve ser menor que end ({end})."}), 400
+
+    files = sorted(DADOS_DIR.glob("concurso_*.json"), key=_concurso_num)
+    if files:
+        max_concurso = _concurso_num(files[-1])
+        if end > max_concurso:
+            return jsonify({
+                "error": f"end ({end}) além do último concurso disponível ({max_concurso})."
+            }), 400
+
+    backtest_id = uuid.uuid4().hex[:8]
+    _registry.criar_backtest(backtest_id, configs, start, end, retrain_every)
+
+    cmd = [
+        "lotofacil", "lab", "backtest",
+        "--configs", ",".join(configs),
+        "--start", str(start),
+        "--end", str(end),
+        "--retrain-every", str(retrain_every),
+    ]
+    task_id = f"backtest_{int(time.time() * 1000)}_{backtest_id}"
+    _registry.create_job(task_id)
+
+    def on_done(success: bool, output_lines: list[str]):
+        if success:
+            result_path = _extract_backtest_result_path_from_output(output_lines)
+            if result_path and Path(result_path).exists():
+                _registry.registrar_resultado_backtest(backtest_id, result_path)
+                LOGGER.info("BACKTEST %s registered: %s", backtest_id, result_path)
+            else:
+                _registry.marcar_falha_backtest(backtest_id)
+                LOGGER.warning("BACKTEST %s succeeded but result path missing", backtest_id)
+        else:
+            _registry.marcar_falha_backtest(backtest_id)
+            LOGGER.warning("BACKTEST %s failed", backtest_id)
+
+    t = threading.Thread(
+        target=_run_command,
+        args=(task_id, _registry, cmd, str(BASE_DIR)),
+        kwargs={"on_complete": on_done},
+        daemon=True,
+    )
+    t.start()
+    return jsonify({"backtest_id": backtest_id, "task_id": task_id})
+
+
+@app.route("/api/backtests")
+def api_backtests_listar():
+    return jsonify(_registry.listar_backtests())
+
+
+@app.route("/api/backtests/<backtest_id>")
+def api_backtest_detalhe(backtest_id: str):
+    bt = _registry.buscar_backtest(backtest_id)
+    if not bt:
+        return jsonify({"error": "Não encontrado"}), 404
+    resultado_path = bt.get("resultado_path")
+    if resultado_path and Path(resultado_path).exists():
+        try:
+            bt["resultado"] = json.loads(Path(resultado_path).read_text(encoding="utf-8"))
+        except Exception as exc:
+            LOGGER.warning("BACKTEST %s: falha ao ler resultado: %s", backtest_id, exc)
+    return jsonify(bt)
+
+
+@app.route("/api/backtests/<backtest_id>", methods=["DELETE"])
+def api_backtest_deletar(backtest_id: str):
+    if not _registry.deletar_backtest(backtest_id):
+        return jsonify({"error": "Não encontrado"}), 404
+    return jsonify({"ok": True})
 
 
 @app.route("/api/jogos-gerados")
