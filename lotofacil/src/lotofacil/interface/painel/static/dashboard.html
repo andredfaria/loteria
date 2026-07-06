@@ -891,6 +891,8 @@
       <div id="tab-roi-lab" style="display:none;flex:1;overflow:auto;flex-direction:column"></div>
       <!-- Geração Tab — populado por renderGeracao() -->
       <div id="tab-geracao" style="display:none;flex:1;overflow:auto;flex-direction:column"></div>
+      <!-- Backtest Tab — populado por renderBacktestPage() -->
+      <div id="tab-backtest" style="display:none;flex:1;overflow:auto;flex-direction:column"></div>
       <!-- Jogos Tab — populado por renderJogosPage() -->
       <div id="tab-jogos" style="display:none;flex:1;overflow:auto;flex-direction:column"></div>
     </div>
@@ -1305,9 +1307,10 @@ function migrateLegacyConsoleSchema() {
 // SIDEBAR
 // ═══════════════════════════════════════════════════════════════
 const CATEGORIES = [
-  { id: 'coleta',  icon: '📥', label: 'Coleta'  },
-  { id: 'modelos', icon: '🧠', label: 'Modelos' },
-  { id: 'jogos',   icon: '🎲', label: 'Jogos'   },
+  { id: 'coleta',   icon: '📥', label: 'Coleta'   },
+  { id: 'modelos',  icon: '🧠', label: 'Modelos'  },
+  { id: 'backtest', icon: '📉', label: 'Backtest' },
+  { id: 'jogos',    icon: '🎲', label: 'Jogos'    },
 ];
 
 const ADVANCED_CATEGORIES = [
@@ -1407,8 +1410,10 @@ function switchTab(id) {
   tabModelos.style.display = id === 'modelos' ? 'flex' : 'none';
   document.getElementById('tab-roi-lab').style.display = id === 'roi_lab' ? 'flex' : 'none';
   document.getElementById('tab-geracao').style.display = id === 'geracao' ? 'flex' : 'none';
+  document.getElementById('tab-backtest').style.display = id === 'backtest' ? 'flex' : 'none';
   document.getElementById('tab-jogos').style.display = id === 'jogos' ? 'flex' : 'none';
-  document.getElementById('consoleSection').style.display = (id === 'modelos' || id === 'roi_lab' || id === 'geracao' || id === 'jogos') ? 'none' : '';
+  const consoleTrigger = document.getElementById('consoleTrigger');
+  if (consoleTrigger) consoleTrigger.style.display = (id === 'modelos' || id === 'roi_lab' || id === 'geracao' || id === 'backtest' || id === 'jogos') ? 'none' : '';
 
   if (id === 'dados') {
     numSec.style.display = '';
@@ -1443,6 +1448,10 @@ function switchTab(id) {
     numSec.style.display = 'none';
     bar.innerHTML = '<div class="section-title">🎯 Geração — Fechamento garantido</div>';
     renderGeracao();
+  } else if (id === 'backtest') {
+    numSec.style.display = 'none';
+    bar.innerHTML = '<div class="section-title">📉 Backtest de Modelos</div>';
+    renderBacktestPage();
   } else if (id === 'jogos') {
     numSec.style.display = 'none';
     bar.innerHTML = '<div class="section-title">🎲 Jogos Gerados por Modelos</div>';
@@ -3456,6 +3465,31 @@ function renderComparacao(data) {
       Val Loss menor = melhor. Hits médios maior = melhor. ▼ verde = Modelo A melhor que B.
       ${!qa && !qb ? '<br>Sem dados de backtest — execute via <b>📋 Lista</b> para ver hits.' : ''}
     </div>`;
+}
+
+// ── Backtest — aba canônica ─────────────────────────────────────
+function renderBacktestPage() {
+  const container = document.getElementById('tab-backtest');
+  container.innerHTML = `
+    <div class="backtest-page" style="padding:1rem;display:flex;flex-direction:column;gap:1rem">
+      <div id="backtestForm"></div>
+      <div id="backtestResults"></div>
+      <div id="backtestHistory"></div>
+    </div>`;
+  _renderBacktestForm();
+  _loadBacktestHistory();
+}
+
+function _renderBacktestForm() {
+  const el = document.getElementById('backtestForm');
+  if (!el) return;
+  el.innerHTML = `<div style="color:var(--muted);font-size:0.75rem">Carregando formulário…</div>`;
+}
+
+function _loadBacktestHistory() {
+  const el = document.getElementById('backtestHistory');
+  if (!el) return;
+  el.innerHTML = `<div style="color:var(--muted);font-size:0.75rem">Carregando histórico…</div>`;
 }
 
 // ── Jogos gerados — aba canônica ───────────────────────────────
