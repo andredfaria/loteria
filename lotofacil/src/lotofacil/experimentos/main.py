@@ -273,6 +273,62 @@ def ablation(
     console.print(f"\n[green]Report written to:[/green] {out_path}")
 
 
+# ── backtest ───────────────────────────────────────────────────────────────────
+
+@app.command("backtest")
+def backtest(
+    configs_str: str = typer.Option(
+        ..., "--configs",
+        help="Comma-separated config signatures, e.g. 'base+temp+priors,base+temp+priors+lua'",
+    ),
+    start: int = typer.Option(..., "--start", help="First concurso to test (inclusive)."),
+    end: int = typer.Option(..., "--end", help="Last concurso to test (inclusive)."),
+    retrain_every: int = typer.Option(50, "--retrain-every", help="Retrain every N test steps."),
+    debug: bool = typer.Option(False, "--debug"),
+) -> None:
+    """Leak-free walk-forward backtest for one or more lab neural configs over a concurso range."""
+    _setup_logging(debug)
+    import json
+    import uuid
+    from lotofacil.experimentos.config import PROJECT_ROOT
+    from lotofacil.servicos.rodar_backtest_lab import rodar_backtest_lab
+
+    configs = [c.strip() for c in configs_str.split(",") if c.strip()]
+    console.print(
+        f"Backtest: configs={configs} start={start} end={end} retrain_every={retrain_every}"
+    )
+
+    try:
+        resultado = rodar_backtest_lab(configs, start, end, retrain_every)
+    except ValueError as exc:
+        console.print(f"[red]Erro:[/red] {exc}")
+        raise typer.Exit(1)
+
+    for w in resultado.warnings:
+        console.print(f"[yellow]Aviso:[/yellow] {w}")
+
+    for entry in resultado.report["results"]:
+        if "error" in entry:
+            console.print(f"[red]{entry.get('name')}: ERRO — {entry['error']}[/red]")
+            continue
+        console.print(
+            f"{entry['name']}: mean_hits={entry.get('mean_hits', 0):.4f} "
+            f"n={entry.get('n_evaluated', 0)}"
+        )
+
+    out_dir = PROJECT_ROOT / "saida" / "backtests"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_path = out_dir / f"backtest_{uuid.uuid4().hex[:8]}.json"
+    out_path.write_text(
+        json.dumps(
+            {"report": resultado.report, "warnings": resultado.warnings},
+            ensure_ascii=False, indent=2, default=str,
+        ),
+        encoding="utf-8",
+    )
+    print(f"BACKTEST_RESULT_PATH: {out_path}", flush=True)
+
+
 # ── compare ────────────────────────────────────────────────────────────────────
 
 @app.command("compare")
