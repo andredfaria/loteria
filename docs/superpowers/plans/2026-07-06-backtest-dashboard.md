@@ -254,11 +254,12 @@ def rodar_backtest_lab(
         retrain_every=retrain_every,
         configs=feature_configs,
         run_neural=True,
-        period_start=effective_start,
         period_end=end_concurso,
     )
     return ResultadoBacktestLab(report=report, warnings=warnings)
 ```
+
+**Correction found during implementation (Task 1, commit `ee11388`):** `ExperimentRunner._filter_period(period_start, period_end)` filters the *entire* draws pool passed to `walk_forward`, not just the evaluation window — so passing `period_start=effective_start` here starves `walk_forward` of the pre-`effective_start` history it needs to reach `BACKTEST_MIN_TRAIN`, and no neural config ever gets trained. Only `period_end` is passed to `runner.run()`; `effective_start` is still used (as above) purely to size `n_test` and to build the "insufficient history" warning. This was caught by the no-leakage test itself (TDD did its job) — see the Task 1 report for the full trace.
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
