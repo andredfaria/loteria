@@ -103,3 +103,35 @@ class TestApiAtraso:
         assert data["atraso"]["34"] == {"atraso": 2, "ultimo_concurso": 7057}
         # 1 nunca saiu -> atraso == total_concursos, sem último concurso
         assert data["atraso"]["1"] == {"atraso": 3, "ultimo_concurso": None}
+
+
+class TestApiAtualizar:
+    def test_atualizar_success(self, client, monkeypatch):
+        class FakeFetcher:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def sync_new_draws(self):
+                return 3
+
+        monkeypatch.setattr(painel_server, "QuinaFetcher", FakeFetcher)
+
+        resp = client.post("/api/atualizar")
+
+        assert resp.status_code == 200
+        assert resp.get_json() == {"novos": 3}
+
+    def test_atualizar_failure(self, client, monkeypatch):
+        class FakeFetcher:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def sync_new_draws(self):
+                raise RuntimeError("API indisponível")
+
+        monkeypatch.setattr(painel_server, "QuinaFetcher", FakeFetcher)
+
+        resp = client.post("/api/atualizar")
+
+        assert resp.status_code == 500
+        assert "API indisponível" in resp.get_json()["error"]

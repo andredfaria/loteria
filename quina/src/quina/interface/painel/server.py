@@ -4,6 +4,7 @@ from __future__ import annotations
 from flask import Flask, jsonify
 
 from quina.dominio.regras import TOTAL_NUMEROS
+from quina.infra.dados.api_caixa import QuinaFetcher
 from quina.infra.dados.banco import DatabaseManager
 
 app = Flask(__name__)
@@ -51,3 +52,13 @@ def api_atraso():
             atraso[str(n)] = {"atraso": total, "ultimo_concurso": None}
 
     return jsonify({"atraso": atraso, "total_concursos": total})
+
+
+@app.route("/api/atualizar", methods=["POST"])
+def api_atualizar():
+    try:
+        fetcher = QuinaFetcher()
+        novos = fetcher.sync_new_draws()
+        return jsonify({"novos": novos})
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
