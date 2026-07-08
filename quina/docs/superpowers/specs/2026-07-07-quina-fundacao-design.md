@@ -47,9 +47,9 @@ quina/
 │       └── cli/
 │           ├── app.py          # Typer root
 │           └── dados.py        # `quina dados atualizar` / `quina dados status`
-├── dados/ → symlink para ~/quina-dados/
-│   └── sample/                 # ~100 concursos mais recentes, comitados no repo
+├── dados/ → symlink para ~/quina-dados/    # NÃO rastreado pelo git (ver nota abaixo)
 ├── testes/
+│   ├── fixtures/sample_draws/  # ~20-30 concursos reais, comitados no repo
 │   ├── unidade/
 │   └── integracao/
 ├── docs/superpowers/specs/     # este arquivo
@@ -103,7 +103,9 @@ quina = "quina.interface.cli.app:app"
 
 ## Dados de amostra
 
-`dados/sample/` com os ~100 concursos mais recentes da Quina, comitados no repositório — mesma convenção descrita no `CLAUDE.md` da raiz do monorepo.
+**Correção em relação à convenção descrita no `CLAUDE.md` da raiz:** verificado que `lotofacil/dados` é hoje um symlink **não rastreado pelo git** (`git ls-files dados` retorna vazio; há inclusive um commit removendo esse symlink do repo por estar quebrado). Ou seja, nada dentro de `dados/` pode ser comitado — o symlink aponta para fora do repositório.
+
+Para a Quina: `dados/` (symlink para `~/quina-dados/`) começa vazio e é populado rodando `quina dados atualizar`. Dados de amostra reais (~20-30 concursos) ficam em `testes/fixtures/sample_draws/`, comitados no repo, usados como fixtures nos testes de integração (`banco.py`, `leitor.py`, CLI).
 
 ## Fora de escopo (Fase 1)
 
