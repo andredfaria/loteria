@@ -38,30 +38,30 @@
 - [ ] **Step 1: Create the directory tree and empty `__init__.py` files**
 
 ```bash
-mkdir -p /home/andre/Documentos/projetos/loteria/quina/src/quina/dominio
-mkdir -p /home/andre/Documentos/projetos/loteria/quina/src/quina/infra/dados
-mkdir -p /home/andre/Documentos/projetos/loteria/quina/src/quina/interface/cli
-mkdir -p /home/andre/Documentos/projetos/loteria/quina/testes/unidade
-mkdir -p /home/andre/Documentos/projetos/loteria/quina/testes/integracao
-mkdir -p /home/andre/Documentos/projetos/loteria/quina/testes/fixtures/sample_draws
-mkdir -p /home/andre/Documentos/projetos/loteria/quina/saida
+mkdir -p quina/src/quina/dominio
+mkdir -p quina/src/quina/infra/dados
+mkdir -p quina/src/quina/interface/cli
+mkdir -p quina/testes/unidade
+mkdir -p quina/testes/integracao
+mkdir -p quina/testes/fixtures/sample_draws
+mkdir -p quina/saida
 
-touch /home/andre/Documentos/projetos/loteria/quina/src/quina/__init__.py
-touch /home/andre/Documentos/projetos/loteria/quina/src/quina/dominio/__init__.py
-touch /home/andre/Documentos/projetos/loteria/quina/src/quina/infra/__init__.py
-touch /home/andre/Documentos/projetos/loteria/quina/src/quina/infra/dados/__init__.py
-touch /home/andre/Documentos/projetos/loteria/quina/src/quina/interface/__init__.py
-touch /home/andre/Documentos/projetos/loteria/quina/src/quina/interface/cli/__init__.py
+touch quina/src/quina/__init__.py
+touch quina/src/quina/dominio/__init__.py
+touch quina/src/quina/infra/__init__.py
+touch quina/src/quina/infra/dados/__init__.py
+touch quina/src/quina/interface/__init__.py
+touch quina/src/quina/interface/cli/__init__.py
 ```
 
 - [ ] **Step 2: Create the `dados/` symlink**
 
 ```bash
 mkdir -p ~/quina-dados
-ln -s ~/quina-dados /home/andre/Documentos/projetos/loteria/quina/dados
+ln -s ~/quina-dados quina/dados
 ```
 
-Expected: `ls -la /home/andre/Documentos/projetos/loteria/quina/dados` shows it as a symlink pointing at `/home/andre/quina-dados`.
+Expected: `ls -la quina/dados` shows it as a symlink pointing at `/home/andre/quina-dados`.
 
 - [ ] **Step 3: Write `pyproject.toml`**
 
@@ -122,89 +122,89 @@ saida/
 These are real Quina draws (concursos 7035–7059), already fetched from the API on 2026-07-07. Write each as its own file under `quina/testes/fixtures/sample_draws/`, format matching the real API response shape (only the fields the code reads: `concurso`, `data`, `dezenas`).
 
 ```bash
-cat > /home/andre/Documentos/projetos/loteria/quina/testes/fixtures/sample_draws/concurso_7035.json <<'EOF'
+cat > quina/testes/fixtures/sample_draws/concurso_7035.json <<'EOF'
 {"concurso": 7035, "data": "26/05/2026", "dezenas": ["14", "15", "48", "58", "73"]}
 EOF
-cat > /home/andre/Documentos/projetos/loteria/quina/testes/fixtures/sample_draws/concurso_7036.json <<'EOF'
+cat > quina/testes/fixtures/sample_draws/concurso_7036.json <<'EOF'
 {"concurso": 7036, "data": "27/05/2026", "dezenas": ["15", "42", "63", "66", "77"]}
 EOF
-cat > /home/andre/Documentos/projetos/loteria/quina/testes/fixtures/sample_draws/concurso_7037.json <<'EOF'
+cat > quina/testes/fixtures/sample_draws/concurso_7037.json <<'EOF'
 {"concurso": 7037, "data": "28/05/2026", "dezenas": ["09", "26", "42", "55", "66"]}
 EOF
-cat > /home/andre/Documentos/projetos/loteria/quina/testes/fixtures/sample_draws/concurso_7038.json <<'EOF'
+cat > quina/testes/fixtures/sample_draws/concurso_7038.json <<'EOF'
 {"concurso": 7038, "data": "29/05/2026", "dezenas": ["02", "31", "39", "64", "73"]}
 EOF
-cat > /home/andre/Documentos/projetos/loteria/quina/testes/fixtures/sample_draws/concurso_7039.json <<'EOF'
+cat > quina/testes/fixtures/sample_draws/concurso_7039.json <<'EOF'
 {"concurso": 7039, "data": "30/05/2026", "dezenas": ["12", "15", "16", "67", "80"]}
 EOF
-cat > /home/andre/Documentos/projetos/loteria/quina/testes/fixtures/sample_draws/concurso_7040.json <<'EOF'
+cat > quina/testes/fixtures/sample_draws/concurso_7040.json <<'EOF'
 {"concurso": 7040, "data": "01/06/2026", "dezenas": ["05", "23", "52", "56", "67"]}
 EOF
-cat > /home/andre/Documentos/projetos/loteria/quina/testes/fixtures/sample_draws/concurso_7041.json <<'EOF'
+cat > quina/testes/fixtures/sample_draws/concurso_7041.json <<'EOF'
 {"concurso": 7041, "data": "02/06/2026", "dezenas": ["25", "28", "49", "56", "75"]}
 EOF
-cat > /home/andre/Documentos/projetos/loteria/quina/testes/fixtures/sample_draws/concurso_7042.json <<'EOF'
+cat > quina/testes/fixtures/sample_draws/concurso_7042.json <<'EOF'
 {"concurso": 7042, "data": "03/06/2026", "dezenas": ["10", "13", "25", "36", "60"]}
 EOF
-cat > /home/andre/Documentos/projetos/loteria/quina/testes/fixtures/sample_draws/concurso_7043.json <<'EOF'
+cat > quina/testes/fixtures/sample_draws/concurso_7043.json <<'EOF'
 {"concurso": 7043, "data": "05/06/2026", "dezenas": ["10", "20", "21", "29", "46"]}
 EOF
-cat > /home/andre/Documentos/projetos/loteria/quina/testes/fixtures/sample_draws/concurso_7044.json <<'EOF'
+cat > quina/testes/fixtures/sample_draws/concurso_7044.json <<'EOF'
 {"concurso": 7044, "data": "06/06/2026", "dezenas": ["02", "05", "30", "54", "73"]}
 EOF
-cat > /home/andre/Documentos/projetos/loteria/quina/testes/fixtures/sample_draws/concurso_7045.json <<'EOF'
+cat > quina/testes/fixtures/sample_draws/concurso_7045.json <<'EOF'
 {"concurso": 7045, "data": "08/06/2026", "dezenas": ["12", "13", "17", "54", "71"]}
 EOF
-cat > /home/andre/Documentos/projetos/loteria/quina/testes/fixtures/sample_draws/concurso_7046.json <<'EOF'
+cat > quina/testes/fixtures/sample_draws/concurso_7046.json <<'EOF'
 {"concurso": 7046, "data": "09/06/2026", "dezenas": ["02", "12", "37", "68", "76"]}
 EOF
-cat > /home/andre/Documentos/projetos/loteria/quina/testes/fixtures/sample_draws/concurso_7047.json <<'EOF'
+cat > quina/testes/fixtures/sample_draws/concurso_7047.json <<'EOF'
 {"concurso": 7047, "data": "10/06/2026", "dezenas": ["06", "11", "26", "50", "61"]}
 EOF
-cat > /home/andre/Documentos/projetos/loteria/quina/testes/fixtures/sample_draws/concurso_7048.json <<'EOF'
+cat > quina/testes/fixtures/sample_draws/concurso_7048.json <<'EOF'
 {"concurso": 7048, "data": "11/06/2026", "dezenas": ["09", "25", "34", "56", "70"]}
 EOF
-cat > /home/andre/Documentos/projetos/loteria/quina/testes/fixtures/sample_draws/concurso_7049.json <<'EOF'
+cat > quina/testes/fixtures/sample_draws/concurso_7049.json <<'EOF'
 {"concurso": 7049, "data": "12/06/2026", "dezenas": ["09", "14", "25", "44", "67"]}
 EOF
-cat > /home/andre/Documentos/projetos/loteria/quina/testes/fixtures/sample_draws/concurso_7050.json <<'EOF'
+cat > quina/testes/fixtures/sample_draws/concurso_7050.json <<'EOF'
 {"concurso": 7050, "data": "14/06/2026", "dezenas": ["24", "36", "61", "66", "74"]}
 EOF
-cat > /home/andre/Documentos/projetos/loteria/quina/testes/fixtures/sample_draws/concurso_7051.json <<'EOF'
+cat > quina/testes/fixtures/sample_draws/concurso_7051.json <<'EOF'
 {"concurso": 7051, "data": "28/06/2026", "dezenas": ["19", "32", "50", "73", "75"]}
 EOF
-cat > /home/andre/Documentos/projetos/loteria/quina/testes/fixtures/sample_draws/concurso_7052.json <<'EOF'
+cat > quina/testes/fixtures/sample_draws/concurso_7052.json <<'EOF'
 {"concurso": 7052, "data": "29/06/2026", "dezenas": ["09", "55", "63", "65", "80"]}
 EOF
-cat > /home/andre/Documentos/projetos/loteria/quina/testes/fixtures/sample_draws/concurso_7053.json <<'EOF'
+cat > quina/testes/fixtures/sample_draws/concurso_7053.json <<'EOF'
 {"concurso": 7053, "data": "30/06/2026", "dezenas": ["02", "15", "54", "63", "72"]}
 EOF
-cat > /home/andre/Documentos/projetos/loteria/quina/testes/fixtures/sample_draws/concurso_7054.json <<'EOF'
+cat > quina/testes/fixtures/sample_draws/concurso_7054.json <<'EOF'
 {"concurso": 7054, "data": "01/07/2026", "dezenas": ["02", "11", "34", "63", "68"]}
 EOF
-cat > /home/andre/Documentos/projetos/loteria/quina/testes/fixtures/sample_draws/concurso_7055.json <<'EOF'
+cat > quina/testes/fixtures/sample_draws/concurso_7055.json <<'EOF'
 {"concurso": 7055, "data": "02/07/2026", "dezenas": ["07", "20", "22", "38", "66"]}
 EOF
-cat > /home/andre/Documentos/projetos/loteria/quina/testes/fixtures/sample_draws/concurso_7056.json <<'EOF'
+cat > quina/testes/fixtures/sample_draws/concurso_7056.json <<'EOF'
 {"concurso": 7056, "data": "03/07/2026", "dezenas": ["28", "41", "43", "50", "57"]}
 EOF
-cat > /home/andre/Documentos/projetos/loteria/quina/testes/fixtures/sample_draws/concurso_7057.json <<'EOF'
+cat > quina/testes/fixtures/sample_draws/concurso_7057.json <<'EOF'
 {"concurso": 7057, "data": "04/07/2026", "dezenas": ["34", "38", "47", "63", "75"]}
 EOF
-cat > /home/andre/Documentos/projetos/loteria/quina/testes/fixtures/sample_draws/concurso_7058.json <<'EOF'
+cat > quina/testes/fixtures/sample_draws/concurso_7058.json <<'EOF'
 {"concurso": 7058, "data": "06/07/2026", "dezenas": ["08", "26", "27", "66", "79"]}
 EOF
-cat > /home/andre/Documentos/projetos/loteria/quina/testes/fixtures/sample_draws/concurso_7059.json <<'EOF'
+cat > quina/testes/fixtures/sample_draws/concurso_7059.json <<'EOF'
 {"concurso": 7059, "data": "07/07/2026", "dezenas": ["27", "47", "57", "70", "78"]}
 EOF
 ```
 
-Expected: `ls /home/andre/Documentos/projetos/loteria/quina/testes/fixtures/sample_draws | wc -l` prints `25`.
+Expected: `ls quina/testes/fixtures/sample_draws | wc -l` prints `25`.
 
 - [ ] **Step 6: Create the venv and install the package**
 
 ```bash
-cd /home/andre/Documentos/projetos/loteria/quina
+cd quina
 python3 -m venv venv
 source venv/bin/activate
 pip install -e ".[dev]"
@@ -216,7 +216,7 @@ Expected: last line prints `ok`. If `pip install` fails because there's no code 
 - [ ] **Step 7: Commit**
 
 ```bash
-cd /home/andre/Documentos/projetos/loteria
+cd "$(git rev-parse --show-toplevel)"
 git add quina/pyproject.toml quina/.gitignore quina/src quina/testes/fixtures
 git commit -m "$(cat <<'EOF'
 chore(quina): scaffold quina project structure
@@ -334,7 +334,7 @@ class TestCombinacoes:
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd /home/andre/Documentos/projetos/loteria/quina && source venv/bin/activate && pytest testes/unidade/test_regras.py -v`
+Run: `cd quina && source venv/bin/activate && pytest testes/unidade/test_regras.py -v`
 Expected: FAIL with `ModuleNotFoundError: No module named 'quina.dominio.regras'`
 
 - [ ] **Step 3: Write the implementation**
@@ -401,13 +401,13 @@ def total_combinacoes(n: int = NUMEROS_POR_SORTEIO) -> int:
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `pytest testes/unidade/test_regras.py -v`
+Run: `cd quina && source venv/bin/activate && pytest testes/unidade/test_regras.py -v`
 Expected: PASS — all 18 tests green.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /home/andre/Documentos/projetos/loteria
+cd "$(git rev-parse --show-toplevel)"
 git add quina/src/quina/dominio/regras.py quina/testes/unidade/test_regras.py
 git commit -m "$(cat <<'EOF'
 feat(quina): add domain rules (regras.py)
@@ -494,7 +494,7 @@ class TestExcecoes:
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `pytest testes/unidade/test_entidades.py -v`
+Run: `cd quina && source venv/bin/activate && pytest testes/unidade/test_entidades.py -v`
 Expected: FAIL with `ModuleNotFoundError: No module named 'quina.dominio.entidades'`
 
 - [ ] **Step 3: Write the implementation**
@@ -548,13 +548,13 @@ Draw = Sorteio
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `pytest testes/unidade/test_entidades.py -v`
+Run: `cd quina && source venv/bin/activate && pytest testes/unidade/test_entidades.py -v`
 Expected: PASS — all 8 tests green.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /home/andre/Documentos/projetos/loteria
+cd "$(git rev-parse --show-toplevel)"
 git add quina/src/quina/dominio/entidades.py quina/src/quina/dominio/excecoes.py quina/testes/unidade/test_entidades.py
 git commit -m "$(cat <<'EOF'
 feat(quina): add domain entities (Sorteio, SorteioBruto) and exceptions
@@ -613,7 +613,7 @@ def test_dirs_exist():
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `pytest testes/unidade/test_config.py -v`
+Run: `cd quina && source venv/bin/activate && pytest testes/unidade/test_config.py -v`
 Expected: FAIL with `ModuleNotFoundError: No module named 'quina.infra.config'`
 
 - [ ] **Step 3: Write the implementation**
@@ -648,13 +648,13 @@ USER_AGENT = "quina-prediction/0.1"
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `pytest testes/unidade/test_config.py -v`
+Run: `cd quina && source venv/bin/activate && pytest testes/unidade/test_config.py -v`
 Expected: PASS — all 3 tests green. (`DADOS_DIR.exists()` passes because it resolves through the symlink created in Task 1 Step 2.)
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /home/andre/Documentos/projetos/loteria
+cd "$(git rev-parse --show-toplevel)"
 git add quina/src/quina/infra/config.py quina/testes/unidade/test_config.py
 git commit -m "$(cat <<'EOF'
 feat(quina): add infra config (paths, game rules, API settings)
@@ -752,7 +752,7 @@ class TestDatabaseManager:
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `pytest testes/integracao/test_banco.py -v`
+Run: `cd quina && source venv/bin/activate && pytest testes/integracao/test_banco.py -v`
 Expected: FAIL with `ModuleNotFoundError: No module named 'quina.infra.dados.banco'`
 
 - [ ] **Step 3: Write the implementation**
@@ -868,13 +868,13 @@ class DatabaseManager:
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `pytest testes/integracao/test_banco.py -v`
+Run: `cd quina && source venv/bin/activate && pytest testes/integracao/test_banco.py -v`
 Expected: PASS — all 9 tests green.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /home/andre/Documentos/projetos/loteria
+cd "$(git rev-parse --show-toplevel)"
 git add quina/src/quina/infra/dados/banco.py quina/testes/integracao/test_banco.py
 git commit -m "$(cat <<'EOF'
 feat(quina): add SQLite persistence layer (DatabaseManager)
@@ -966,7 +966,7 @@ class TestLoadDrawsEdgeCases:
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `pytest testes/unidade/test_leitor.py -v`
+Run: `cd quina && source venv/bin/activate && pytest testes/unidade/test_leitor.py -v`
 Expected: FAIL with `ModuleNotFoundError: No module named 'quina.infra.dados.leitor'`
 
 - [ ] **Step 3: Write the implementation**
@@ -1039,13 +1039,13 @@ def load_draws(dados_dir: Union[str, Path]) -> List[Draw]:
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `pytest testes/unidade/test_leitor.py -v`
+Run: `cd quina && source venv/bin/activate && pytest testes/unidade/test_leitor.py -v`
 Expected: PASS — all 9 tests green.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /home/andre/Documentos/projetos/loteria
+cd "$(git rev-parse --show-toplevel)"
 git add quina/src/quina/infra/dados/leitor.py quina/testes/unidade/test_leitor.py
 git commit -m "$(cat <<'EOF'
 feat(quina): add local draw file reader (load_draws)
@@ -1182,7 +1182,7 @@ class TestQuinaFetcher:
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `pytest testes/integracao/test_api_caixa.py -v`
+Run: `cd quina && source venv/bin/activate && pytest testes/integracao/test_api_caixa.py -v`
 Expected: FAIL with `ModuleNotFoundError: No module named 'quina.infra.dados.api_caixa'`
 
 - [ ] **Step 3: Write the implementation**
@@ -1352,13 +1352,13 @@ class QuinaFetcher:
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `pytest testes/integracao/test_api_caixa.py -v`
+Run: `cd quina && source venv/bin/activate && pytest testes/integracao/test_api_caixa.py -v`
 Expected: PASS — all 10 tests green.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /home/andre/Documentos/projetos/loteria
+cd "$(git rev-parse --show-toplevel)"
 git add quina/src/quina/infra/dados/api_caixa.py quina/testes/integracao/test_api_caixa.py
 git commit -m "$(cat <<'EOF'
 feat(quina): add Caixa API fetcher with retry and DB sync
@@ -1460,7 +1460,7 @@ class TestAtualizarCommand:
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `pytest testes/integracao/test_cli_dados.py -v`
+Run: `cd quina && source venv/bin/activate && pytest testes/integracao/test_cli_dados.py -v`
 Expected: FAIL with `ModuleNotFoundError: No module named 'quina.interface.cli.dados'`
 
 - [ ] **Step 3: Write the implementation**
@@ -1547,13 +1547,13 @@ if __name__ == "__main__":
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `pytest testes/integracao/test_cli_dados.py -v`
+Run: `cd quina && source venv/bin/activate && pytest testes/integracao/test_cli_dados.py -v`
 Expected: PASS — all 4 tests green.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /home/andre/Documentos/projetos/loteria
+cd "$(git rev-parse --show-toplevel)"
 git add quina/src/quina/interface/cli/dados.py quina/src/quina/interface/cli/app.py quina/testes/integracao/test_cli_dados.py
 git commit -m "$(cat <<'EOF'
 feat(quina): add CLI (quina dados atualizar/status)
@@ -1574,7 +1574,7 @@ EOF
 - [ ] **Step 1: Reinstall to pick up the `quina` console script**
 
 ```bash
-cd /home/andre/Documentos/projetos/loteria/quina
+cd quina
 source venv/bin/activate
 pip install -e ".[dev]"
 ```
@@ -1602,7 +1602,7 @@ Expected: first `status` reports "Nenhum concurso encontrado" (DB is empty — `
 - [ ] **Step 4: Verify the fixture data is committed and `dados/` is not**
 
 ```bash
-cd /home/andre/Documentos/projetos/loteria
+cd "$(git rev-parse --show-toplevel)"
 git status --short quina/
 git ls-files quina/dados
 ```
