@@ -1435,10 +1435,22 @@ class TestStatusCommand:
 
 
 class TestAtualizarCommand:
+    # test_atualizar_fetches_new seeds concurso 7058 before mocking `/latest`
+    # so sync_new_draws() only needs to fetch a 1-concurso gap. An earlier
+    # version of this test started from a fully empty DB, which drove
+    # sync_new_draws()'s empty-DB bootstrap into a ~7059-iteration loop with
+    # only `/latest` mocked — every other concurso call raised under
+    # `responses`, and tenacity's retry (5 attempts, real wait_exponential
+    # sleeps, not mocked) turned that into an ~29-hour test. Always seed a
+    # prior concurso here, mirroring test_sync_new_draws_fetches_gap in
+    # test_api_caixa.py (Task 7).
     @responses.activate
     def test_atualizar_fetches_new(self, monkeypatch, tmp_path):
-        _patch_backends(monkeypatch, tmp_path)
+        db_path = _patch_backends(monkeypatch, tmp_path)
+        db = DatabaseManager(db_path=db_path)
+        db.upsert_concurso(7058, "06/07/2026", [8, 26, 27, 66, 79])
         responses.add(responses.GET, f"{API_QUINA}/latest", json=RAW_7059, status=200)
+        responses.add(responses.GET, f"{API_QUINA}/7059", json=RAW_7059, status=200)
 
         result = runner.invoke(dados_cli.app, ["atualizar"])
 
