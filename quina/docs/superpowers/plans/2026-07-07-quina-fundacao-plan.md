@@ -894,7 +894,9 @@ EOF
 
 **Interfaces:**
 - Consumes: `NUMEROS_POR_SORTEIO`, `TOTAL_NUMEROS` from `quina.dominio.regras` (Task 2); reads the 25 fixture files from Task 1 (`quina/testes/fixtures/sample_draws/`).
-- Produces: `Draw` (dataclass: `concurso: int`, `data: str`, `dezenas: List[int]`), `load_draws(dados_dir: str | Path) -> List[Draw]` — sorted ascending by `concurso`, silently skips malformed/invalid files.
+- Produces: `SorteioArquivo` (dataclass: `concurso: int`, `data: str`, `dezenas: List[int]`), `load_draws(dados_dir: str | Path) -> List[SorteioArquivo]` — sorted ascending by `concurso`, silently skips malformed/invalid files.
+
+**Naming note:** this dataclass was originally named `Draw`, colliding with `quina.dominio.entidades.Draw` (the `Sorteio` alias) — two different types with the same name in sibling modules. Renamed to `SorteioArquivo` after the final whole-branch review flagged it; nothing outside this module imports the type by name, so the rename has no other call sites to update.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -990,13 +992,13 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class Draw:
+class SorteioArquivo:
     concurso: int
     data: str
     dezenas: List[int]  # sorted ints, range 1-80
 
 
-def load_draws(dados_dir: Union[str, Path]) -> List[Draw]:
+def load_draws(dados_dir: Union[str, Path]) -> List[SorteioArquivo]:
     """
     Load all concurso_N.json files from dados_dir.
 
@@ -1004,7 +1006,7 @@ def load_draws(dados_dir: Union[str, Path]) -> List[Draw]:
     Silently skips files with JSON errors or invalid data.
     """
     dados_path = Path(dados_dir)
-    draws: List[Draw] = []
+    draws: List[SorteioArquivo] = []
 
     for arquivo in dados_path.glob("concurso_*.json"):
         try:
@@ -1024,7 +1026,7 @@ def load_draws(dados_dir: Union[str, Path]) -> List[Draw]:
                     "Skipping %s: dezenas out of range 1-%d", arquivo.name, TOTAL_NUMEROS
                 )
                 continue
-            draws.append(Draw(
+            draws.append(SorteioArquivo(
                 concurso=int(raw["concurso"]),
                 data=raw.get("data", ""),
                 dezenas=dezenas,

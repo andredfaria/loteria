@@ -14,13 +14,13 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class Draw:
+class SorteioArquivo:
     concurso: int
     data: str
     dezenas: List[int]  # sorted ints, range 1-80
 
 
-def load_draws(dados_dir: Union[str, Path]) -> List[Draw]:
+def load_draws(dados_dir: Union[str, Path]) -> List[SorteioArquivo]:
     """
     Load all concurso_N.json files from dados_dir.
 
@@ -28,7 +28,7 @@ def load_draws(dados_dir: Union[str, Path]) -> List[Draw]:
     Silently skips files with JSON errors or invalid data.
     """
     dados_path = Path(dados_dir)
-    draws: List[Draw] = []
+    draws: List[SorteioArquivo] = []
 
     for arquivo in dados_path.glob("concurso_*.json"):
         try:
@@ -48,7 +48,7 @@ def load_draws(dados_dir: Union[str, Path]) -> List[Draw]:
                     "Skipping %s: dezenas out of range 1-%d", arquivo.name, TOTAL_NUMEROS
                 )
                 continue
-            draws.append(Draw(
+            draws.append(SorteioArquivo(
                 concurso=int(raw["concurso"]),
                 data=raw.get("data", ""),
                 dezenas=dezenas,
