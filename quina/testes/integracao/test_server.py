@@ -135,3 +135,12 @@ class TestApiAtualizar:
 
         assert resp.status_code == 500
         assert "API indisponível" in resp.get_json()["error"]
+
+
+class TestIndex:
+    def test_index_serves_html(self, client):
+        resp = client.get("/")
+
+        assert resp.status_code == 200
+        assert resp.content_type.startswith("text/html")
+        assert b"Quina" in resp.data

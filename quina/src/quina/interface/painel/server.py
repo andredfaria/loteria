@@ -1,13 +1,22 @@
 """Flask dashboard for Quina — minimal data-only view."""
 from __future__ import annotations
 
-from flask import Flask, jsonify
+from pathlib import Path
+
+from flask import Flask, jsonify, send_from_directory
 
 from quina.dominio.regras import TOTAL_NUMEROS
 from quina.infra.dados.api_caixa import QuinaFetcher
 from quina.infra.dados.banco import DatabaseManager
 
 app = Flask(__name__)
+
+STATIC_DIR = Path(__file__).resolve().parent / "static"
+
+
+@app.route("/")
+def index():
+    return send_from_directory(str(STATIC_DIR), "dashboard.html")
 
 
 @app.route("/api/status")
