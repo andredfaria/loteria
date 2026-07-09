@@ -101,3 +101,39 @@ class TestQuinaFetcher:
 
         assert new_count == 0
         assert db.count_concursos() == 1
+
+
+class TestSyncValidaJogosGerados:
+    @responses.activate
+    def test_sync_atualiza_acertos_de_jogos_pendentes(self, tmp_path):
+        db = DatabaseManager(db_path=tmp_path / "test.db")
+        db.upsert_concurso(7058, "06/07/2026", [8, 26, 27, 66, 79])
+        db.salvar_jogo_gerado(
+            estrategia="filtros", tamanho_aposta=5, dezenas=[27, 47, 57, 70, 78],
+            score=0.8, custo=3.0, concurso_alvo_validacao=7059,
+        )
+        responses.add(responses.GET, f"{API_QUINA}/latest", json=RAW_7059, status=200)
+        responses.add(responses.GET, f"{API_QUINA}/7059", json=RAW_7059, status=200)
+        fetcher = QuinaFetcher(db=db, data_dir=tmp_path)
+
+        fetcher.sync_new_draws()
+
+        jogos = db.listar_jogos_gerados()
+        assert jogos[0]["acertos"] == 5  # dezenas do jogo batem 100% com o sorteio 7059
+
+    @responses.activate
+    def test_sync_nao_toca_jogos_de_outro_concurso_alvo(self, tmp_path):
+        db = DatabaseManager(db_path=tmp_path / "test.db")
+        db.upsert_concurso(7058, "06/07/2026", [8, 26, 27, 66, 79])
+        db.salvar_jogo_gerado(
+            estrategia="filtros", tamanho_aposta=5, dezenas=[1, 2, 3, 4, 5],
+            score=0.5, custo=3.0, concurso_alvo_validacao=9999,
+        )
+        responses.add(responses.GET, f"{API_QUINA}/latest", json=RAW_7059, status=200)
+        responses.add(responses.GET, f"{API_QUINA}/7059", json=RAW_7059, status=200)
+        fetcher = QuinaFetcher(db=db, data_dir=tmp_path)
+
+        fetcher.sync_new_draws()
+
+        jogos = db.listar_jogos_gerados()
+        assert jogos[0]["acertos"] is None

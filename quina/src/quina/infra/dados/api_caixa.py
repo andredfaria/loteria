@@ -153,6 +153,7 @@ class QuinaFetcher:
             if rec:
                 self.db.upsert_concurso(rec["concurso"], rec["data"], rec["dezenas"], rec["raw"])
                 self._save_concurso_json(rec["concurso"], rec["raw"])
+                self.db.atualizar_acertos_pendentes(rec["concurso"], rec["dezenas"])
                 new_count += 1
         logger.info("Synced %d new draws (up to concurso %d)", new_count, end)
         return new_count
