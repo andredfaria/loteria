@@ -24,19 +24,20 @@ def treinar(debug: bool = typer.Option(False, "--debug")) -> None:
     import logging
     logging.basicConfig(level=logging.DEBUG if debug else logging.WARNING)
 
-    from lotofacil.infra.dados.banco import DatabaseManager
+    from lotofacil.infra.config import PROJETO_RAIZ
+    from lotofacil.infra.dados.leitor import load_draws
     from lotofacil.infra.modelos.ensemble import EnsemblePredictor
 
-    db = DatabaseManager()
-    draws = db.get_all_concursos()
+    draws = load_draws(PROJETO_RAIZ / "dados")
 
     if len(draws) < 100:
-        console.print("[red]Dados insuficientes. Execute: lotofacil dados atualizar --all[/red]")
+        console.print("[red]Dados insuficientes. Execute: lotofacil dados atualizar --escopo todos[/red]")
         raise typer.Exit(1)
 
     console.print(f"[cyan]Treinando em {len(draws)} concursos...[/cyan]")
     predictor = EnsemblePredictor()
-    predictor.train(draws)
+    predictor.fit(draws)
+    predictor.save()
     console.print("[green]✓ Treino concluído. Modelos salvos.[/green]")
 
 
