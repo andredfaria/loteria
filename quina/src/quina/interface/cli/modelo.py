@@ -24,7 +24,11 @@ def treinar(
         raise typer.Exit(1)
 
     console.print(f"[cyan]Rodando backtest: estratégia={estrategia}, janela={janela}...[/cyan]")
-    metricas = rodar_backtest(estrategia=estrategia, janela=janela, db=db)
+    try:
+        metricas = rodar_backtest(estrategia=estrategia, janela=janela, db=db)
+    except ValueError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(1) from exc
     db.salvar_backtest(estrategia, metricas["janela"], metricas)
 
     table = Table(title=f"Backtest — {estrategia}")

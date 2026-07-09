@@ -52,6 +52,15 @@ class TestApiTreinos:
 
         assert resp.status_code == 400
 
+    def test_iniciar_janela_nao_numerica(self, client, monkeypatch, tmp_path):
+        db_path = _patch_db(monkeypatch, tmp_path)
+        _seed_draws(DatabaseManager(db_path=db_path))
+
+        resp = client.post("/api/treinos/iniciar", json={"estrategia": "filtros", "janela": "abc"})
+
+        assert resp.status_code == 400
+        assert "error" in resp.get_json()
+
     def test_listar(self, client, monkeypatch, tmp_path):
         db_path = _patch_db(monkeypatch, tmp_path)
         db = DatabaseManager(db_path=db_path)
@@ -93,6 +102,23 @@ class TestApiJogos:
 
         assert resp.status_code == 200
         assert len(data["jogos"]) == 1
+
+    def test_gerar_tamanho_nao_numerico(self, client, monkeypatch, tmp_path):
+        db_path = _patch_db(monkeypatch, tmp_path)
+        _seed_draws(DatabaseManager(db_path=db_path))
+
+        resp = client.post("/api/jogos/gerar", json={"estrategia": "filtros", "tamanho_aposta": "abc"})
+
+        assert resp.status_code == 400
+        assert "error" in resp.get_json()
+
+    def test_listar_limite_nao_numerico(self, client, monkeypatch, tmp_path):
+        _patch_db(monkeypatch, tmp_path)
+
+        resp = client.get("/api/jogos?limite=abc")
+
+        assert resp.status_code == 400
+        assert "error" in resp.get_json()
 
 
 class TestApiFechamento:

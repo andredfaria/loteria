@@ -45,6 +45,16 @@ class TestGerarCommand:
 
         assert len(db.listar_jogos_gerados()) == 3
 
+    def test_tamanho_fora_do_intervalo_da_erro_limpo(self, monkeypatch, tmp_path):
+        db_path = _patch_db(monkeypatch, tmp_path)
+        _seed_draws(DatabaseManager(db_path=db_path))
+
+        result = runner.invoke(jogos_cli.app, ["gerar", "--estrategia", "filtros", "--tamanho", "20", "--n", "3"])
+
+        assert result.exit_code == 1
+        assert "Tamanho de aposta" in result.stdout
+        assert isinstance(result.exception, SystemExit)
+
 
 class TestFechamentoCommand:
     def test_fechamento_valido(self, monkeypatch, tmp_path):

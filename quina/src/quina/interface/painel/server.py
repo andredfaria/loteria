@@ -83,7 +83,10 @@ def api_atualizar():
 def api_treinos_iniciar():
     body = request.get_json(force=True, silent=True) or {}
     estrategia = body.get("estrategia", "filtros")
-    janela = int(body.get("janela", 300))
+    try:
+        janela = int(body.get("janela", 300))
+    except (ValueError, TypeError):
+        return jsonify({"error": "janela deve ser um número inteiro"}), 400
 
     if estrategia not in ESTRATEGIAS_DISPONIVEIS:
         return jsonify({"error": f"estratégia desconhecida: {estrategia}"}), 400
@@ -107,8 +110,11 @@ def api_treinos_listar():
 def api_jogos_gerar():
     body = request.get_json(force=True, silent=True) or {}
     estrategia = body.get("estrategia", "filtros")
-    tamanho = int(body.get("tamanho_aposta", 5))
-    quantidade = int(body.get("quantidade", 5))
+    try:
+        tamanho = int(body.get("tamanho_aposta", 5))
+        quantidade = int(body.get("quantidade", 5))
+    except (ValueError, TypeError):
+        return jsonify({"error": "tamanho_aposta e quantidade devem ser números inteiros"}), 400
     concurso_alvo = body.get("concurso_alvo")
 
     db = DatabaseManager()
@@ -143,8 +149,11 @@ def api_jogos_gerar():
 
 @app.route("/api/jogos")
 def api_jogos_listar():
-    limite = int(request.args.get("limite", 50))
-    offset = int(request.args.get("offset", 0))
+    try:
+        limite = int(request.args.get("limite", 50))
+        offset = int(request.args.get("offset", 0))
+    except (ValueError, TypeError):
+        return jsonify({"error": "limite e offset devem ser números inteiros"}), 400
     db = DatabaseManager()
     return jsonify({"jogos": db.listar_jogos_gerados(limite=limite, offset=offset)})
 

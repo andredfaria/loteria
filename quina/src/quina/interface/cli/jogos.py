@@ -29,16 +29,20 @@ def gerar(
         console.print("[red]Dados insuficientes. Execute: quina dados atualizar[/red]")
         raise typer.Exit(1)
 
-    if estrategia == "filtros":
-        candidatos = scoring.gerar_candidatos(quantidade=max(200, n * 20), tamanho_aposta=tamanho, draws=draws)
-        selecionados = scoring.top_k(candidatos, n)
-    elif estrategia == "frequencia_atraso":
-        selecionados = [gerar_candidato_frequencia_atraso(draws, tamanho) for _ in range(n)]
-    else:
-        console.print(f"[red]Estratégia desconhecida: {estrategia}[/red]")
-        raise typer.Exit(1)
+    try:
+        custo_unitario = custo_aposta(tamanho)
+        if estrategia == "filtros":
+            candidatos = scoring.gerar_candidatos(quantidade=max(200, n * 20), tamanho_aposta=tamanho, draws=draws)
+            selecionados = scoring.top_k(candidatos, n)
+        elif estrategia == "frequencia_atraso":
+            selecionados = [gerar_candidato_frequencia_atraso(draws, tamanho) for _ in range(n)]
+        else:
+            console.print(f"[red]Estratégia desconhecida: {estrategia}[/red]")
+            raise typer.Exit(1)
+    except ValueError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(1) from exc
 
-    custo_unitario = custo_aposta(tamanho)
     table = Table(title=f"Jogos gerados — {estrategia}")
     table.add_column("Dezenas")
     table.add_column("Score")
@@ -58,9 +62,13 @@ def fechamento(
     garantia: str = typer.Option(..., "--garantia", help="k,faixa — ex: 4,4 garante quadra se 4 do pool saírem"),
 ) -> None:
     """Gera cobertura de fechamento (greedy) para o pool e garantia informados."""
-    pool = [int(d.strip()) for d in dezenas.split(",")]
-    k_str, faixa_str = garantia.split(",")
-    resultado = fechamento_servico.gerar_fechamento(pool, (int(k_str), int(faixa_str)))
+    try:
+        pool = [int(d.strip()) for d in dezenas.split(",")]
+        k_str, faixa_str = garantia.split(",")
+        resultado = fechamento_servico.gerar_fechamento(pool, (int(k_str), int(faixa_str)))
+    except ValueError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(1) from exc
 
     table = Table(title="Fechamento")
     table.add_column("Jogo")

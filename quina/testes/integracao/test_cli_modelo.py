@@ -37,6 +37,16 @@ class TestTreinarCommand:
         assert result.exit_code == 0
         assert "Backtest" in result.stdout
 
+    def test_estrategia_desconhecida_da_erro_limpo(self, monkeypatch, tmp_path):
+        db_path = _patch_db(monkeypatch, tmp_path)
+        _seed_draws(DatabaseManager(db_path=db_path))
+
+        result = runner.invoke(modelo_cli.app, ["treinar", "--estrategia", "bogus"])
+
+        assert result.exit_code == 1
+        assert "desconhecida" in result.stdout
+        assert isinstance(result.exception, SystemExit)
+
 
 class TestLeaderboardCommand:
     def test_sem_backtests(self, monkeypatch, tmp_path):

@@ -35,3 +35,13 @@ class TestGerarCommand:
 
         assert result.exit_code == 0
         assert "Custo total" in result.stdout
+
+    def test_perfil_desconhecido_da_erro_limpo(self, monkeypatch, tmp_path):
+        db_path = _patch_db(monkeypatch, tmp_path)
+        _seed_draws(DatabaseManager(db_path=db_path))
+
+        result = runner.invoke(portfolio_cli.app, ["gerar", "--orcamento", "30", "--perfil", "bogus"])
+
+        assert result.exit_code == 1
+        assert "perfil desconhecido" in result.stdout
+        assert isinstance(result.exception, SystemExit)

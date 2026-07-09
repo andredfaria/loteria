@@ -29,7 +29,11 @@ def gerar(
         console.print("[red]Dados insuficientes. Execute: quina dados atualizar[/red]")
         raise typer.Exit(1)
 
-    resultado = gerar_portfolio(orcamento=orcamento, perfil=perfil, draws=draws)
+    try:
+        resultado = gerar_portfolio(orcamento=orcamento, perfil=perfil, draws=draws)
+    except ValueError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(1) from exc
 
     table = Table(title=f"Portfólio — {perfil}")
     table.add_column("Dezenas")
