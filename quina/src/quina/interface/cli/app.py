@@ -12,6 +12,7 @@ import typer
 from rich.console import Console
 
 from quina.interface.cli.dados import app as dados_app
+from quina.interface.cli.jogos import app as jogos_app
 from quina.interface.cli.modelo import app as modelo_app
 
 app = typer.Typer(
@@ -23,6 +24,7 @@ console = Console()
 
 app.add_typer(dados_app, name="dados")
 app.add_typer(modelo_app, name="modelo")
+app.add_typer(jogos_app, name="jogos")
 
 
 if __name__ == "__main__":
