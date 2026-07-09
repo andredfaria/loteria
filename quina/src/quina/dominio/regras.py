@@ -53,3 +53,18 @@ def gerar_combinacoes(n: int) -> Iterator[tuple[int, ...]]:
 
 def total_combinacoes(n: int = NUMEROS_POR_SORTEIO) -> int:
     return comb(TOTAL_NUMEROS, n)
+
+
+PRECO_APOSTA_MINIMA = 3.00
+
+TAMANHO_APOSTA_MIN = NUMEROS_POR_SORTEIO
+TAMANHO_APOSTA_MAX = 15
+
+
+def custo_aposta(n: int) -> float:
+    """Custo de uma aposta de n dezenas: comb(n, 5) apostas de 5 dezenas embutidas."""
+    if not (TAMANHO_APOSTA_MIN <= n <= TAMANHO_APOSTA_MAX):
+        raise ValueError(
+            f"Tamanho de aposta deve estar entre {TAMANHO_APOSTA_MIN} e {TAMANHO_APOSTA_MAX}, recebido {n}"
+        )
+    return round(comb(n, NUMEROS_POR_SORTEIO) * PRECO_APOSTA_MINIMA, 2)

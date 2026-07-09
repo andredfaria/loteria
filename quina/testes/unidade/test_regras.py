@@ -1,11 +1,14 @@
 from quina.dominio.regras import (
     FAIXAS_ACERTOS,
     NUMEROS_POR_SORTEIO,
+    TAMANHO_APOSTA_MAX,
+    TAMANHO_APOSTA_MIN,
     TOTAL_NUMEROS,
     VALID_NUMBERS,
     contar_acertos,
     contar_impares,
     contar_pares,
+    custo_aposta,
     estatisticas_dezenas,
     gerar_combinacoes,
     repetidos_anterior,
@@ -13,6 +16,7 @@ from quina.dominio.regras import (
     total_combinacoes,
     validar_dezenas,
 )
+import pytest
 
 
 class TestConstantes:
@@ -81,3 +85,26 @@ class TestCombinacoes:
     def test_gerar_combinacoes_count(self):
         combos = list(gerar_combinacoes(2))
         assert len(combos) == 3160
+
+
+class TestCustoAposta:
+    def test_aposta_minima_5_dezenas(self):
+        assert custo_aposta(5) == 3.00
+
+    def test_aposta_6_dezenas(self):
+        assert custo_aposta(6) == 18.00  # comb(6,5)=6 * 3.00
+
+    def test_aposta_maxima_15_dezenas(self):
+        assert custo_aposta(15) == 9009.00  # comb(15,5)=3003 * 3.00
+
+    def test_abaixo_do_minimo_levanta_erro(self):
+        with pytest.raises(ValueError):
+            custo_aposta(4)
+
+    def test_acima_do_maximo_levanta_erro(self):
+        with pytest.raises(ValueError):
+            custo_aposta(16)
+
+    def test_constantes(self):
+        assert TAMANHO_APOSTA_MIN == 5
+        assert TAMANHO_APOSTA_MAX == 15
