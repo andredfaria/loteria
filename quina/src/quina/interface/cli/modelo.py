@@ -6,7 +6,9 @@ from rich.console import Console
 from rich.table import Table
 
 from quina.infra.dados.banco import DatabaseManager
+from quina.infra.dados.leitor import load_draws
 from quina.servicos.backtest import ESTRATEGIAS_DISPONIVEIS, rodar_backtest
+from quina.servicos.treinar_modelos import treinar_modelos as servico_treinar_ml
 
 app = typer.Typer(help="Backtest de estratégias e leaderboard.")
 console = Console()
@@ -16,6 +18,7 @@ console = Console()
 def treinar(
     estrategia: str = typer.Option("filtros", "--estrategia", help=f"Uma de: {', '.join(ESTRATEGIAS_DISPONIVEIS)}"),
     janela: int = typer.Option(300, "--janela", help="Quantidade de concursos recentes usados no backtest"),
+    ml: bool = typer.Option(False, "--ml", help="Treinar também modelos ML (RF+XGB+LGBM ensemble)"),
 ) -> None:
     """Roda backtest walk-forward da estratégia e salva no leaderboard."""
     db = DatabaseManager()
@@ -43,6 +46,13 @@ def treinar(
         )
     console.print(table)
     console.print(f"[dim]{metricas['total_rodadas']} rodadas em {metricas['tempo_execucao_segundos']}s[/dim]")
+
+    if ml:
+        console.print("[cyan]Treinando modelos ML (RF+XGB+LGBM ensemble)...[/cyan]")
+        from quina.infra.config import DADOS_DIR, MODELOS_DIR
+        resultado = servico_treinar_ml(incluir_ml=True)
+        console.print(f"[green]Modelos treinados: {', '.join(resultado.modelos_treinados)}[/green]")
+        console.print(f"[dim]{resultado.total_concursos} concursos usados[/dim]")
 
 
 @app.command()

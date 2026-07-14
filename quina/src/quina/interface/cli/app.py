@@ -15,6 +15,7 @@ from quina.interface.cli.dados import app as dados_app
 from quina.interface.cli.jogos import app as jogos_app
 from quina.interface.cli.modelo import app as modelo_app
 from quina.interface.cli.portfolio import app as portfolio_app
+from quina.interface.cli.prever import app as prever_app
 
 app = typer.Typer(
     name="quina",
@@ -27,6 +28,7 @@ app.add_typer(dados_app, name="dados")
 app.add_typer(modelo_app, name="modelo")
 app.add_typer(jogos_app, name="jogos")
 app.add_typer(portfolio_app, name="portfolio")
+app.add_typer(prever_app, name="prever")
 
 
 if __name__ == "__main__":

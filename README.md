@@ -11,89 +11,108 @@ Monorepo com sistemas de análise estatística, geração de jogos e Machine Lea
 | Projeto | Descrição | Status |
 |---------|-----------|--------|
 | [lotofacil/](lotofacil/) | Sistema completo: coleta, análise, ML, dashboard web | Ativo |
-| [super-sete/](super-sete/) | Coleta e análise estatística por coluna | Pausado |
-| [dia-de-sorte/](dia-de-sorte/) | Coleta e análise estatística | Pausado |
+| [quina/](quina/) | Coleta, CLI, dashboard Flask, ML ensemble | Ativo |
+| [dia-de-sorte/](dia-de-sorte/) | Pacote estruturado: coleta + CLI + análise estatística | Ativo |
+| [super-sete/](super-sete/) | Pacote estruturado: coleta + CLI + análise por coluna | Ativo |
 | [megasena/](megasena/) | Em desenvolvimento | Planejado |
 
-Cada subprojeto é autônomo com seu próprio `requirements.txt` / `pyproject.toml` e ambiente virtual.
+Cada subprojeto é autônomo com seu próprio `pyproject.toml` e ambiente virtual.
 
 ---
 
 ## Lotofácil
 
-O subprojeto mais completo. Pipeline de ponta a ponta: coleta de dados → análise estatística → geração de jogos → ML → predição → dashboard web.
-
-Funcionalidades principais:
-
-- **Coleta** — busca sorteios históricos da API da Caixa, dados climáticos (Open-Meteo) e fase lunar
-- **Análise** — padrões estatísticos: pares/ímpares, moldura, fibonacci, primos, co-ocorrência
-- **Geração** — combinações filtradas por critérios históricos
-- **ML Pipeline** — LightGBM / Random Forest / LSTM clássico (ensemble)
-- **Pipeline Neural Lab** — LSTM + Attention + Focal Loss com variáveis exógenas (clima, lua)
-- **Portfolio** — diversificação em 5 estratégias complementares
-- **Dashboard Web** — interface para treino, predição e monitoramento (Flask + Gunicorn, porta 5000)
+Sistema mais completo. Pipeline de ponta a ponta: coleta → análise → ML → predição → dashboard web.
 
 ```bash
-cd lotofacil
-source venv/bin/activate
-pip install -e .
+cd lotofacil && source venv/bin/activate && pip install -e .
 
 lotofacil dados atualizar       # sincroniza sorteios da API
 lotofacil modelo treinar        # treina ensemble clássico
 lotofacil prever                # gera predição para o próximo concurso
 ```
 
-Veja [lotofacil/README.md](lotofacil/README.md) para documentação completa do sistema, CLI e dashboard.
+Veja [lotofacil/README.md](lotofacil/README.md).
+
+---
+
+## Quina
+
+Coleta, CLI, modelos de ML e dashboard Flask.
+
+```bash
+cd quina && source venv/bin/activate && pip install -e .
+
+quina dados atualizar           # sincroniza concursos da API
+quina dados status              # status do banco local
+quina modelo treinar            # walk-forward backtest
+quina prever prever             # predição ensemble
+```
+
+Veja [quina/README.md](quina/README.md).
+
+---
+
+## Dia de Sorte
+
+Pacote estruturado com CLI e API:
+
+```bash
+cd dia-de-sorte && source venv/bin/activate && pip install -e .
+
+diadesorte dados atualizar      # sincroniza concursos (bulk)
+diadesorte dados status         # total, último, dezenas, mês da sorte
+```
+
+Veja [dia-de-sorte/README.md](dia-de-sorte/README.md). Scripts legados em `analisar_diadesorte.py`.
 
 ---
 
 ## Super Sete
 
-Coleta e análise estatística para a Super Sete (7 colunas × dígito 0–9).
-
-- **Coleta** — salva sorteios históricos em `dados_supersete/concurso_<N>.json`
-- **Análise** — score composto por coluna: frequência, atraso, tendência, entropia, diversidade
+Pacote estruturado com CLI:
 
 ```bash
-cd super-sete
-pip install -r requirements.txt
-python busca_sorteios.py       # coleta dados
-python analise_estatistica.py  # análise por coluna
+cd super-sete && source venv/bin/activate && pip install -e .
+
+supersete dados atualizar       # sincroniza concursos (bulk)
+supersete dados status          # total, último, dígitos
 ```
+
+Veja [super-sete/README.md](super-sete/README.md). Scripts legados em `analise_estatistica.py`.
 
 ---
 
 ## API Caixa
 
-Todos os projetos consomem:
+Todos os projetos consomem a mesma API:
 
 ```
+https://loteriascaixa-api.herokuapp.com/api/<loteria>
+https://loteriascaixa-api.herokuapp.com/api/<loteria>/latest
 https://loteriascaixa-api.herokuapp.com/api/<loteria>/<concurso>
 ```
 
-`<loteria>`: `lotofacil`, `megasena`, `supersete`
+`<loteria>`: `lotofacil`, `megasena`, `quina`, `supersete`, `diadesorte`, `duplasena`, `lotomania`, `timemania`, `maismilionaria`, `federal`
 
 ---
 
-## Dados de Amostra
+## Dados
 
-Cada subprojeto inclui os **100 sorteios mais recentes** em `dados/sample/` (ou equivalente) para uso imediato sem coletar o dataset completo.
+Cada projeto contém apenas **amostras** (`dados/sample/` ou `testes/fixtures/`) com os sorteios mais recentes. O dataset completo é baixado via CLI e ignorado pelo `.gitignore`.
 
 ---
 
 ## Deploy (EasyPanel)
 
-O sistema Lotofácil inclui um **Dockerfile dedicado** em `lotofacil/Dockerfile`. O arquivo `Dockerfile` na raiz deste repositório é uma versão legada e **não deve ser usada** para deploy em produção — ela exclui o TensorFlow e usa o servidor de desenvolvimento do Flask.
+Os projetos com dashboard web (lotofacil, quina) possuem `Dockerfile` próprio:
 
-Ao configurar o serviço no EasyPanel, defina:
+| Projeto | Build Context | Dockerfile Path | Port |
+|---------|---------------|------------------|------|
+| lotofacil | `lotofacil` | `Dockerfile` | `5000` |
+| quina | `quina` | `Dockerfile` | `5000` |
 
-| Campo | Valor correto |
-|-------|---------------|
-| **Build Context** | `lotofacil` |
-| **Dockerfile Path** | `Dockerfile` |
-| **Port** | `5000` |
-
-> Se o EasyPanel estiver apontando para o `Dockerfile` da raiz, o TensorFlow não será instalado e o servidor Flask dev será usado em vez do Gunicorn.
+> O `Dockerfile` na raiz do repositório é legado e **não deve ser usado**.
 
 ---
 

@@ -6,7 +6,7 @@ import tempfile
 import pytest
 import sys
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
 from analisar_diadesorte import (
     carregar_dados,
@@ -23,9 +23,6 @@ from analisar_diadesorte import (
     CONFIG_PADRAO,
 )
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
 
 def _fazer_json(tmp_dir, n, numeros, mes):
     data = {
@@ -57,16 +54,11 @@ HISTORICO_GRANDE = [
 ]
 
 
-# ---------------------------------------------------------------------------
-# Testes do loader
-# ---------------------------------------------------------------------------
-
 def test_carregar_diretorio_retorna_lista_ordenada():
     with tempfile.TemporaryDirectory() as tmp:
         _fazer_json(tmp, 2, [5, 10, 15, 20, 25, 27, 30], "Março")
         _fazer_json(tmp, 1, [1, 2, 3, 4, 5, 6, 7], "Janeiro")
         historico = carregar_dados(tmp)
-
     assert len(historico) == 2
     assert historico[0]["concurso"] == 1
     assert historico[1]["concurso"] == 2
@@ -76,7 +68,6 @@ def test_normalizar_dezenas_para_ints():
     with tempfile.TemporaryDirectory() as tmp:
         _fazer_json(tmp, 1, [1, 2, 3, 4, 5, 6, 7], "Janeiro")
         historico = carregar_dados(tmp)
-
     assert historico[0]["numeros"] == [1, 2, 3, 4, 5, 6, 7]
     assert all(isinstance(n, int) for n in historico[0]["numeros"])
 
@@ -85,7 +76,6 @@ def test_normalizar_mes_sorte():
     with tempfile.TemporaryDirectory() as tmp:
         _fazer_json(tmp, 1, [1, 2, 3, 4, 5, 6, 7], "Outubro")
         historico = carregar_dados(tmp)
-
     assert historico[0]["mes_sorte"] == "Outubro"
 
 
@@ -111,10 +101,6 @@ def test_erro_formato_desconhecido():
     with pytest.raises(ValueError):
         carregar_dados("arquivo.xlsx")
 
-
-# ---------------------------------------------------------------------------
-# Testes de métricas
-# ---------------------------------------------------------------------------
 
 def test_frequencia_conta_aparicoes():
     freq = calc_frequencia(HISTORICO_FIXO)
@@ -142,14 +128,12 @@ def test_atraso_numero_intermediario():
 
 def test_paridade_media():
     par = calc_distribuicao_paridade(HISTORICO_FIXO)
-    # concurso 1: pares=[2,4,6]=3; concurso 2: [2,4,6,8]=4; concurso 3: [2,4,6]=3
     assert abs(par["media_pares"] - (3 + 4 + 3) / 3) < 0.01
     assert abs(par["media_impares"] - (4 + 3 + 4) / 3) < 0.01
 
 
 def test_faixa_media():
     faixa = calc_distribuicao_faixa(HISTORICO_FIXO)
-    # todos os números <=15, baixos=7 por jogo
     assert abs(faixa["media_baixos"] - 7.0) < 0.01
     assert abs(faixa["media_altos"] - 0.0) < 0.01
 
@@ -170,10 +154,6 @@ def test_calcular_metricas_retorna_todas_chaves():
     assert "frequencia_mes" in m
     assert m["total_concursos"] == 3
 
-
-# ---------------------------------------------------------------------------
-# Testes de geração de jogo
-# ---------------------------------------------------------------------------
 
 def test_jogo_tem_7_numeros():
     random.seed(42)
@@ -230,10 +210,6 @@ def test_todas_estrategias_geram_jogo_valido():
         assert all(1 <= n <= 31 for n in jogo["numeros"])
         assert jogo["mes_sorte"] in TODOS_MESES
 
-
-# ---------------------------------------------------------------------------
-# Testes do ranqueador
-# ---------------------------------------------------------------------------
 
 def test_ranquear_retorna_n_jogos():
     random.seed(99)

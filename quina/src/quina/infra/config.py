@@ -21,3 +21,12 @@ API_RETRIES = 5
 API_RETRY_MIN = 1
 API_RETRY_MAX = 10
 USER_AGENT = "quina-prediction/0.1"
+
+# ML modelos
+MODELOS_DIR = SAIDA_DIR / "modelos"
+MODELOS_DIR.mkdir(parents=True, exist_ok=True)
+
+RANDOM_SEED = 42
+RF_N_ESTIMATORS = 200
+RF_MAX_DEPTH = 10
+RF_MIN_SAMPLES_LEAF = 5

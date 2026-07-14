@@ -5,14 +5,21 @@ import random
 import time
 from typing import Optional
 
+from quina.dominio.entidades import Sorteio as Draw
 from quina.dominio.regras import FAIXAS_ACERTOS, NUMEROS_POR_SORTEIO, TOTAL_NUMEROS
 from quina.infra.dados.banco import DatabaseManager
+from quina.infra.dados.leitor import load_draws as load_draws_from_files
+from quina.infra.modelos.ensemble import EnsemblePredictor
 from quina.servicos.estrategias import scoring
 from quina.servicos.estrategias.frequencia_atraso import gerar_candidato_frequencia_atraso
 
-ESTRATEGIAS_DISPONIVEIS = ("filtros", "frequencia_atraso")
+ESTRATEGIAS_DISPONIVEIS = ("filtros", "frequencia_atraso", "ml_ensemble")
 
 _CANDIDATOS_POR_RODADA = 100
+
+
+def _dict_to_draw(d: dict) -> Draw:
+    return Draw(concurso=d["concurso"], data=d["data"], dezenas=d["dezenas"])
 
 
 def _gerar_candidato(estrategia: str, historico: list[dict]) -> list[int]:
@@ -21,7 +28,17 @@ def _gerar_candidato(estrategia: str, historico: list[dict]) -> list[int]:
             quantidade=_CANDIDATOS_POR_RODADA, tamanho_aposta=NUMEROS_POR_SORTEIO, draws=historico
         )
         return candidatos[0]["dezenas"]
-    return gerar_candidato_frequencia_atraso(historico, NUMEROS_POR_SORTEIO)["dezenas"]
+    if estrategia == "frequencia_atraso":
+        return gerar_candidato_frequencia_atraso(historico, NUMEROS_POR_SORTEIO)["dezenas"]
+    if estrategia == "ml_ensemble":
+        historico_draws = [_dict_to_draw(d) for d in historico]
+        if len(historico_draws) < 50:
+            return random.sample(range(1, TOTAL_NUMEROS + 1), NUMEROS_POR_SORTEIO)
+        predictor = EnsemblePredictor()
+        predictor.fit(historico_draws)
+        return predictor.select_top_5()
+    msg = f"estratégia desconhecida: {estrategia}"
+    raise ValueError(msg)
 
 
 def rodar_backtest(
