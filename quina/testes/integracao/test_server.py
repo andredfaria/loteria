@@ -134,7 +134,11 @@ class TestApiAtualizar:
         resp = client.post("/api/atualizar")
 
         assert resp.status_code == 500
-        assert "API indisponível" in resp.get_json()["error"]
+        # O detalhe da exceção fica no log, não na resposta: mensagens de erro
+        # internas vazam caminhos e stack para quem chama a API.
+        corpo = resp.get_json()["error"]
+        assert "API indisponível" not in corpo
+        assert corpo == "falha ao sincronizar concursos"
 
 
 class TestIndex:

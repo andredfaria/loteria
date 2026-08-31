@@ -16,7 +16,6 @@ from datetime import datetime, timedelta
 
 import numpy as np
 import secrets
-from functools import wraps
 from flask import (
     Flask, jsonify, request, send_from_directory, Response,
     session, redirect, url_for, render_template_string,
@@ -60,6 +59,16 @@ _model_cache: dict = {}
 _model_lock = threading.Lock()
 _SRC = Path(__file__).resolve().parent.parent.parent.parent.parent / "src"
 _LOTOFACIL_BIN = str(Path(sys.executable).parent / "lotofacil")
+
+# Teto de jobs pesados (treino/backtest/geração) rodando ao mesmo tempo.
+# Sem isso, N requisições concorrentes disparam N processos de treino
+# TensorFlow simultâneos — DoS trivial de CPU/memória. Não enfileira: acima
+# do limite, a requisição recebe 429 imediatamente (ver _acquire_job_slot).
+try:
+    DASHBOARD_MAX_JOBS = max(1, int(os.environ.get("DASHBOARD_MAX_JOBS", "2")))
+except ValueError:
+    DASHBOARD_MAX_JOBS = 2
+_job_semaphore = threading.Semaphore(DASHBOARD_MAX_JOBS)
 
 
 def _strip_ansi(text: str) -> str:
@@ -112,6 +121,90 @@ def _configure_logging() -> logging.Logger:
 
 
 LOGGER = _configure_logging()
+
+
+# ─── Startup auth check (fail closed) ──────────────────────────
+
+def _decide_auth_startup(password: str, publico: bool, skip_check: bool) -> str:
+    """Decisão pura (sem I/O) sobre como a inicialização deve proceder.
+
+    Retorna uma das strings:
+      "skipped"          — checagem pulada (apenas suíte de testes)
+      "ok_authenticated" — DASHBOARD_PASSWORD definida, login exigido
+      "ok_public"        — sem senha, mas DASHBOARD_PUBLICO=1 confirma o risco
+      "blocked"          — sem senha e sem confirmação explícita: não deve iniciar
+    """
+    if skip_check:
+        return "skipped"
+    if password:
+        return "ok_authenticated"
+    if publico:
+        return "ok_public"
+    return "blocked"
+
+
+def _startup_auth_check() -> None:
+    """Recusa iniciar o dashboard sem uma decisão explícita de segurança.
+
+    Por padrão (nenhuma env var definida) o painel FALHA FECHADO: `raise
+    SystemExit` interrompe o processo antes de o Flask aceitar qualquer
+    conexão. Isso é deliberado — nenhum Dockerfile do projeto define
+    DASHBOARD_PASSWORD ou DASHBOARD_PUBLICO, então o estado padrão de um
+    deploy nunca fica acessível sem senha por omissão.
+
+    A checagem roda na importação do módulo (é o único ponto que tanto
+    `python -m lotofacil.interface.painel.server` quanto
+    `gunicorn lotofacil.interface.painel.server:app` sempre executam antes
+    de servir requisições). Só é pulável via DASHBOARD_SKIP_AUTH_CHECK=1,
+    variável que nenhum Dockerfile/entrypoint deste repositório define — ela
+    existe apenas para a suíte de testes poder importar o módulo sem exigir
+    as demais variáveis. Um operador teria que defini-la manualmente em
+    produção para abrir esse mesmo buraco, exatamente como precisaria
+    definir DASHBOARD_PUBLICO=1; não há caminho acidental.
+    """
+    password = os.environ.get("DASHBOARD_PASSWORD", "")
+    publico = os.environ.get("DASHBOARD_PUBLICO", "") == "1"
+    skip_check = os.environ.get("DASHBOARD_SKIP_AUTH_CHECK", "") == "1"
+
+    decision = _decide_auth_startup(password, publico, skip_check)
+
+    if decision == "skipped":
+        return
+
+    if decision == "ok_authenticated":
+        if not os.environ.get("DASHBOARD_AUTH_SECRET"):
+            LOGGER.warning(
+                "DASHBOARD_AUTH_SECRET não definida: a secret_key da sessão é "
+                "gerada aleatoriamente a cada início do processo, então todas as "
+                "sessões de login são invalidadas a cada restart. Com "
+                "'--workers' > 1 no gunicorn, cada worker gera a sua própria "
+                "secret_key e o login falha de forma intermitente conforme o "
+                "request cai em um worker ou outro. Defina DASHBOARD_AUTH_SECRET "
+                "com um valor fixo e secreto para evitar os dois problemas."
+            )
+        return
+
+    if decision == "ok_public":
+        LOGGER.warning(
+            "⚠️  DASHBOARD_PUBLICO=1: o painel está rodando SEM AUTENTICAÇÃO. "
+            "Qualquer pessoa com acesso de rede ao host pode ler todos os dados, "
+            "disparar treinos/backtests e sobrecarregar a máquina. Use isso "
+            "apenas atrás de uma rede/tunnel já confiável."
+        )
+        return
+
+    raise SystemExit(
+        "Dashboard não iniciado: configuração de segurança ausente.\n"
+        "Defina uma das duas variáveis de ambiente antes de subir o servidor:\n"
+        "  DASHBOARD_PASSWORD=<senha>   → exige login por senha (recomendado)\n"
+        "  DASHBOARD_PUBLICO=1          → confirma explicitamente que o painel\n"
+        "                                  deve ficar acessível sem senha\n"
+        "Por padrão o painel não inicia sem uma dessas duas variáveis definidas, "
+        "para evitar expor dados e disparo de treinos publicamente por omissão."
+    )
+
+
+_startup_auth_check()
 
 # ─── Helper ────────────────────────────────────────────────────
 
@@ -755,6 +848,13 @@ def logout():
 def _check_auth():
     password = os.environ.get("DASHBOARD_PASSWORD", "")
     if not password:
+        # Em produção, este ramo só é alcançável quando DASHBOARD_PUBLICO=1 —
+        # é _startup_auth_check() (chamada na importação do módulo, logo
+        # após LOGGER ser configurado) quem impede o processo de subir com
+        # DASHBOARD_PASSWORD vazia e sem essa confirmação explícita. Este
+        # `if` não relê DASHBOARD_PUBLICO por si; se a checagem de startup
+        # for removida ou pulada (DASHBOARD_SKIP_AUTH_CHECK=1) fora de
+        # testes, o dashboard volta a ficar fail-open aqui.
         return None
     if session.get("authenticated"):
         return None
@@ -1023,19 +1123,63 @@ def api_generate():
     for cat in COMMANDS.values():
         for item in cat["items"]:
             if item["id"] == action:
-                task_id = f"task_{int(time.time() * 1000)}_{action}"
-                _registry.create_job(task_id)
-                t = threading.Thread(
-                    target=_run_command,
-                    args=(task_id, _registry, item["cmd"], item["cwd"]),
-                    daemon=True,
-                )
-                t.start()
+                if not _acquire_job_slot():
+                    return _too_many_jobs_response()
+                # A vaga só é liberada dentro da thread (_run_command_slotted);
+                # se algo falhar antes de t.start() ela precisa ser devolvida
+                # aqui, senão fica presa até o processo reiniciar.
+                try:
+                    task_id = f"task_{int(time.time() * 1000)}_{action}"
+                    _registry.create_job(task_id)
+                    t = threading.Thread(
+                        target=_run_command_slotted,
+                        args=(task_id, _registry, item["cmd"], item["cwd"]),
+                        daemon=True,
+                    )
+                    t.start()
+                except BaseException:
+                    _release_job_slot()
+                    raise
                 return jsonify({"task_id": task_id})
     return jsonify({"error": f"Unknown action: {action}"}), 400
 
 
 # ─── Command Runner ────────────────────────────────────────────
+
+def _acquire_job_slot() -> bool:
+    """Tenta reservar uma vaga de job pesado; nunca bloqueia o request."""
+    return _job_semaphore.acquire(blocking=False)
+
+
+def _release_job_slot() -> None:
+    _job_semaphore.release()
+
+
+def _too_many_jobs_response():
+    return jsonify({"error": (
+        f"Muitos jobs em execução (máximo {DASHBOARD_MAX_JOBS} simultâneos). "
+        "Aguarde um terminar e tente novamente."
+    )}), 429
+
+
+def _run_command_slotted(
+    task_id: str,
+    registry: "TreinoRegistry",
+    cmd: list[str],
+    cwd: str,
+    on_complete=None,
+) -> None:
+    """Wrapper de _run_command que libera a vaga do semáforo ao final.
+
+    A vaga já deve ter sido reservada (via _acquire_job_slot) pelo endpoint
+    antes de disparar a thread — este wrapper só garante a liberação mesmo
+    se _run_command lançar uma exceção inesperada.
+    """
+    try:
+        _run_command(task_id, registry, cmd, cwd, on_complete=on_complete)
+    finally:
+        _release_job_slot()
+
 
 def _run_command(
     task_id: str,
@@ -1242,47 +1386,56 @@ def api_treinos_iniciar():
         return jsonify({"error": "window_size deve estar entre 5 e 500."}), 400
     if epochs < 1 or epochs > 1000:
         return jsonify({"error": "epochs deve estar entre 1 e 1000."}), 400
+    if not _acquire_job_slot():
+        return _too_many_jobs_response()
 
-    config_sig = _CONFIG_SIG_MAP.get(tipo_config, tipo_config)
-    treino_id = uuid.uuid4().hex[:8]
-    nome_slug = _slug(nome)
-    model_name = f"{treino_id}_{nome_slug}"
+    # A vaga só é liberada dentro da thread (_run_command_slotted); qualquer
+    # exceção entre o acquire e o t.start() precisa devolvê-la aqui, senão
+    # fica presa até o processo reiniciar (ver _acquire_job_slot).
+    try:
+        config_sig = _CONFIG_SIG_MAP.get(tipo_config, tipo_config)
+        treino_id = uuid.uuid4().hex[:8]
+        nome_slug = _slug(nome)
+        model_name = f"{treino_id}_{nome_slug}"
 
-    _registry.criar(treino_id, nome, tipo_config, params)
+        _registry.criar(treino_id, nome, tipo_config, params)
 
-    cmd = ["lotofacil", "lab", "train", "--config", config_sig, "--name", model_name,
-           "--epochs", str(epochs), "--seed", str(seed), "--window-size", str(window_size)]
-    if n_draws:
-        cmd += ["--n-draws", str(n_draws)]
-    if fast_mode:
-        cmd.append("--fast")
+        cmd = ["lotofacil", "lab", "train", "--config", config_sig, "--name", model_name,
+               "--epochs", str(epochs), "--seed", str(seed), "--window-size", str(window_size)]
+        if n_draws:
+            cmd += ["--n-draws", str(n_draws)]
+        if fast_mode:
+            cmd.append("--fast")
 
-    task_id = f"treino_{int(time.time() * 1000)}_{treino_id}"
-    _registry.create_job(task_id)
+        task_id = f"treino_{int(time.time() * 1000)}_{treino_id}"
+        _registry.create_job(task_id)
 
-    def on_done(success: bool, output_lines: list[str]):
-        if success:
-            keras_path = _extract_model_path_from_output(output_lines)
-            # Caminho parseado pode vir vazio ou (em versões antigas do CLI)
-            # truncado pela quebra de linha do Rich; nesses casos usa o
-            # fallback determinístico que casa com o --name passado ao treino.
-            if not keras_path or not Path(keras_path).exists():
-                keras_path = str(_LAB_MODELS_DIR / f"neural_{model_name}.keras")
-            metricas = _read_meta_from_keras(keras_path)
-            _registry.registrar_modelo(treino_id, keras_path, metricas)
-            LOGGER.info("TREINO %s registered: %s", treino_id, keras_path)
-            _invalidate_quality_cache()
-        else:
-            _registry.marcar_falha(treino_id)
-            LOGGER.warning("TREINO %s failed", treino_id)
+        def on_done(success: bool, output_lines: list[str]):
+            if success:
+                keras_path = _extract_model_path_from_output(output_lines)
+                # Caminho parseado pode vir vazio ou (em versões antigas do CLI)
+                # truncado pela quebra de linha do Rich; nesses casos usa o
+                # fallback determinístico que casa com o --name passado ao treino.
+                if not keras_path or not Path(keras_path).exists():
+                    keras_path = str(_LAB_MODELS_DIR / f"neural_{model_name}.keras")
+                metricas = _read_meta_from_keras(keras_path)
+                _registry.registrar_modelo(treino_id, keras_path, metricas)
+                LOGGER.info("TREINO %s registered: %s", treino_id, keras_path)
+                _invalidate_quality_cache()
+            else:
+                _registry.marcar_falha(treino_id)
+                LOGGER.warning("TREINO %s failed", treino_id)
 
-    t = threading.Thread(
-        target=_run_command,
-        args=(task_id, _registry, cmd, str(BASE_DIR)),
-        kwargs={"on_complete": on_done},
-        daemon=True,
-    )
-    t.start()
+        t = threading.Thread(
+            target=_run_command_slotted,
+            args=(task_id, _registry, cmd, str(BASE_DIR)),
+            kwargs={"on_complete": on_done},
+            daemon=True,
+        )
+        t.start()
+    except BaseException:
+        _release_job_slot()
+        raise
     return jsonify({"treino_id": treino_id, "task_id": task_id})
 
 
@@ -1447,45 +1600,54 @@ def api_treinos_retry(treino_id: str):
         return jsonify({"error": "window_size deve estar entre 5 e 500."}), 400
     if epochs < 1 or epochs > 1000:
         return jsonify({"error": "epochs deve estar entre 1 e 1000."}), 400
+    if not _acquire_job_slot():
+        return _too_many_jobs_response()
 
-    config_sig = _CONFIG_SIG_MAP.get(tipo_config, tipo_config)
-    novo_treino_id = uuid.uuid4().hex[:8]
-    novo_nome = nome + "_retry"
-    nome_slug = _slug(novo_nome)
-    model_name = f"{novo_treino_id}_{nome_slug}"
+    # A vaga só é liberada dentro da thread (_run_command_slotted); qualquer
+    # exceção entre o acquire e o t_thread.start() precisa devolvê-la aqui,
+    # senão fica presa até o processo reiniciar (ver _acquire_job_slot).
+    try:
+        config_sig = _CONFIG_SIG_MAP.get(tipo_config, tipo_config)
+        novo_treino_id = uuid.uuid4().hex[:8]
+        novo_nome = nome + "_retry"
+        nome_slug = _slug(novo_nome)
+        model_name = f"{novo_treino_id}_{nome_slug}"
 
-    _registry.criar(novo_treino_id, novo_nome, tipo_config, params)
+        _registry.criar(novo_treino_id, novo_nome, tipo_config, params)
 
-    cmd = ["lotofacil", "lab", "train", "--config", config_sig, "--name", model_name,
-           "--epochs", str(epochs), "--seed", str(seed), "--window-size", str(window_size)]
-    if n_draws:
-        cmd += ["--n-draws", str(n_draws)]
-    if fast_mode:
-        cmd.append("--fast")
+        cmd = ["lotofacil", "lab", "train", "--config", config_sig, "--name", model_name,
+               "--epochs", str(epochs), "--seed", str(seed), "--window-size", str(window_size)]
+        if n_draws:
+            cmd += ["--n-draws", str(n_draws)]
+        if fast_mode:
+            cmd.append("--fast")
 
-    task_id = f"treino_{int(time.time() * 1000)}_{novo_treino_id}"
-    _registry.create_job(task_id)
+        task_id = f"treino_{int(time.time() * 1000)}_{novo_treino_id}"
+        _registry.create_job(task_id)
 
-    def on_done(success: bool, output_lines: list[str]):
-        if success:
-            keras_path = _extract_model_path_from_output(output_lines)
-            if not keras_path or not Path(keras_path).exists():
-                keras_path = str(_LAB_MODELS_DIR / f"neural_{model_name}.keras")
-            metricas = _read_meta_from_keras(keras_path)
-            _registry.registrar_modelo(novo_treino_id, keras_path, metricas)
-            LOGGER.info("TREINO %s (retry of %s) registered: %s", novo_treino_id, treino_id, keras_path)
-            _invalidate_quality_cache()
-        else:
-            _registry.marcar_falha(novo_treino_id)
-            LOGGER.warning("TREINO %s (retry of %s) failed", novo_treino_id, treino_id)
+        def on_done(success: bool, output_lines: list[str]):
+            if success:
+                keras_path = _extract_model_path_from_output(output_lines)
+                if not keras_path or not Path(keras_path).exists():
+                    keras_path = str(_LAB_MODELS_DIR / f"neural_{model_name}.keras")
+                metricas = _read_meta_from_keras(keras_path)
+                _registry.registrar_modelo(novo_treino_id, keras_path, metricas)
+                LOGGER.info("TREINO %s (retry of %s) registered: %s", novo_treino_id, treino_id, keras_path)
+                _invalidate_quality_cache()
+            else:
+                _registry.marcar_falha(novo_treino_id)
+                LOGGER.warning("TREINO %s (retry of %s) failed", novo_treino_id, treino_id)
 
-    t_thread = threading.Thread(
-        target=_run_command,
-        args=(task_id, _registry, cmd, str(BASE_DIR)),
-        kwargs={"on_complete": on_done},
-        daemon=True,
-    )
-    t_thread.start()
+        t_thread = threading.Thread(
+            target=_run_command_slotted,
+            args=(task_id, _registry, cmd, str(BASE_DIR)),
+            kwargs={"on_complete": on_done},
+            daemon=True,
+        )
+        t_thread.start()
+    except BaseException:
+        _release_job_slot()
+        raise
     return jsonify({"treino_id": novo_treino_id, "task_id": task_id})
 
 
@@ -1537,40 +1699,49 @@ def api_backtests_iniciar():
             return jsonify({
                 "error": f"end ({end}) além do último concurso disponível ({max_concurso})."
             }), 400
+    if not _acquire_job_slot():
+        return _too_many_jobs_response()
 
-    backtest_id = uuid.uuid4().hex[:8]
-    _registry.criar_backtest(backtest_id, configs, start, end, retrain_every)
+    # A vaga só é liberada dentro da thread (_run_command_slotted); qualquer
+    # exceção entre o acquire e o t.start() precisa devolvê-la aqui, senão
+    # fica presa até o processo reiniciar (ver _acquire_job_slot).
+    try:
+        backtest_id = uuid.uuid4().hex[:8]
+        _registry.criar_backtest(backtest_id, configs, start, end, retrain_every)
 
-    cmd = [
-        "lotofacil", "lab", "backtest",
-        "--configs", ",".join(configs),
-        "--start", str(start),
-        "--end", str(end),
-        "--retrain-every", str(retrain_every),
-    ]
-    task_id = f"backtest_{int(time.time() * 1000)}_{backtest_id}"
-    _registry.create_job(task_id)
+        cmd = [
+            "lotofacil", "lab", "backtest",
+            "--configs", ",".join(configs),
+            "--start", str(start),
+            "--end", str(end),
+            "--retrain-every", str(retrain_every),
+        ]
+        task_id = f"backtest_{int(time.time() * 1000)}_{backtest_id}"
+        _registry.create_job(task_id)
 
-    def on_done(success: bool, output_lines: list[str]):
-        if success:
-            result_path = _extract_backtest_result_path_from_output(output_lines)
-            if result_path and Path(result_path).exists():
-                _registry.registrar_resultado_backtest(backtest_id, result_path)
-                LOGGER.info("BACKTEST %s registered: %s", backtest_id, result_path)
+        def on_done(success: bool, output_lines: list[str]):
+            if success:
+                result_path = _extract_backtest_result_path_from_output(output_lines)
+                if result_path and Path(result_path).exists():
+                    _registry.registrar_resultado_backtest(backtest_id, result_path)
+                    LOGGER.info("BACKTEST %s registered: %s", backtest_id, result_path)
+                else:
+                    _registry.marcar_falha_backtest(backtest_id)
+                    LOGGER.warning("BACKTEST %s succeeded but result path missing", backtest_id)
             else:
                 _registry.marcar_falha_backtest(backtest_id)
-                LOGGER.warning("BACKTEST %s succeeded but result path missing", backtest_id)
-        else:
-            _registry.marcar_falha_backtest(backtest_id)
-            LOGGER.warning("BACKTEST %s failed", backtest_id)
+                LOGGER.warning("BACKTEST %s failed", backtest_id)
 
-    t = threading.Thread(
-        target=_run_command,
-        args=(task_id, _registry, cmd, str(BASE_DIR)),
-        kwargs={"on_complete": on_done},
-        daemon=True,
-    )
-    t.start()
+        t = threading.Thread(
+            target=_run_command_slotted,
+            args=(task_id, _registry, cmd, str(BASE_DIR)),
+            kwargs={"on_complete": on_done},
+            daemon=True,
+        )
+        t.start()
+    except BaseException:
+        _release_job_slot()
+        raise
     return jsonify({"backtest_id": backtest_id, "task_id": task_id})
 
 

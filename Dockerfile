@@ -1,3 +1,7 @@
+# LEGADO — não use este Dockerfile. Sem TensorFlow, roda o servidor de dev
+# do Flask (não gunicorn) e não tem usuário não-root. A imagem correta para
+# o dashboard Lotofácil é lotofacil/Dockerfile (build context "lotofacil").
+# Ver lotofacil/README.md § Deploy com Docker.
 FROM python:3.11-slim
 
 WORKDIR /app
