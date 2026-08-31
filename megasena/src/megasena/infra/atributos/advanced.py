@@ -5,17 +5,10 @@ import math
 from collections import Counter
 from typing import Dict, List
 
-from quina.dominio.entidades import Sorteio as Draw
-from quina.infra.atributos.base import freq_k, atraso as calc_atraso
+from megasena.dominio.entidades import Sorteio as Draw
+from megasena.infra.atributos.base import NUMEROS, freq_k
 
-_NUMBERS = list(range(1, 81))
-_FAIXAS = {
-    1: range(1, 17),
-    2: range(17, 33),
-    3: range(33, 49),
-    4: range(49, 65),
-    5: range(65, 81),
-}
+TOTAL = 60
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +43,7 @@ def _avisar_esperado_baixo(k: int, top: int, media_esperado: float) -> None:
 
 
 def coocorrencia_score(
-    draws: List[Draw], idx: int, k: int = 50, top: int = 20, alpha: float = 1.0
+    draws: List[Draw], idx: int, k: int = 30, top: int = 10, alpha: float = 1.0
 ) -> Dict[int, float]:
     """
     Afinidade de cada dezena com as `top` dezenas mais frequentes da janela `k`,
@@ -69,15 +62,14 @@ def coocorrencia_score(
     codificar "nunca vi essa dezena" como "maxima anti-afinidade". Mas o
     ESTIMADOR tem um vies negativo conhecido, medido, que nao desaparece so
     com suavizacao: com sorteios uniformes verdadeiramente independentes
-    (k=50, top=20, 22400 amostras, seed=99), a media medida foi 0.957 (desvio
-    de 0.043 abaixo de 1.0), nao exatamente 1.0. O vies vem de duas fontes:
+    (k=30, top=10, 16800 amostras, seed=99), a media medida foi 0.954 (desvio
+    de 0.046 abaixo de 1.0), nao exatamente 1.0. O vies vem de duas fontes:
     (1) desigualdade de Jensen -- E[obs/esp] < E[obs]/E[esp] quando `esp` e
-    pequeno, como e o caso aqui (esta e a loteria mais esparsa das quatro:
-    esperado(n,m) tipicamente bem menor que 1 numa janela de 50 concursos);
-    (2) a propria suavizacao aditiva, que por definicao puxa para 1.0 mas nao
-    anula o viés quando a evidencia e fraca. Nao trate 0.957 como "quase
-    certo" nem invente uma correcao de vies sem reportar -- o numero fica ai
-    porque foi medido, nao porque e o alvo.
+    pequeno, como e o caso aqui (esperado(n,m) tipicamente < 1 numa janela de
+    30 concursos nesta loteria); (2) a propria suavizacao aditiva, que por
+    definicao puxa para 1.0 mas nao anula o viés quando a evidencia e fraca.
+    Nao trate 0.954 como "quase certo" nem invente uma correcao de viés sem
+    reportar -- o numero fica ai porque foi medido, nao porque e o alvo.
 
     Em loterias esparsas (poucas dezenas sorteadas frente ao universo total,
     como e o caso daqui), `esperado(n, m)` costuma ser bem menor que 1 numa
@@ -85,7 +77,7 @@ def coocorrencia_score(
     o lift bruto (sem suavizacao) so pode assumir multiplos de `1/esperado`
     -- um unico coocorrencia observado ja faz o lift saltar de 0 para varias
     unidades. A suavizacao com `alpha` (padrao 1.0) reduz esse viés pela
-    metade nesta loteria (0.087 sem suavizacao -> 0.043 com suavizacao, no
+    metade nesta loteria (0.174 sem suavizacao -> 0.046 com suavizacao, no
     mesmo experimento), mas nao o elimina; ainda assim, com `esperado` muito
     baixo, nao espere um sinal fino -- espere algo perto de 1.0 quase sempre,
     com saltos discretos ocasionais. Um WARNING e emitido quando o esperado
@@ -97,17 +89,17 @@ def coocorrencia_score(
     # 1.0 e o valor neutro sob independencia (ver NOTA HONESTA), nao 0.0:
     # "sem evidencia" (janela vazia, ou a dezena nunca saiu na janela) nao e
     # o mesmo que "maxima anti-afinidade".
-    scores = {n: 1.0 for n in _NUMBERS}
+    scores = {n: 1.0 for n in NUMEROS}
     n_window = len(window)
     if n_window == 0:
         return scores
 
     freq = freq_k(draws, idx, k)
-    top_dezenas = sorted(_NUMBERS, key=lambda n: freq[n], reverse=True)[:top]
+    top_dezenas = sorted(NUMEROS, key=lambda n: freq[n], reverse=True)[:top]
     top_set = set(top_dezenas)
 
     # Conta pares apenas contra as `top` dezenas quentes (nao a matriz cheia
-    # _NUMBERS x _NUMBERS), muito mais barato quando build_dataset chama esta
+    # NUMEROS x NUMEROS), muito mais barato quando build_dataset chama esta
     # funcao uma vez por linha do dataset.
     pair_counts = {m: Counter() for m in top_dezenas}
     for d in window:
@@ -119,7 +111,7 @@ def coocorrencia_score(
             pair_counts[m].update(n for n in dez_set if n != m)
 
     esperados: List[float] = []
-    for n in _NUMBERS:
+    for n in NUMEROS:
         lifts = []
         for m in top_dezenas:
             if m == n or freq[n] <= 0 or freq[m] <= 0:
@@ -138,17 +130,21 @@ def coocorrencia_score(
 
 
 def trend_score(draws: List[Draw], idx: int) -> Dict[int, float]:
-    f10 = freq_k(draws, idx, k=10)
-    f50 = freq_k(draws, idx, k=50)
-    return {n: f10[n] - f50[n] for n in _NUMBERS}
+    fk10 = freq_k(draws, idx, 10)
+    fk50 = freq_k(draws, idx, 50)
+    return {n: fk10[n] - fk50[n] for n in NUMEROS}
 
 
 def volatilidade_score(
     draws: List[Draw], idx: int, outer_k: int = 100, inner_k: int = 20
 ) -> Dict[int, float]:
+    """
+    Std dev of frequency of N computed in non-overlapping inner_k windows
+    inside the outer_k draws before idx.
+    """
     window = draws[max(0, idx - outer_k):idx]
     n_windows = max(1, len(window) // inner_k)
-    scores = {n: [] for n in _NUMBERS}
+    scores = {n: [] for n in NUMEROS}
 
     for w in range(n_windows):
         sub = window[w * inner_k:(w + 1) * inner_k]
@@ -157,11 +153,11 @@ def volatilidade_score(
         counts = Counter()
         for d in sub:
             counts.update(d.dezenas)
-        for n in _NUMBERS:
+        for n in NUMEROS:
             scores[n].append(counts[n] / len(sub))
 
     result = {}
-    for n in _NUMBERS:
+    for n in NUMEROS:
         vals = scores[n]
         if len(vals) < 2:
             result[n] = 0.0
@@ -169,18 +165,3 @@ def volatilidade_score(
             mean = sum(vals) / len(vals)
             result[n] = math.sqrt(sum((v - mean) ** 2 for v in vals) / len(vals))
     return result
-
-
-def faixa_dominante(draws: List[Draw], idx: int) -> int:
-    if idx == 0:
-        return 1
-    dez = set(draws[idx - 1].dezenas)
-    counts = {f: sum(1 for n in dez if n in rng) for f, rng in _FAIXAS.items()}
-    return max(counts, key=counts.get)
-
-
-def par_quente_score(draws: List[Draw], idx: int, k: int = 50) -> float:
-    fk = freq_k(draws, idx, k=k)
-    top20 = sorted(fk, key=fk.get, reverse=True)[:20]
-    at = calc_atraso(draws, idx, max_atraso=50)
-    return float(sum(1 for n in top20 if at[n] <= 5))
