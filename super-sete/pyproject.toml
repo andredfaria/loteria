@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68.0", "wheel"]
+requires = ["setuptools>=77.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,6 +7,18 @@ name = "supersete"
 version = "0.1.0"
 description = "Sistema de coleta e análise de dados para o Super Sete"
 requires-python = ">=3.11"
+license = "MIT"
+readme = "README.md"
+authors = [{ name = "Andre de Faria Carvalho" }]
+keywords = ["loteria", "estatistica", "analise-de-dados", "caixa"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Natural Language :: Portuguese (Brazilian)",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+]
 dependencies = [
     "requests>=2.31.0",
     "tenacity>=8.2.0",
@@ -20,6 +32,12 @@ dev = [
     "pytest>=7.4.0",
     "responses>=0.23.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/andredfaria/loteria"
+Source = "https://github.com/andredfaria/loteria/tree/main/super-sete"
+Issues = "https://github.com/andredfaria/loteria/issues"
+Security = "https://github.com/andredfaria/loteria/blob/main/SECURITY.md"
 
 [project.scripts]
 supersete = "supersete.interface.cli.app:app"

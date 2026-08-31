@@ -1,0 +1,58 @@
+name: segurança
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Vulnerabilidade em dependência aparece sem ninguém tocar no código,
+    # então a varredura precisa rodar no calendário, não só no push.
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  dependencias:
+    name: vulnerabilidades em dependências
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        projeto: [lotofacil, quina, super-sete, dia-de-sorte, megasena]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pip-audit
+      - name: pip-audit
+        run: |
+          pip install -e "./${{ matrix.projeto }}"
+          pip-audit --strict --desc
+
+  segredos:
+    name: varredura de segredos
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # gitleaks precisa do histórico para varrer commits antigos, não só
+          # a árvore atual — um segredo removido continua no histórico.
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  codigo:
+    name: análise estática de segurança
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install bandit
+      - name: bandit
+        # -ll: só reporta severidade média/alta, para o sinal não virar ruído.
+        run: bandit -r . -ll --exclude ./venv,./*/venv,./*/testes,./docs

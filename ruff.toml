@@ -1,0 +1,44 @@
+# Configuração de lint compartilhada pelos cinco projetos.
+#
+# O conjunto abaixo é deliberadamente estreito: o código tem ~1.500 avisos com
+# os padrões do ruff, e uma CI vermelha desde o primeiro dia é pior que CI
+# nenhuma — ninguém olha. Estas regras pegam BUG, não estilo, e passam hoje.
+# Foi assim que apareceram os dois `undefined-name` que estouravam em runtime.
+#
+# Para ampliar: escolha uma regra, rode `ruff check --select <REGRA> --fix`,
+# revise o diff e adicione à lista. Uma por PR, para o diff continuar legível.
+
+line-length = 100
+target-version = "py311"
+
+exclude = [
+    "venv", "*/venv", ".venv", "*/.venv",
+    "**/__pycache__",
+    "*/legado",
+]
+
+[lint]
+select = [
+    "E9",    # erros de sintaxe / runtime
+    "F63",   # comparações sempre falsas
+    "F7",    # sintaxe fora de lugar (break fora de loop, etc.)
+    "F82",   # nomes indefinidos  <- pegou 3 bugs reais
+    "F811",  # redefinição sem uso
+    "F401",  # imports não usados
+]
+
+# Próxima regra a habilitar: F841 (variável atribuída e nunca usada). São 13
+# ocorrências hoje, e já valeram a pena: foi por ela que apareceu o `rng`
+# criado com a seed e nunca passado ao simulated annealing — o `--seed` não
+# fazia nada enquanto o log afirmava que fazia. As demais precisam ser lidas
+# uma a uma (algumas são variáveis climáticas coletadas e descartadas em
+# silêncio, que podem ser bug ou resto de refatoração).
+
+[lint.per-file-ignores]
+# __init__.py reexporta de propósito.
+"**/__init__.py" = ["F401"]
+# Módulos de fachada do CLI existem só para reexportar o `app` do subcomando.
+"**/interface/cli/lab.py" = ["F401"]
+# Testes podem importar fixtures aparentemente sem uso.
+"**/testes/**" = ["F401", "F841"]
+"**/tests/**" = ["F401", "F841"]
