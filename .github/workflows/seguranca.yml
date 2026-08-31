@@ -28,11 +28,14 @@ jobs:
       - run: pip install pip-audit
       - name: pip-audit
         # --skip-editable: o próprio pacote é instalado em modo editável e não
-        # existe no PyPI; sem isso o --strict falha em "Dependency not found on
-        # PyPI" e a varredura nunca chega a reportar CVE de verdade.
+        # existe no PyPI, então não há o que auditar nele.
+        # Sem --strict de propósito: --strict falha quando QUALQUER dependência
+        # não pôde ser auditada, incluindo as puladas — as duas flags se anulam
+        # e o job morre antes de reportar CVE. O pip-audit já sai com código
+        # não-zero quando encontra vulnerabilidade, que é o gate que queremos.
         run: |
           pip install -e "./${{ matrix.projeto }}"
-          pip-audit --strict --desc --skip-editable
+          pip-audit --desc --skip-editable
 
   segredos:
     name: varredura de segredos
