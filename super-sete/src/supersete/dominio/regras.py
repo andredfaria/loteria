@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from typing import Set
 
 NUM_COLUNAS = 7
 DIGITOS = set(range(10))

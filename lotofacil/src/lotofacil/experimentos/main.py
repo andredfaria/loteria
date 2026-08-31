@@ -20,6 +20,7 @@ from pathlib import Path
 import typer
 from rich.console import Console
 from rich.table import Table
+from rich.panel import Panel
 from rich import box
 
 # Ensure src/ is in sys.path before any local imports
@@ -27,7 +28,6 @@ _SRC = Path(__file__).resolve().parent.parent
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
-from lotofacil.experimentos.config import OUTPUT_DIR  # noqa: E402
 
 app = typer.Typer(
     name="lotofacil-lab",
@@ -72,7 +72,7 @@ def lunar_check(
 ) -> None:
     """Print lunar features for a given date (smoke test)."""
     _setup_logging(debug)
-    from lotofacil.experimentos.data.lunar_loader import get_lunar_features_dict, LUNAR_FEATURE_NAMES
+    from lotofacil.experimentos.data.lunar_loader import get_lunar_features_dict
     features = get_lunar_features_dict(data)
     table = Table(title=f"Lunar features — {data}", box=box.SIMPLE)
     table.add_column("Feature")
@@ -102,7 +102,7 @@ def backfill_lua(
     repair caches written by an older, buggy version of the phase calculation.
     """
     _setup_logging(debug)
-    from lotofacil.experimentos.data.draws_loader import load_draws, load_draws_last_n
+    from lotofacil.experimentos.data.draws_loader import load_draws
     from lotofacil.experimentos.data.lunar_loader import (
         compute_lunar_features, recompute_lunar_cache, _parse_iso,
     )
@@ -343,7 +343,6 @@ def compare(
 ) -> None:
     """Compare specific configs in a given period. Faster than full ablation."""
     _setup_logging(debug)
-    from datetime import datetime
     from lotofacil.experimentos.data.draws_loader import load_draws
     from lotofacil.experimentos.data.feature_flags import FeatureConfig
     from lotofacil.experimentos.experiments.runner import ExperimentRunner
@@ -511,6 +510,386 @@ def similar(
 
     path = salvar_jogo(result)
     console.print(f"[green]Jogo salvo:[/green] {path}")
+
+
+# ── analisar ───────────────────────────────────────────────────────────────────
+
+@app.command("analisar")
+def analisar(
+    top_n: int = typer.Option(20, "--top-n", help="Top resultados por categoria."),
+    windows_str: str = typer.Option("10,30,50,100", "--windows",
+                                    help="Janelas de frequência (separadas por vírgula)."),
+    target: str = typer.Option("both", "--target",
+                                help="Tamanho do jogo: 11, 15, both"),
+    save: bool = typer.Option(True, "--save/--no-save",
+                               help="Salvar relatório JSON em saida/analises/"),
+    debug: bool = typer.Option(False, "--debug"),
+) -> None:
+    """Análise completa: frequência, co-ocorrência, importância RF e jogos históricos."""
+    _setup_logging(debug)
+
+    from datetime import datetime
+    from lotofacil.experimentos.config import ANALYSIS_DIR
+    from lotofacil.experimentos.data.draws_loader import load_draws
+    from lotofacil.experimentos.analysis.analisador import AnalisadorCompleto, salvar_relatorio
+
+    windows = tuple(int(w.strip()) for w in windows_str.split(",") if w.strip())
+
+    targets_map = {"11": (11,), "15": (15,), "both": (11, 15)}
+    targets = targets_map.get(target, (11, 15))
+
+    draws = load_draws()
+    if not draws:
+        console.print("[red]Nenhum dado encontrado. Execute: lotofacil dados atualizar --all[/red]")
+        raise typer.Exit(1)
+
+    console.print(f"[bold]Carregados {len(draws)} concursos ({draws[0].concurso}–{draws[-1].concurso})[/bold]")
+    console.print(f"Janelas: {windows} | Target: {target} | Top-N: {top_n}")
+    console.print()
+
+    with console.status("[bold green]Rodando análise completa...") as status:
+        analisador = AnalisadorCompleto(draws)
+        resultado = analisador.analisar(top_n=top_n, windows=windows, targets=targets)
+
+    _exibir_resultado(console, resultado, top_n)
+
+    if save:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        out_path = ANALYSIS_DIR / f"analise_completa_{timestamp}.json"
+        salvar_relatorio(resultado, out_path)
+        console.print(f"\n[green]Relatório salvo:[/green] {out_path}")
+
+
+def _exibir_resultado(console, resultado: dict, top_n: int) -> None:
+    from rich.table import Table
+    from rich import box
+
+    meta = resultado["metadata"]
+
+    painel_texto = (
+        f"Total de concursos: [cyan]{meta['total_draws']}[/cyan]\n"
+        f"Range: [cyan]{meta['concurso_range'][0]}[/cyan] → [cyan]{meta['concurso_range'][1]}[/cyan]\n"
+        f"Período: [cyan]{meta['data_range'][0]}[/cyan] → [cyan]{meta['data_range'][1]}[/cyan]"
+    )
+    console.print(Panel(painel_texto, title="📊  Análise Completa — Lotofácil",
+                        box=box.DOUBLE_EDGE))
+    console.print()
+
+    if "frequencia" in resultado:
+        freq = resultado["frequencia"]
+        ranking = freq["ranking"]
+        ranking.sort(key=lambda r: r.get("total", 0), reverse=True)
+
+        table = Table(title="Frequência por Número", box=box.SIMPLE_HEAVY)
+        table.add_column("Nº", justify="right", style="cyan")
+        cols = [c for c in ["ultimos_10", "ultimos_30", "ultimos_50", "ultimos_100", "total"]
+                if c in ranking[0]]
+        labels_map = {
+            "ultimos_10": "Últ.10", "ultimos_30": "Últ.30",
+            "ultimos_50": "Últ.50", "ultimos_100": "Últ.100", "total": "Total",
+        }
+        for c in cols:
+            table.add_column(labels_map.get(c, c), justify="right")
+        for row in ranking[:15]:
+            vals = [str(row["numero"])] + [str(row[c]) for c in cols]
+            table.add_row(*vals)
+        console.print(table)
+        console.print()
+
+    if "coocorrencia" in resultado:
+        cooc = resultado["coocorrencia"]
+        for nome in ("pares", "triplas", "quadruplas", "quintuplas"):
+            if nome not in cooc:
+                continue
+            data = cooc[nome]
+            table = Table(
+                title=f"Top {min(top_n, 10)} {nome.capitalize()} mais frequentes "
+                      f"({data['total_combos_unicas']} combos únicas)",
+                box=box.SIMPLE_HEAVY,
+            )
+            table.add_column("Sequência", style="cyan")
+            table.add_column("Freq.", justify="right")
+            table.add_column("%", justify="right")
+            for entry in data["top"][:10]:
+                seq = " ".join(f"{n:02d}" for n in entry["sequencia"])
+                table.add_row(seq, str(entry["frequencia"]), f"{entry['proporcao']:.1f}%")
+            console.print(table)
+            console.print()
+
+    if "importancia_ml" in resultado:
+        imp = resultado["importancia_ml"]
+        table = Table(
+            title=f"Top {min(top_n, 15)} Features mais importantes (Random Forest)",
+            box=box.SIMPLE_HEAVY,
+        )
+        table.add_column("Feature", style="cyan")
+        table.add_column("Importância Média", justify="right")
+        table.add_column("Desvio Padrão", justify="right")
+        for entry in imp["top_features_globais"][:15]:
+            table.add_row(
+                entry["feature"],
+                f"{entry['importancia_media']:.6f}",
+                f"{entry['importancia_std']:.6f}",
+            )
+        console.print(table)
+        console.print()
+
+    for target in (11, 15):
+        key = f"jogos_{target}_dezenas"
+        if key not in resultado:
+            continue
+        jdata = resultado[key]
+        console.print(
+            Panel(
+                f"[bold]Análise de jogos de {target} dezenas[/bold]",
+                box=box.SIMPLE,
+            )
+        )
+
+        for origem, label in [("top_por_frequencia", "Frequência"),
+                              ("top_por_ml", "Random Forest")]:
+            if origem not in jdata or not jdata[origem]:
+                continue
+            table = Table(
+                title=f"Top jogos ({label})",
+                box=box.SIMPLE_HEAVY,
+            )
+            table.add_column("Jogo", style="cyan")
+            table.add_column("Soma", justify="right")
+            table.add_column("Média", justify="right")
+            table.add_column(">=11", justify="right")
+            table.add_column(">=12", justify="right")
+            table.add_column(">=13", justify="right")
+            table.add_column(">=14", justify="right")
+            table.add_column(">=15", justify="right")
+            for jogo_data in jdata[origem]:
+                jogo_str = " ".join(f"{n:02d}" for n in jogo_data["jogo"])
+                dist = jogo_data["distribuicao"]
+                table.add_row(
+                    jogo_str,
+                    str(jogo_data["soma"]),
+                    f"{jogo_data['media_acertos']:.1f}",
+                    str(dist.get("acertos_11", 0)),
+                    str(dist.get("acertos_12", 0)),
+                    str(dist.get("acertos_13", 0)),
+                    str(dist.get("acertos_14", 0)),
+                    str(dist.get("acertos_15", 0)),
+                )
+            console.print(table)
+            console.print()
+
+
+# ── gerar-melhor-jogo ──────────────────────────────────────────────────────────
+
+@app.command("gerar-melhor-jogo")
+def gerar_melhor_jogo(
+    concurso: int = typer.Option(0, "--concurso", "-c", help="Concurso alvo (0 = auto)."),
+    save: bool = typer.Option(True, "--save/--no-save", help="Salvar em saida/jogos/"),
+    debug: bool = typer.Option(False, "--debug"),
+) -> None:
+    """Gera o melhor jogo de 15 dezenas usando ensemble multi-sinal + SA."""
+    _setup_logging(debug)
+    from datetime import date as dt_date
+    from lotofacil.experimentos.config import PROJECT_ROOT
+    from lotofacil.experimentos.data.draws_loader import load_draws
+    from lotofacil.experimentos.analysis.gerador_melhor_jogo import gerar_melhor_jogo as gerar, salvar_resultado
+
+    draws = load_draws()
+    if not draws:
+        console.print("[red]Sem dados.[/red]")
+        raise typer.Exit(1)
+
+    target_concurso = concurso if concurso else draws[-1].concurso + 1
+    target_date = dt_date.today().isoformat()
+
+    console.print(f"[bold]Gerando melhor jogo para concurso {target_concurso} ({target_date})[/bold]")
+    console.print(f"Base: {len(draws)} concursos ({draws[0].concurso}–{draws[-1].concurso})")
+    console.print()
+
+    with console.status("[bold green]Otimizando jogo com ensemble multi-sinal + SA..."):
+        resultado = gerar(draws, target_concurso, target_date)
+
+    _exibir_melhor_jogo(console, resultado)
+
+    if save:
+        saida_dir = PROJECT_ROOT / "saida" / "jogos"
+        saida_dir.mkdir(parents=True, exist_ok=True)
+        out_path = saida_dir / f"melhor_jogo_{target_concurso}.json"
+        salvar_resultado(resultado, out_path)
+        console.print(f"\n[green]Jogo salvo:[/green] {out_path}")
+
+    jogos_dir = PROJECT_ROOT / "saida" / "jogos"
+    console.print(f"\n[bold]💾 Arquivos em:[/bold] {jogos_dir}")
+
+
+def _exibir_melhor_jogo(console, r: dict) -> None:
+    from rich.table import Table
+    from rich.panel import Panel
+    from rich import box
+
+    jogo = r["jogo"]
+    est = r["estatisticas"]
+    av = r["avaliacao_historica"]
+    dist = av["distribuicao"]
+
+    jogo_str = "  ".join(f"{n:02d}" for n in jogo)
+    console.print(Panel(
+        f"[bold cyan]🎯 Jogo para Concurso {r['metadata']['target_concurso']}[/bold cyan]\n\n"
+        f"[yellow]{jogo_str}[/yellow]\n\n"
+        f"Soma: {est['soma']} | Pares: {est['pares']}/{est['impares']} | "
+        f"Moldura: {est['moldura']} | Primos: {est['primos']} | "
+        f"Fib: {est['fibonacci']} | Consec: {est['consecutivos']}\n"
+        f"Filter Score: {est['filter_score']}",
+        box=box.DOUBLE_EDGE,
+    ))
+
+    table = Table(title="Avaliação Histórica (3737 concursos)", box=box.SIMPLE_HEAVY)
+    table.add_column("Métrica", style="cyan")
+    table.add_column("Valor", justify="right")
+    table.add_row("Média de acertos", str(av["media_acertos"]))
+    table.add_row("≥11 acertos", f"{dist['11']}x ({av['prob_acertos_11']}%)")
+    table.add_row("≥12 acertos", f"{dist['12']}x")
+    table.add_row("≥13 acertos", f"{dist['13']}x")
+    table.add_row("≥14 acertos", f"{dist['14']}x")
+    table.add_row("15 acertos", f"{dist['15']}x ({av['prob_acertos_15']}%)")
+    table.add_row("Máx acertos", str(av["max_acertos"]))
+    console.print(table)
+
+    pesos = Table(title="Pesos do Ensemble", box=box.SIMPLE)
+    pesos.add_column("Sinal", style="cyan")
+    pesos.add_column("Peso", justify="right")
+    pesos.add_column("Score", justify="right")
+    for nome, peso in r["pesos_ensemble"].items():
+        score = r["score_por_sinal"].get(nome, 0)
+        pesos.add_row(nome.capitalize(), f"{peso*100:.0f}%", f"{score:.4f}")
+    console.print(pesos)
+
+    if r["top_similares"]:
+        sim_table = Table(title="Top Concursos Similares (Lua+Clima)", box=box.SIMPLE)
+        sim_table.add_column("Rank")
+        sim_table.add_column("Concurso")
+        sim_table.add_column("Data")
+        sim_table.add_column("Similaridade", justify="right")
+        for s in r["top_similares"][:5]:
+            sim_table.add_row(str(s["rank"]), str(s["concurso"]), s["data"], str(s["similaridade"]))
+        console.print(sim_table)
+
+    console.print(f"\n🌙 Lua: phase={r['lua_hoje']['phase']} illum={r['lua_hoje']['illumination']} "
+                  f"{'(🌕 Cheia)' if r['lua_hoje']['is_full'] else '(🌑 Nova)' if r['lua_hoje']['is_new'] else ''}")
+    console.print(f"☀️  Clima SP: {r['clima_hoje']['temp_sorteio']}°C | "
+                  f"precip={r['clima_hoje']['precip_sorteio']} | "
+                  f"wcode={r['clima_hoje']['wcode_sorteio']}")
+
+    console.print(f"\n[dim]{r['explicacao']}[/dim]")
+
+
+# ── validar-algoritmo ──────────────────────────────────────────────────────────
+
+@app.command("validar-algoritmo")
+def validar_algoritmo(
+    start: int = typer.Option(2000, "--start", help="Primeiro concurso do backtest."),
+    retrain: int = typer.Option(50, "--retrain", help="Re-treinar RF a cada N concursos."),
+    save: bool = typer.Option(True, "--save/--no-save"),
+    debug: bool = typer.Option(False, "--debug"),
+) -> None:
+    """Walk-forward backtest determinístico para validar acurácia do ensemble."""
+    _setup_logging(debug)
+    from datetime import datetime
+    from lotofacil.experimentos.config import PROJECT_ROOT
+    from lotofacil.experimentos.data.draws_loader import load_draws
+    from lotofacil.experimentos.analysis.validador_backtest import (
+        rodar_backtest_walkforward, salvar_backtest, ESTRATEGIAS,
+    )
+
+    draws = load_draws()
+    if not draws:
+        console.print("[red]Sem dados.[/red]")
+        raise typer.Exit(1)
+
+    console.print(f"[bold]Walk-forward: concurso {start} → {draws[-1].concurso - 1}[/bold]")
+    console.print(f"Estratégias: {len(ESTRATEGIAS)} | Re-treino RF: a cada {retrain} concursos")
+    console.print()
+
+    with console.status("[bold green]Rodando backtest walk-forward..."):
+        resultado = rodar_backtest_walkforward(draws, start_concurso=start, retrain_every=retrain)
+
+    _exibir_validacao(console, resultado)
+
+    if save:
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        out_path = PROJECT_ROOT / "saida" / "analises" / f"validacao_algoritmo_{ts}.json"
+        salvar_backtest(resultado, out_path)
+        console.print(f"\n[green]Relatório salvo:[/green] {out_path}")
+
+
+def _exibir_validacao(console, resultado: dict) -> None:
+    # Import local: `ESTRATEGIAS` vive em analysis/validador_backtest.py e era
+    # importada apenas dentro de validar_algoritmo(), outra função — esta aqui
+    # estourava NameError ao montar a tabela. Mantido local para preservar o
+    # padrão de import tardio do módulo (evita puxar TensorFlow no --help).
+    from lotofacil.experimentos.analysis.validador_backtest import ESTRATEGIAS
+
+    from rich.table import Table
+    from rich.panel import Panel
+    from rich import box
+
+    mel = resultado.get("melhor_estrategia")
+
+    if mel:
+        console.print(Panel(
+            f"[bold green]🏆 Melhor Estratégia: {mel['nome']}[/bold green]\n"
+            f"Taxa ≥11: [cyan]{mel['taxa_11']}%[/cyan] | Taxa ≥13: [cyan]{mel['taxa_13']}%[/cyan]",
+            box=box.DOUBLE_EDGE,
+        ))
+        console.print()
+
+    table = Table(title="Comparativo de Estratégias", box=box.SIMPLE_HEAVY)
+    table.add_column("Estratégia", style="cyan")
+    table.add_column("N", justify="right")
+    table.add_column("Média", justify="right")
+    table.add_column("≥11", justify="right")
+    table.add_column("≥12", justify="right")
+    table.add_column("≥13", justify="right")
+    table.add_column("≥14", justify="right")
+    table.add_column("≥15", justify="right")
+    table.add_column("a cada N", justify="right")
+    table.add_column("Sequência", justify="right")
+
+    for nome, _ in ESTRATEGIAS:
+        dados = resultado["resultados"].get(nome, {})
+        if "erro" in dados:
+            table.add_row(nome, "ERRO", "—", "—", "—", "—", "—", "—", "—", "—")
+            continue
+        table.add_row(
+            nome,
+            str(dados["total_concursos"]),
+            f"{dados['media_acertos']:.2f}",
+            f"{dados['distribuicao']['11']}x ({dados['taxa_acerto_11']}%)",
+            f"{dados['distribuicao']['12']}x ({dados['taxa_acerto_12']}%)",
+            f"{dados['distribuicao']['13']}x ({dados['taxa_acerto_13']}%)",
+            f"{dados['distribuicao']['14']}x ({dados['taxa_acerto_14']}%)",
+            f"{dados['distribuicao']['15']}x ({dados['taxa_acerto_15']}%)",
+            str(dados.get("concursos_para_acertar_11", "—")),
+            str(dados.get("maior_sequencia_acertos", "—")),
+        )
+
+    console.print(table)
+    console.print()
+
+    for nome, _ in ESTRATEGIAS:
+        dados = resultado["resultados"].get(nome, {})
+        if "erro" in dados or not dados.get("hit_details"):
+            continue
+        hits_13 = [h for h in dados["hit_details"] if h["hits"] >= 13]
+        if hits_13:
+            t = Table(title=f"⭐ {nome} — Acertos ≥13", box=box.SIMPLE)
+            t.add_column("Concurso")
+            t.add_column("Data")
+            t.add_column("Hits", justify="right")
+            for h in hits_13[:10]:
+                t.add_row(str(h["concurso"]), h["data"], str(h["hits"]))
+            console.print(t)
+            console.print()
 
 
 # ── helpers ────────────────────────────────────────────────────────────────────

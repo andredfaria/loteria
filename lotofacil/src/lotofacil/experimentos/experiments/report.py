@@ -6,9 +6,8 @@ import json
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List
+from typing import List
 
-import numpy as np
 
 from lotofacil.experimentos.config import OUTPUT_DIR, COST_PER_GAME
 

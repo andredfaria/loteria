@@ -2,12 +2,11 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import List
 
 import numpy as np
 
-from lotofacil.dominio.entidades import Portfolio, Sorteio
+from lotofacil.dominio.entidades import Sorteio
 from lotofacil.infra.config import DADOS_DIR, JOGOS_DIR
 from lotofacil.infra.dados.leitor import load_draws
 from lotofacil.infra.estrategias.onze_dezenas.predictor import ElevenNumbersStrategy

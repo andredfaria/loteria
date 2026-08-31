@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict
 
 from jinja2 import Environment, FileSystemLoader
 
-from lotofacil.infra.avaliacao.backtest import BacktestResult, BacktestSummary
+from lotofacil.infra.avaliacao.backtest import BacktestSummary
 from lotofacil.infra.avaliacao.financeiro import FinancialResult, FinancialSimulator
 from lotofacil.infra.config import COST_PER_GAME, PRIZE_TABLE
 from lotofacil.infra.avaliacao.significancia import SignificanceResult, compare_vs_baseline

@@ -2,10 +2,9 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from pathlib import Path
 from typing import List, Optional
 
-from lotofacil.dominio.entidades import Predicao, Sorteio
+from lotofacil.dominio.entidades import Predicao
 from lotofacil.infra.config import DADOS_DIR
 from lotofacil.infra.dados.banco import DatabaseManager
 

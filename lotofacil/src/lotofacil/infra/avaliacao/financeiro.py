@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Dict, List
 
 from lotofacil.infra.config import COST_PER_GAME, PRIZE_TABLE

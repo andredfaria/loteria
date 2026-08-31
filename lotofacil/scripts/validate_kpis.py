@@ -22,7 +22,7 @@ from rich.panel import Panel
 from rich.rule import Rule
 
 from core.models import Draw
-from core.config import TOTAL_NUMBERS, NUMBERS_PER_DRAW, COST_PER_GAME, PRIZE_TABLE, RANDOM_SEED
+from core.config import COST_PER_GAME, PRIZE_TABLE, RANDOM_SEED
 from core.lottery import contar_acertos, estatisticas_dezenas
 from data.loader import load_draws
 

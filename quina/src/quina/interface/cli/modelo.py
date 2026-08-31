@@ -6,7 +6,6 @@ from rich.console import Console
 from rich.table import Table
 
 from quina.infra.dados.banco import DatabaseManager
-from quina.infra.dados.leitor import load_draws
 from quina.servicos.backtest import ESTRATEGIAS_DISPONIVEIS, rodar_backtest
 from quina.servicos.treinar_modelos import treinar_modelos as servico_treinar_ml
 
@@ -49,7 +48,6 @@ def treinar(
 
     if ml:
         console.print("[cyan]Treinando modelos ML (RF+XGB+LGBM ensemble)...[/cyan]")
-        from quina.infra.config import DADOS_DIR, MODELOS_DIR
         resultado = servico_treinar_ml(incluir_ml=True)
         console.print(f"[green]Modelos treinados: {', '.join(resultado.modelos_treinados)}[/green]")
         console.print(f"[dim]{resultado.total_concursos} concursos usados[/dim]")

@@ -6,14 +6,13 @@ import json
 import logging
 from datetime import date
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 import numpy as np
 
 from lotofacil.experimentos.config import (
     SIMILARITY_TOP_N, PROJECT_ROOT, PADROES21_JANELA,
     SCORE_SIMILAR_WEIGHT, SCORE_PADROES21_WEIGHT,
-    STRATEGY_RANGES,
 )
 from lotofacil.experimentos.features.similarity import (
     find_similar, compute_similarity_weighted_freq,

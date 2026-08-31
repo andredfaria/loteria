@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import List, Tuple
+from typing import List
 
 import numpy as np
 
@@ -52,7 +52,6 @@ class AttentionLayer:
 
     def __call__(self, inputs):
         try:
-            import tensorflow as tf
             from tensorflow.keras import layers
 
             x = layers.MultiHeadAttention(
@@ -96,9 +95,9 @@ class NeuralApproach:
         Uses temporal split for validation (last NEURAL_VAL_SPLIT fraction).
         """
         try:
-            import tensorflow as tf
+            import tensorflow as tf  # noqa: F401  # o import faz parte do guard de disponibilidade do try/except
             tf.random.set_seed(RANDOM_SEED)
-            from tensorflow.keras import layers, models, callbacks, Input
+            from tensorflow.keras import layers, models, callbacks, Input  # noqa: F401  # o import faz parte do guard de disponibilidade do try/except
         except ImportError:
             raise RuntimeError("TensorFlow is required for neural approach")
 
@@ -177,12 +176,12 @@ class NeuralApproach:
     def _build_model(self):
         """Build LSTM + Attention model."""
         try:
-            import tensorflow as tf
-            from tensorflow.keras import layers, models, Input
+            import tensorflow as tf  # noqa: F401  # o import faz parte do guard de disponibilidade do try/except
+            from tensorflow.keras import layers, models, Input  # noqa: F401  # o import faz parte do guard de disponibilidade do try/except
         except ImportError:
             raise RuntimeError("TensorFlow is required")
 
-        n_features = TOTAL_NUMBERS * 3 + 8
+        n_features = TOTAL_NUMBERS * 3
 
         inputs = Input(shape=(LSTM_WINDOW_SIZE, n_features))
 

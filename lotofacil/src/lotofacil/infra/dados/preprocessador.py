@@ -3,7 +3,7 @@
 import dataclasses
 import logging
 from datetime import datetime
-from typing import List, Tuple
+from typing import Tuple
 
 import numpy as np
 
@@ -159,6 +159,40 @@ class LotofacilPreprocessor:
         arr = np.array(sequences, dtype=np.float32)
         logger.info("LSTM sequences: %s (window=%d)", arr.shape, window_size)
         return arr
+
+    def prepare_enriched_sequences(self, window_size: int = LSTM_WINDOW_SIZE):
+        """Enriched LSTM sequences for the LSTM + Attention neural approaches.
+
+        Returns:
+            X_bin:     (n - window, window, 25) binary draw windows
+            y_bin:     (n - window, 25)          next-draw binary target
+            X_freq:    (n - window, window, 25)  rolling frequency per window step
+            X_atraso:  (n - window, 25)          days-since-last at window end
+            X_climate: (n - window, window, 0)   placeholder (no climate in this module)
+        """
+        binary = self._binary_matrix()
+        days = self._days_since_last(binary)
+        days_norm = np.clip(days / 50.0, 0, 1)
+
+        freq = np.zeros_like(binary)
+        for i in range(1, self.n):
+            freq[i] = binary[max(0, i - window_size):i].mean(axis=0)
+
+        n_seq = self.n - window_size
+        if n_seq <= 0:
+            raise ValueError(
+                f"Not enough draws for window={window_size}: got {self.n}"
+            )
+
+        X_bin = np.stack([binary[i - window_size:i] for i in range(window_size, self.n)])
+        y_bin = binary[window_size:]
+        X_freq = np.stack([freq[i - window_size:i] for i in range(window_size, self.n)])
+        X_atraso = days_norm[window_size:]
+        X_climate = np.zeros((n_seq, window_size, 0), dtype=np.float32)
+
+        logger.info("Enriched sequences: X_bin=%s y_bin=%s freq=%s atraso=%s",
+                    X_bin.shape, y_bin.shape, X_freq.shape, X_atraso.shape)
+        return X_bin, y_bin, X_freq, X_atraso, X_climate
 
     def get_latest_window(self, window_size: int = LSTM_WINDOW_SIZE) -> np.ndarray:
         """Last `window_size` draws as a single LSTM input (1, window, 25)."""

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import Callable, List
+from typing import List
 
 from lotofacil.experimentos.config import BACKTEST_MIN_TRAIN, BACKTEST_RETRAIN_EVERY, RANDOM_SEED
 from lotofacil.experimentos.data.feature_flags import FeatureConfig

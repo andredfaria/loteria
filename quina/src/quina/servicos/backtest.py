@@ -8,7 +8,6 @@ from typing import Optional
 from quina.dominio.entidades import Sorteio as Draw
 from quina.dominio.regras import FAIXAS_ACERTOS, NUMEROS_POR_SORTEIO, TOTAL_NUMEROS
 from quina.infra.dados.banco import DatabaseManager
-from quina.infra.dados.leitor import load_draws as load_draws_from_files
 from quina.infra.modelos.ensemble import EnsemblePredictor
 from quina.servicos.estrategias import scoring
 from quina.servicos.estrategias.frequencia_atraso import gerar_candidato_frequencia_atraso

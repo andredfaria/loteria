@@ -1,12 +1,11 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-from lotofacil.infra.config import DADOS_DIR, MODELOS_DIR
+from lotofacil.infra.config import DADOS_DIR
 from lotofacil.infra.dados.leitor import load_draws
 from lotofacil.infra.avaliacao.backtest import BacktestEngine, BacktestSummary
 from lotofacil.infra.avaliacao.baseline import random_game
-from lotofacil.infra.avaliacao.metricas import LotofacilMetrics
 from lotofacil.infra.avaliacao.gerador_html import HTMLReportGenerator
 from lotofacil.infra.modelos.frequency_model import FrequencyModel
 from lotofacil.infra.modelos.frequency_ensemble import FrequencyEnsembleModel

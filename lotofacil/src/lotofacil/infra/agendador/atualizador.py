@@ -1,7 +1,6 @@
 """APScheduler-based background scheduler for automated data/model lifecycle."""
 
 import logging
-from typing import Optional
 
 from lotofacil.infra.config import (
     SCHEDULE_RETRAIN_DAY,

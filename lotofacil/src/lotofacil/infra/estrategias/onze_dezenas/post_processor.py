@@ -15,7 +15,6 @@ Recalibration rationale (15 → 11 numbers, scale factor ~0.73):
 from __future__ import annotations
 
 import random
-from typing import List
 
 import numpy as np
 

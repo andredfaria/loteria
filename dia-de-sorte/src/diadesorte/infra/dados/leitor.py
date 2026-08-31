@@ -20,6 +20,7 @@ def load_draws(dados_dir: Path) -> List[Sorteio]:
                 sorteios.append(sorteio)
         except Exception as exc:
             logger.debug("Skipping %s: %s", path.name, exc)
+    sorteios.sort(key=lambda s: s.concurso)
     return sorteios
 
 

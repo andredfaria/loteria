@@ -1,7 +1,6 @@
 import json
 import glob
 import os
-import sys
 
 pasta_dados = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'dados')
 saida_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'mirofish')

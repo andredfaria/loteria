@@ -10,7 +10,7 @@ from sklearn.ensemble import RandomForestClassifier, VotingClassifier
 from sklearn.multioutput import MultiOutputClassifier
 
 from quina.dominio.entidades import Sorteio as Draw
-from quina.infra.config import TOTAL_NUMEROS, RANDOM_SEED, RF_N_ESTIMATORS, RF_MAX_DEPTH, RF_MIN_SAMPLES_LEAF
+from quina.infra.config import TOTAL_NUMEROS, RANDOM_SEED, RF_MIN_SAMPLES_LEAF
 from quina.infra.atributos.builder import FeatureBuilder
 from quina.infra.modelos.base_model import BaseModel
 

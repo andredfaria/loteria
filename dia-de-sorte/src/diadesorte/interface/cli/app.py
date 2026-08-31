@@ -11,6 +11,7 @@ import typer
 from rich.console import Console
 
 from diadesorte.interface.cli.dados import app as dados_app
+from diadesorte.interface.cli.modelo import app as modelo_app
 
 app = typer.Typer(
     name="diadesorte",
@@ -20,6 +21,7 @@ app = typer.Typer(
 console = Console()
 
 app.add_typer(dados_app, name="dados")
+app.add_typer(modelo_app, name="modelo")
 
 
 if __name__ == "__main__":
