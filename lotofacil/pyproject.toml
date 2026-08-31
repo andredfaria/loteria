@@ -46,6 +46,11 @@ dev = [
     "pytest>=7.4.0",
     "responses>=0.23.0",
 ]
+# Pipeline experimental de features lunares. Opcional: sem ele o lunar_loader
+# devolve zeros e os testes correspondentes são pulados.
+lab = [
+    "pylunar>=0.6.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/andredfaria/loteria"

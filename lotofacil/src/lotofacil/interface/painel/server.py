@@ -2045,7 +2045,11 @@ def api_job_stream(task_id: str):
 # ─── Main ──────────────────────────────────────────────────────
 
 def main():
-    host = os.environ.get("DASHBOARD_HOST", "0.0.0.0")
+    # 0.0.0.0 é necessário dentro do contêiner (o processo precisa aceitar
+    # conexões vindas de fora dele) e é sobrescrevível por DASHBOARD_HOST. A
+    # exposição fica controlada pelo mapeamento de portas e pelo
+    # _startup_auth_check, que impede o painel de subir sem autenticação.
+    host = os.environ.get("DASHBOARD_HOST", "0.0.0.0")  # nosec B104
     port = int(os.environ.get("DASHBOARD_PORT", "5000"))
     LOGGER.info("🎰 Lotofácil Dashboard")
     LOGGER.info("Servidor: http://%s:%s", host, port)

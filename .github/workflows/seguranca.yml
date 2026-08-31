@@ -27,9 +27,12 @@ jobs:
           python-version: "3.12"
       - run: pip install pip-audit
       - name: pip-audit
+        # --skip-editable: o próprio pacote é instalado em modo editável e não
+        # existe no PyPI; sem isso o --strict falha em "Dependency not found on
+        # PyPI" e a varredura nunca chega a reportar CVE de verdade.
         run: |
           pip install -e "./${{ matrix.projeto }}"
-          pip-audit --strict --desc
+          pip-audit --strict --desc --skip-editable
 
   segredos:
     name: varredura de segredos
@@ -54,5 +57,12 @@ jobs:
           python-version: "3.12"
       - run: pip install bandit
       - name: bandit
-        # -ll: só reporta severidade média/alta, para o sinal não virar ruído.
-        run: bandit -r . -ll --exclude ./venv,./*/venv,./*/testes,./docs
+        # -ll: só severidade média/alta, para o sinal não virar ruído.
+        # Testes ficam de fora: usam /tmp e asserts de propósito, e as
+        # detecções ali são ruído, não risco de produção.
+        # Aponta para o código de produção em vez de "." — varrer a raiz faz o
+        # bandit entrar nos venvs e devolver dezenas de milhares de achados de
+        # terceiros, afogando o sinal.
+        run: |
+          bandit -r lotofacil/src quina/src megasena/src dia-de-sorte/src super-sete/src \
+                 -ll -x '*/tests/*,*/testes/*'

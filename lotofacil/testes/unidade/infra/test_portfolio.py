@@ -3,6 +3,8 @@ import json
 import tempfile
 from pathlib import Path
 
+import pytest
+
 from lotofacil.interface.cli import portfolio as m
 
 
@@ -81,11 +83,18 @@ def test_load_draws_sorted_by_concurso():
     assert draws[1].concurso == 300
 
 
+_SAMPLE_DIR = Path(__file__).resolve().parent.parent.parent.parent / "dados" / "sample"
+
+
+@pytest.mark.skipif(
+    not _SAMPLE_DIR.is_dir() or not any(_SAMPLE_DIR.glob("*.json")),
+    reason=(
+        "lotofacil/dados é um symlink para fora do repositório (ver .gitignore), "
+        "então a amostra não existe em checkout limpo nem na CI."
+    ),
+)
 def test_get_probabilities_shape_and_sum():
-    draws = m.load_draws_from_files(
-        Path(__file__).resolve().parent.parent.parent.parent / "dados" / "sample",
-        max_concurso=9999,
-    )
+    draws = m.load_draws_from_files(_SAMPLE_DIR, max_concurso=9999)
     assert len(draws) >= 10
     probas = m.get_probabilities(draws)
     assert probas.shape == (25,)
