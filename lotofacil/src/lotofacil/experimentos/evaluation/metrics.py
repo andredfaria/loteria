@@ -6,7 +6,6 @@ import math
 from collections import Counter
 from typing import Dict, List
 
-import numpy as np
 
 from lotofacil.experimentos.config import COST_PER_GAME, PRIZE_TABLE
 

@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 import logging
-from datetime import date, datetime
+from datetime import date
 from typing import Dict, List, Tuple
 
 import numpy as np
 
 from lotofacil.experimentos.config import (
     SIMILARITY_TOP_N, SIMILARITY_MOON_WEIGHT, SIMILARITY_CLIMATE_WEIGHT,
-    SIMILARITY_MIN_DRAWS, SRC_DIR,
 )
 from lotofacil.experimentos.data.lunar_loader import (
     compute_lunar_features, _parse_iso, LUNAR_FEATURE_NAMES,

@@ -9,9 +9,8 @@ import json
 import os
 import argparse
 import math
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List
 from collections import defaultdict
-from datetime import datetime
 
 
 # Constantes

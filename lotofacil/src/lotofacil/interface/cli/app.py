@@ -82,11 +82,13 @@ def _register_subapps() -> None:
     from lotofacil.interface.cli.modelo import app as modelo_app
     from lotofacil.interface.cli.portfolio import app as portfolio_app
     from lotofacil.interface.cli.lab import app as lab_app
+    from lotofacil.interface.cli.campeao import app as campeao_app
 
     app.add_typer(dados_app, name="dados")
     app.add_typer(modelo_app, name="modelo")
     app.add_typer(portfolio_app, name="portfolio")
     app.add_typer(lab_app, name="lab", help="Pipeline experimental — clima, lua, ablação.")
+    app.add_typer(campeao_app, name="campeao", help="Campeão — cruza estratégias e retorna top-3.")
 
 
 _register_subapps()

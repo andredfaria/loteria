@@ -1,0 +1,57 @@
+{
+  "loteria": "megasena",
+  "concurso": 102,
+  "data": "15/02/1998",
+  "local": " em ",
+  "concursoEspecial": false,
+  "dezenasOrdemSorteio": [
+    "44",
+    "42",
+    "37",
+    "56",
+    "19",
+    "20"
+  ],
+  "dezenas": [
+    "19",
+    "20",
+    "37",
+    "42",
+    "44",
+    "56"
+  ],
+  "trevos": [],
+  "timeCoracao": null,
+  "mesSorte": null,
+  "premiacoes": [
+    {
+      "descricao": "6 acertos",
+      "faixa": 1,
+      "ganhadores": 1,
+      "valorPremio": 11336626.88
+    },
+    {
+      "descricao": "5 acertos",
+      "faixa": 2,
+      "ganhadores": 73,
+      "valorPremio": 16743.36
+    },
+    {
+      "descricao": "4 acertos",
+      "faixa": 3,
+      "ganhadores": 6197,
+      "valorPremio": 196.85
+    }
+  ],
+  "estadosPremiados": [],
+  "observacao": "Ganhador da SENA do Estado de Minas Gerais.",
+  "acumulou": false,
+  "proximoConcurso": 103,
+  "dataProximoConcurso": "",
+  "localGanhadores": [],
+  "valorArrecadado": 0.0,
+  "valorAcumuladoConcurso_0_5": 2548016.87,
+  "valorAcumuladoConcursoEspecial": 0.0,
+  "valorAcumuladoProximoConcurso": 0.0,
+  "valorEstimadoProximoConcurso": 0.0
+}

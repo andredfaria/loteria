@@ -114,6 +114,19 @@ Os projetos com dashboard web (lotofacil, quina) possuem `Dockerfile` próprio:
 
 > O `Dockerfile` na raiz do repositório é legado e **não deve ser usado**.
 
+### Variáveis de ambiente obrigatórias (lotofacil)
+
+O dashboard do **lotofacil** falha fechado: sem `DASHBOARD_PASSWORD` (login
+por senha) ou `DASHBOARD_PUBLICO=1` (painel público, sem senha, confirmado
+explicitamente), o container não sobe. `DASHBOARD_AUTH_SECRET` fixa a chave
+de sessão (sem ela, restart/redeploy derruba todas as sessões de login).
+`DASHBOARD_MAX_JOBS` (padrão `2`) limita quantos jobs pesados — geração,
+treino, backtest — podem rodar ao mesmo tempo antes de responder `429`.
+Detalhes em [lotofacil/README.md](lotofacil/README.md#autenticação-e-variáveis-de-ambiente).
+
+O dashboard do **quina** ainda não tem autenticação — não exponha sua porta
+diretamente à internet sem um proxy/tunnel com autenticação na frente.
+
 ---
 
 ## Licença

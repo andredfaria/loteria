@@ -312,9 +312,12 @@ class TreinoRegistry:
             to_delete = list({r[0] for r in old + excess})
             if not to_delete:
                 return
+            # `ph` é só uma sequência de "?" — os valores vão parametrizados em
+            # `to_delete`. É a forma correta de montar um IN variádico no
+            # sqlite3; o bandit não distingue isso de concatenar dados.
             ph = ",".join("?" * len(to_delete))
-            conn.execute(f"DELETE FROM job_output WHERE task_id IN ({ph})", to_delete)
-            conn.execute(f"DELETE FROM job_status WHERE task_id IN ({ph})", to_delete)
+            conn.execute(f"DELETE FROM job_output WHERE task_id IN ({ph})", to_delete)  # nosec B608
+            conn.execute(f"DELETE FROM job_status WHERE task_id IN ({ph})", to_delete)  # nosec B608
             conn.commit()
 
     def create_job(self, task_id: str) -> None:

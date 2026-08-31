@@ -1,0 +1,57 @@
+{
+  "loteria": "megasena",
+  "concurso": 101,
+  "data": "08/02/1998",
+  "local": " em ",
+  "concursoEspecial": false,
+  "dezenasOrdemSorteio": [
+    "39",
+    "01",
+    "37",
+    "31",
+    "29",
+    "18"
+  ],
+  "dezenas": [
+    "01",
+    "18",
+    "29",
+    "31",
+    "37",
+    "39"
+  ],
+  "trevos": [],
+  "timeCoracao": null,
+  "mesSorte": null,
+  "premiacoes": [
+    {
+      "descricao": "6 acertos",
+      "faixa": 1,
+      "ganhadores": 0,
+      "valorPremio": 0.0
+    },
+    {
+      "descricao": "5 acertos",
+      "faixa": 2,
+      "ganhadores": 52,
+      "valorPremio": 20589.41
+    },
+    {
+      "descricao": "4 acertos",
+      "faixa": 3,
+      "ganhadores": 4653,
+      "valorPremio": 229.64
+    }
+  ],
+  "estadosPremiados": [],
+  "observacao": "A MEGA EST- A C U M U L A D A ! ! !",
+  "acumulou": true,
+  "proximoConcurso": 102,
+  "dataProximoConcurso": "",
+  "localGanhadores": [],
+  "valorArrecadado": 0.0,
+  "valorAcumuladoConcurso_0_5": 1570204.72,
+  "valorAcumuladoConcursoEspecial": 0.0,
+  "valorAcumuladoProximoConcurso": 9869908.65,
+  "valorEstimadoProximoConcurso": 0.0
+}

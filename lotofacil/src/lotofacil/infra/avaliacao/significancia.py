@@ -4,7 +4,12 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional
+
+try:  # SciPy chega junto com scikit-learn; o fallback existe para instalacoes minimas.
+    from scipy import stats as _scipy_stats
+except ImportError:  # pragma: no cover
+    _scipy_stats = None
 
 
 @dataclass
@@ -20,20 +25,34 @@ class SignificanceResult:
     interpretation: str
 
 
-def _ttest_paired(a: List[float], b: List[float]) -> float:
-    """Paired t-test p-value (two-tailed). Returns p-value."""
+def _ttest_paired(a: List[float], b: List[float]) -> Optional[float]:
+    """Paired t-test p-value (two-tailed), or None if SciPy is unavailable.
+
+    The p-value MUST come from Student's t with n-1 degrees of freedom. An
+    earlier version of this function evaluated the t statistic against the
+    standard normal instead, which underestimates the p-value systematically —
+    always in the direction of declaring significance too early. At n=30 the
+    reported p was 0.0408 where the correct value is 0.0500 (18% low), enough
+    to flip a borderline result into "the model beats random".
+
+    In a lottery project a false positive of significance is the worst possible
+    output: it is exactly the "my model beats chance" claim the disclaimers
+    exist to prevent. So when SciPy is missing we return None and let the
+    caller fall back to a test we can compute exactly, rather than reporting a
+    number we know to be biased.
+    """
+    if _scipy_stats is None:
+        return None
     n = len(a)
     if n < 2:
         return 1.0
     diffs = [x - y for x, y in zip(a, b)]
-    mean_d = sum(diffs) / n
-    var_d = sum((d - mean_d) ** 2 for d in diffs) / (n - 1)
-    if var_d == 0:
+    if all(d == diffs[0] for d in diffs):
+        # Zero variance: the t statistic is undefined (or infinite).
         return 1.0
-    se = math.sqrt(var_d / n)
-    t = mean_d / se
-    z = abs(t)
-    p = _normal_sf(z) * 2
+    p = float(_scipy_stats.ttest_rel(a, b).pvalue)
+    if not math.isfinite(p):
+        return 1.0
     return min(1.0, max(0.0, p))
 
 
@@ -118,8 +137,14 @@ def compare_vs_baseline(
     improvement = ((model_mean - baseline_mean) / baseline_mean * 100) if baseline_mean > 0 else 0.0
 
     if n >= 30:
-        p = _ttest_paired(a, b)
-        test_used = "paired t-test"
+        p_t = _ttest_paired(a, b)
+        if p_t is not None:
+            p, test_used = p_t, "paired t-test"
+        else:
+            # Sem SciPy nao ha como avaliar a distribuicao t corretamente.
+            # Degradamos para um teste que sabemos calcular, e dizemos qual foi.
+            p, wilcoxon_mode = _wilcoxon_signed_rank(a, b)
+            test_used = f"Wilcoxon signed-rank ({wilcoxon_mode}; SciPy ausente)"
     else:
         p, wilcoxon_mode = _wilcoxon_signed_rank(a, b)
         test_used = f"Wilcoxon signed-rank ({wilcoxon_mode})"

@@ -5,7 +5,6 @@ import logging
 from dataclasses import dataclass, field
 from typing import Dict, List
 
-import numpy as np
 
 from lotofacil.infra.avaliacao.backtest import BacktestEngine
 from lotofacil.infra.config import BACKTEST_DEFAULT_N, BACKTEST_MIN_TRAIN, BACKTEST_TRAIN_WINDOW

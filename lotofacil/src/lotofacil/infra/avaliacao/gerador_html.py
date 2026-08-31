@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict
 
-from jinja2 import Environment, FileSystemLoader
+from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-from lotofacil.infra.avaliacao.backtest import BacktestResult, BacktestSummary
+from lotofacil.infra.avaliacao.backtest import BacktestSummary
 from lotofacil.infra.avaliacao.financeiro import FinancialResult, FinancialSimulator
 from lotofacil.infra.config import COST_PER_GAME, PRIZE_TABLE
 from lotofacil.infra.avaliacao.significancia import SignificanceResult, compare_vs_baseline
@@ -25,7 +25,13 @@ class HTMLReportGenerator:
     def __init__(self, cost: float = COST_PER_GAME, prize_table: Dict[int, float] = None):
         self.cost = cost
         self.prizes = prize_table or dict(PRIZE_TABLE)
-        self._env = Environment(loader=FileSystemLoader(str(_TEMPLATES_DIR)))
+        # autoescape=True: o relatório interpola nomes de modelo, e esses nomes
+        # chegam de POST /api/treinos/iniciar (campo `nome`). Sem escape, um
+        # nome com HTML vira script no relatório gerado.
+        self._env = Environment(
+            loader=FileSystemLoader(str(_TEMPLATES_DIR)),
+            autoescape=select_autoescape(["html", "xml"]),
+        )
 
     def generate(
         self,

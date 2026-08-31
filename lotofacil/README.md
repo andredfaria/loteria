@@ -81,6 +81,24 @@ gunicorn lotofacil.interface.painel.server:app \
 
 Acesse `http://localhost:5000`.
 
+### Autenticação e variáveis de ambiente
+
+O dashboard **falha fechado**: ele se recusa a iniciar (`SystemExit`) até que
+uma das duas variáveis abaixo seja definida explicitamente.
+
+| Variável | O que faz | Se faltar |
+|----------|-----------|-----------|
+| `DASHBOARD_PASSWORD` | Exige login por senha antes de qualquer rota (sessão de 30 dias). **Recomendada.** | — |
+| `DASHBOARD_PUBLICO=1` | Confirma explicitamente que o painel deve rodar **sem senha nenhuma**. Só use atrás de uma rede/tunnel já confiável. | — |
+| *(nenhuma das duas)* | — | O processo não sobe: loga a mensagem de erro e sai (código != 0). |
+| `DASHBOARD_AUTH_SECRET` | Chave fixa para assinar a sessão de login. | Sem ela, a chave é gerada aleatoriamente a cada restart (derruba todas as sessões) e, com `--workers` > 1 no gunicorn, cada worker gera a sua — login falha de forma intermitente. Um `WARNING` é logado nesse caso. |
+| `DASHBOARD_MAX_JOBS` | Teto de jobs pesados (geração/treino/backtest) rodando ao mesmo tempo. Acima do limite, o endpoint responde `429` em vez de enfileirar. | Usa o padrão `2`. |
+
+```bash
+DASHBOARD_PASSWORD=minha-senha DASHBOARD_AUTH_SECRET=$(openssl rand -hex 32) \
+  gunicorn lotofacil.interface.painel.server:app --bind 0.0.0.0:5000
+```
+
 ### Funcionalidades do Dashboard
 
 #### Aba: Dados
@@ -235,6 +253,8 @@ CMD ["gunicorn", ..., "--workers", "2", "--timeout", "600"]
 | **Port** | `5000` |
 
 > Se apontar para o `Dockerfile` da raiz, o TensorFlow **não será instalado** e o servidor de desenvolvimento Flask será usado em vez do Gunicorn.
+
+Configure em "Environment Variables": `DASHBOARD_PASSWORD` (ou `DASHBOARD_PUBLICO=1`) e `DASHBOARD_AUTH_SECRET` — sem a primeira, o container não sobe (ver [Autenticação e variáveis de ambiente](#autenticação-e-variáveis-de-ambiente)); sem a segunda, o login é derrubado a cada redeploy. Opcionalmente `DASHBOARD_MAX_JOBS` para ajustar o teto de jobs concorrentes.
 
 ### Volumes necessários
 

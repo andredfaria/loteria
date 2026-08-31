@@ -51,7 +51,6 @@ class AttentionLayer:
 
     def __call__(self, inputs):
         try:
-            import tensorflow as tf
             from tensorflow.keras import layers
 
             x = layers.MultiHeadAttention(
@@ -91,9 +90,9 @@ class NeuralApproach:
     def fit(self, draws: List[Draw]) -> None:
         """Train LSTM + Attention model on historical draws."""
         try:
-            import tensorflow as tf
+            import tensorflow as tf  # noqa: F401  # o import faz parte do guard de disponibilidade do try/except
             tf.random.set_seed(RANDOM_SEED)
-            from tensorflow.keras import layers, models, callbacks, Input
+            from tensorflow.keras import layers, models, callbacks, Input  # noqa: F401  # o import faz parte do guard de disponibilidade do try/except
         except ImportError:
             raise RuntimeError("TensorFlow is required for neural approach")
 
@@ -172,12 +171,12 @@ class NeuralApproach:
     def _build_model(self):
         """Build LSTM + Attention model."""
         try:
-            import tensorflow as tf
-            from tensorflow.keras import layers, models, Input
+            import tensorflow as tf  # noqa: F401  # o import faz parte do guard de disponibilidade do try/except
+            from tensorflow.keras import layers, models, Input  # noqa: F401  # o import faz parte do guard de disponibilidade do try/except
         except ImportError:
             raise RuntimeError("TensorFlow is required")
 
-        n_features = TOTAL_NUMBERS * 3 + 8
+        n_features = TOTAL_NUMBERS * 3
 
         inputs = Input(shape=(NEURAL_WINDOW_SIZE, n_features))
 

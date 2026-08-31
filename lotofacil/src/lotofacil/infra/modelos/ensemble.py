@@ -10,7 +10,6 @@ import numpy as np
 
 from lotofacil.infra.config import MODELS_DIR, TOTAL_NUMBERS
 from lotofacil.infra.dados.leitor import Draw
-from lotofacil.infra.modelos.base_model import BaseModel
 from lotofacil.infra.modelos.frequency_ensemble import FrequencyEnsembleModel
 from lotofacil.infra.modelos.ml_model import MLEnsembleModel
 from lotofacil.infra.modelos.probabilistic import ProbabilisticModel

@@ -19,9 +19,11 @@ CLIMATE_DIR = DATA_DIR / "clima"
 LUA_DIR = DATA_DIR / "lua"
 OUTPUT_DIR = _LAB_DIR / "output"
 MODELS_DIR = _LAB_DIR / "saved_models"
+ANALYSIS_DIR = PROJECT_ROOT / "saida" / "analises"
 
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 MODELS_DIR.mkdir(parents=True, exist_ok=True)
+ANALYSIS_DIR.mkdir(parents=True, exist_ok=True)
 
 # ── Lottery constants ───────────────────────────────────────────────────────────
 TOTAL_NUMBERS = 25

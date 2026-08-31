@@ -5,7 +5,7 @@ from typing import Optional
 
 from pydantic import BaseModel, Field, field_validator
 
-from lotofacil.dominio.regras import NUMEROS_POR_SORTEIO, TOTAL_NUMEROS, VALID_NUMBERS
+from lotofacil.dominio.regras import NUMEROS_POR_SORTEIO, TOTAL_NUMEROS
 
 
 class Sorteio(BaseModel):

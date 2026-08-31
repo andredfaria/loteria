@@ -15,13 +15,7 @@ from typing import List
 import numpy as np
 
 from lotofacil.experimentos.config import (
-    TOTAL_NUMBERS, RANDOM_SEED,
-    LSTM_UNITS, ATTENTION_HEADS, ATTENTION_DIM,
-    LSTM_DROPOUT, LSTM_DROPOUT_INPUT, LSTM_DROPOUT_DENSE,
-    LSTM_LR, LSTM_LR_MIN, LSTM_LR_FACTOR, LSTM_LR_PATIENCE,
-    LSTM_EPOCHS, LSTM_BATCH_SIZE, LSTM_PATIENCE,
-    FOCAL_LOSS_GAMMA, FOCAL_LOSS_ALPHA, NEURAL_VAL_SPLIT,
-    MODELS_DIR,
+    TOTAL_NUMBERS, FOCAL_LOSS_GAMMA, FOCAL_LOSS_ALPHA, MODELS_DIR,
 )
 from lotofacil.experimentos.data.feature_flags import FeatureConfig
 from lotofacil.experimentos.features.builder import ModularFeatureBuilder
@@ -188,7 +182,6 @@ class NeuralModular(BaseLabModel):
 
     def _build_model(self, n_features: int, window_size: int):
         """Build LSTM + MultiHeadAttention + Dense model."""
-        import tensorflow as tf
         from tensorflow.keras import layers, models, Input
 
         lstm_units = self._hp_val("LSTM_UNITS")

@@ -6,7 +6,6 @@ import json
 import math
 import random
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any, List, Optional
 
 import numpy as np
@@ -37,6 +36,7 @@ TOTAL_FILTER_WEIGHT = sum(f["weight"] for f in FILTERS.values())
 class ResultadoCampeao:
     concurso_alvo: int
     top_3: List[dict]
+    probabilidades: List[float] = field(default_factory=list)
     total_candidatos: int = N_CANDIDATES
     estrategias_ativas: List[str] = field(default_factory=list)
     ultimo_concurso: int = 0
@@ -597,6 +597,7 @@ def gerar_campeao(concurso: int) -> ResultadoCampeao:
     console.print(f"\n[bold][5/5] Salvando resultado...[/bold]")
     out_data = {
         "concurso_alvo": concurso,
+        "probabilidades": [round(float(p), 6) for p in probas_combined],
         "total_candidatos": N_CANDIDATES,
         "estrategias_ativas": active_names,
         "ultimo_concurso": ultimo_concurso,
@@ -647,6 +648,7 @@ def gerar_campeao(concurso: int) -> ResultadoCampeao:
     return ResultadoCampeao(
         concurso_alvo=concurso,
         top_3=out_data["top_3"],
+        probabilidades=out_data["probabilidades"],
         estrategias_ativas=active_names,
         ultimo_concurso=ultimo_concurso,
     )

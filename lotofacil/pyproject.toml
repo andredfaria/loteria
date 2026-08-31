@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68.0", "wheel"]
+requires = ["setuptools>=77.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,6 +7,18 @@ name = "lotofacil-prediction"
 version = "2.0.0"
 description = "Sistema de predicao para Lotofacil com ML, redes neurais e modelos estatisticos"
 requires-python = ">=3.11"
+license = "MIT"
+readme = "README.md"
+authors = [{ name = "Andre de Faria Carvalho" }]
+keywords = ["loteria", "estatistica", "analise-de-dados", "caixa"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Natural Language :: Portuguese (Brazilian)",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+]
 dependencies = [
     "requests>=2.31.0",
     "tenacity>=8.2.0",
@@ -34,6 +46,17 @@ dev = [
     "pytest>=7.4.0",
     "responses>=0.23.0",
 ]
+# Pipeline experimental de features lunares. Opcional: sem ele o lunar_loader
+# devolve zeros e os testes correspondentes são pulados.
+lab = [
+    "pylunar>=0.6.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/andredfaria/loteria"
+Source = "https://github.com/andredfaria/loteria/tree/main/lotofacil"
+Issues = "https://github.com/andredfaria/loteria/issues"
+Security = "https://github.com/andredfaria/loteria/blob/main/SECURITY.md"
 
 [project.scripts]
 lotofacil = "lotofacil.interface.cli.app:app"

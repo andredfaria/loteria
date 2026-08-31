@@ -13,6 +13,11 @@ from lotofacil.experimentos.data.lunar_loader import (
     N_LUNAR_FEATURES,
 )
 
+# pylunar é dependência opcional (extra [lab]) e não está no ambiente da CI.
+# Sem ela o loader devolve zeros, e estes testes falhariam por ausência de
+# dependência, não por regressão — pular é o resultado honesto.
+pytest.importorskip("pylunar", reason="requer o extra [lab] (pylunar)")
+
 
 def test_feature_count():
     assert len(LUNAR_FEATURE_NAMES) == N_LUNAR_FEATURES == 7

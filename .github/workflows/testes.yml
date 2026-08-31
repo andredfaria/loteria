@@ -1,0 +1,35 @@
+name: testes
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  pytest:
+    name: pytest (${{ matrix.projeto }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        projeto: [lotofacil, quina, super-sete, dia-de-sorte, megasena]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar o pacote
+        run: pip install -e "./${{ matrix.projeto }}[dev]"
+
+      - name: Rodar a suíte
+        # O painel falha fechado por design: sem esta variável o import do
+        # servidor levanta SystemExit e a coleta do pytest para. Ver SECURITY.md.
+        env:
+          DASHBOARD_SKIP_AUTH_CHECK: "1"
+        run: pytest ${{ matrix.projeto }}/testes -q

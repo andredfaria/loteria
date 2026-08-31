@@ -2,7 +2,7 @@
 
 import pytest
 from lotofacil.experimentos.data.feature_flags import (
-    FeatureConfig, MINIMAL, BASE, WITH_CLIMATE, WITH_LUNAR, FULL,
+    MINIMAL, BASE, WITH_CLIMATE, WITH_LUNAR, FULL,
     FeatureConfig,
 )
 

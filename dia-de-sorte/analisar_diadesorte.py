@@ -11,7 +11,6 @@ import csv
 import json
 import os
 import random
-from collections import Counter
 
 # ---------------------------------------------------------------------------
 # Constantes

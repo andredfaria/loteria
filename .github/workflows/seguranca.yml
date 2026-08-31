@@ -1,0 +1,71 @@
+name: segurança
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Vulnerabilidade em dependência aparece sem ninguém tocar no código,
+    # então a varredura precisa rodar no calendário, não só no push.
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  dependencias:
+    name: vulnerabilidades em dependências
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        projeto: [lotofacil, quina, super-sete, dia-de-sorte, megasena]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pip-audit
+      - name: pip-audit
+        # --skip-editable: o próprio pacote é instalado em modo editável e não
+        # existe no PyPI, então não há o que auditar nele.
+        # Sem --strict de propósito: --strict falha quando QUALQUER dependência
+        # não pôde ser auditada, incluindo as puladas — as duas flags se anulam
+        # e o job morre antes de reportar CVE. O pip-audit já sai com código
+        # não-zero quando encontra vulnerabilidade, que é o gate que queremos.
+        run: |
+          pip install -e "./${{ matrix.projeto }}"
+          pip-audit --desc --skip-editable
+
+  segredos:
+    name: varredura de segredos
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # gitleaks precisa do histórico para varrer commits antigos, não só
+          # a árvore atual — um segredo removido continua no histórico.
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  codigo:
+    name: análise estática de segurança
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install bandit
+      - name: bandit
+        # -ll: só severidade média/alta, para o sinal não virar ruído.
+        # Testes ficam de fora: usam /tmp e asserts de propósito, e as
+        # detecções ali são ruído, não risco de produção.
+        # Aponta para o código de produção em vez de "." — varrer a raiz faz o
+        # bandit entrar nos venvs e devolver dezenas de milhares de achados de
+        # terceiros, afogando o sinal.
+        run: |
+          bandit -r lotofacil/src quina/src megasena/src dia-de-sorte/src super-sete/src \
+                 -ll -x '*/tests/*,*/testes/*'

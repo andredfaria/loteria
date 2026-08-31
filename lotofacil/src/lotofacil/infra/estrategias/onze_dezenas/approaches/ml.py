@@ -12,8 +12,6 @@ import numpy as np
 
 from lotofacil.dominio.entidades import Draw
 from lotofacil.infra.config import OUTPUT_MODELS
-from lotofacil.infra.dados.preprocessador import LotofacilPreprocessor
-from lotofacil.infra.atributos.builder import FeatureBuilder
 from lotofacil.infra.modelos.ml_model import MLEnsembleModel
 
 

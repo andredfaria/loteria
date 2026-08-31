@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import math
 import random
-from typing import List
 
 import numpy as np
 
@@ -212,9 +211,16 @@ def sa_with_restarts(
     last_draw: list[int] | None = None,
     n_restarts: int = 5,
     iterations_per_restart: int = 5000,
+    rng: random.Random | None = None,
 ) -> list[int]:
-    """Run SA multiple times with different starting points, return best result."""
-    rng = random.Random(42)
+    """Run SA multiple times with different starting points, return best result.
+
+    `rng` lets the caller control reproducibility. It used to be hardcoded to
+    `Random(42)` here, which silently ignored the seed callers passed in — the
+    `--seed` flag changed nothing while the logs claimed otherwise. Defaults to
+    `Random(42)` so existing behaviour is unchanged when no rng is given.
+    """
+    rng = rng if rng is not None else random.Random(42)
     best_overall = None
     best_score_overall = -float("inf")
 

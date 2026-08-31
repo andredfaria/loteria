@@ -7,7 +7,6 @@ from typing import Dict, List, Tuple
 
 import numpy as np
 
-from lotofacil.experimentos.config import TOTAL_NUMBERS
 from lotofacil.experimentos.data.feature_flags import FeatureConfig
 from lotofacil.experimentos.features import (
     base as feat_base,

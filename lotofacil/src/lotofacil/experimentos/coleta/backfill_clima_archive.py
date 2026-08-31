@@ -14,10 +14,8 @@ import argparse
 import json
 import logging
 import re
-import sys
 import time
-from datetime import datetime, timedelta
-from pathlib import Path
+from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 
 import requests
@@ -25,7 +23,7 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 
 from lotofacil.experimentos.config import (
     ARCHIVE_API_URL, ARCHIVE_BATCH_DAYS, ARCHIVE_DELAY_SECONDS,
-    LATITUDE, LONGITUDE, TIMEZONE, DATA_DIR, CLIMATE_DIR, SRC_DIR,
+    LATITUDE, LONGITUDE, TIMEZONE, CLIMATE_DIR,
 )
 
 logger = logging.getLogger(__name__)

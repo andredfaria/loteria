@@ -3,9 +3,8 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import List, Optional
 
-from lotofacil.dominio.entidades import Portfolio
 from lotofacil.infra.config import DADOS_DIR, JOGOS_DIR
 
 TABELA_PREMIOS = {11: 7.00, 12: 14.00, 13: 35.00, 14: 2_000.00, 15: 1_500_000.00}
