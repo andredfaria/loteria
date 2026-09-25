@@ -43,7 +43,7 @@ Tabela canônica: uma linha por concurso. Alvo de treino derivado: `saiu_no_prox
 | `precip_sorteio` | float | mm | clima | feature | Clima (precip_sorteio) no dia/horário do sorteio. NaN se ausente. |
 | `wcode_sorteio` | float | código WMO | clima | feature | Clima (wcode_sorteio) no dia/horário do sorteio. NaN se ausente. |
 | `wcode_dominante` | float | código WMO | clima | feature | Clima (wcode_dominante) no dia/horário do sorteio. NaN se ausente. |
-| `phase` | float | [0,1] | lua | feature | Fase fracionária [0,1): 0=nova, 0.5=cheia. |
+| `phase` | float | [0,1] | lua | feature | Fase cíclica [0,1) via idade da lua: 0=nova, 0.5=cheia. |
 | `phase_sin` | float | [-1,1] | lua | feature | sin(2π·phase) — codificação cíclica. |
 | `phase_cos` | float | [-1,1] | lua | feature | cos(2π·phase) — codificação cíclica. |
 | `illumination` | float | [0,1] | lua | feature | Fração do disco iluminada [0,1]. |
