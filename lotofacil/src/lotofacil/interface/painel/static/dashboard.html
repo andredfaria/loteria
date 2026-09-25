@@ -514,6 +514,29 @@
   .bottom-nav .bn-tab.active { color: var(--accent); }
   .bottom-nav .bn-tab .bn-icon { font-size: 1.2rem; line-height: 1; }
 
+  /* Foco visível só para teclado (não aparece no clique do mouse) */
+  button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 2px;
+  }
+
+  /* "Mais" (abas avançadas no mobile) */
+  .more-sheet { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+  .more-sheet-item {
+    display: flex; align-items: center; gap: 0.6rem; min-height: 52px;
+    padding: 0.6rem 0.85rem; border: 1px solid var(--border); border-radius: var(--radius);
+    background: var(--surface-2); color: var(--text); font-size: 0.85rem; cursor: pointer;
+    transition: all var(--transition);
+  }
+  .more-sheet-item.active { border-color: var(--accent); background: var(--accent-dim); color: var(--accent); }
+
+  /* Input numérico compacto dentro da barra de ações */
+  .inline-num-input {
+    width: 56px; font-size: 0.75rem; padding: 2px 6px;
+    background: var(--surface); color: var(--text);
+    border: 1px solid var(--border); border-radius: var(--radius);
+  }
+  .inline-num-input:focus { outline: none; border-color: var(--accent); }
+
   /* ─── Mobile-first responsive ─── */
   @media (max-width: 767px) {
     .sidebar { display: none !important; }
@@ -544,6 +567,7 @@
       font-size: 1rem; min-height: 44px; padding: 0.6rem 0.75rem;
     }
     .dados-controls .search-box { min-height: 44px; }
+    .inline-num-input { font-size: 1rem; min-height: 44px; width: 72px; }
 
     /* Reduce lateral padding */
     .dados-header { padding: 0.75rem 0.75rem 0.5rem; }
@@ -988,17 +1012,20 @@
     </div>
     <div style="font-size:0.75rem;display:grid;grid-template-columns:auto 1fr;gap:0.4rem 1rem;align-items:center">
       <kbd style="background:rgba(255,255,255,0.1);border-radius:4px;padding:1px 6px;font-family:monospace">C</kbd><span>Ir para Coleta</span>
-      <kbd style="background:rgba(255,255,255,0.1);border-radius:4px;padding:1px 6px;font-family:monospace">D</kbd><span>Ir para Dados</span>
       <kbd style="background:rgba(255,255,255,0.1);border-radius:4px;padding:1px 6px;font-family:monospace">M</kbd><span>Ir para Modelos</span>
+      <kbd style="background:rgba(255,255,255,0.1);border-radius:4px;padding:1px 6px;font-family:monospace">B</kbd><span>Ir para Backtest</span>
       <kbd style="background:rgba(255,255,255,0.1);border-radius:4px;padding:1px 6px;font-family:monospace">J</kbd><span>Ir para Jogos</span>
+      <kbd style="background:rgba(255,255,255,0.1);border-radius:4px;padding:1px 6px;font-family:monospace">D</kbd><span>Ir para Dados</span>
       <kbd style="background:rgba(255,255,255,0.1);border-radius:4px;padding:1px 6px;font-family:monospace">V</kbd><span>Ir para Validação</span>
+      <kbd style="background:rgba(255,255,255,0.1);border-radius:4px;padding:1px 6px;font-family:monospace">R</kbd><span>Ir para ROI Lab</span>
+      <kbd style="background:rgba(255,255,255,0.1);border-radius:4px;padding:1px 6px;font-family:monospace">G</kbd><span>Ir para Geração</span>
       <div style="grid-column:1/-1;height:1px;background:var(--border);margin:0.25rem 0"></div>
       <kbd style="background:rgba(255,255,255,0.1);border-radius:4px;padding:1px 6px;font-family:monospace">1</kbd><span>Modelos → Treinar</span>
       <kbd style="background:rgba(255,255,255,0.1);border-radius:4px;padding:1px 6px;font-family:monospace">2</kbd><span>Modelos → Lista</span>
       <kbd style="background:rgba(255,255,255,0.1);border-radius:4px;padding:1px 6px;font-family:monospace">3</kbd><span>Modelos → Gerar</span>
       <kbd style="background:rgba(255,255,255,0.1);border-radius:4px;padding:1px 6px;font-family:monospace">4</kbd><span>Modelos → Comparar</span>
       <div style="grid-column:1/-1;height:1px;background:var(--border);margin:0.25rem 0"></div>
-      <kbd style="background:rgba(255,255,255,0.1);border-radius:4px;padding:1px 6px;font-family:monospace">Esc</kbd><span>Fechar modal de treino</span>
+      <kbd style="background:rgba(255,255,255,0.1);border-radius:4px;padding:1px 6px;font-family:monospace">Esc</kbd><span>Fechar modal / console</span>
       <kbd style="background:rgba(255,255,255,0.1);border-radius:4px;padding:1px 6px;font-family:monospace">?</kbd><span>Mostrar/fechar atalhos</span>
     </div>
     <div style="margin-top:1rem;font-size:0.65rem;color:var(--dim)">Atalhos desativados quando um campo está em foco.</div>
@@ -1265,7 +1292,11 @@ window.addEventListener('unhandledrejection', (event) => {
 // INIT
 // ═══════════════════════════════════════════════════════════════
 function init() {
+  const tab = _initialTab();
+  STATE.activeTab = tab;
+  history.replaceState(null, '', '#' + tab);
   buildSidebar();
+  switchTab(tab);
   fetchCommands();
   restoreConsole();
   applyConsoleFilters();
@@ -1385,12 +1416,13 @@ function buildSidebar() {
   buildBottomNav();
 }
 
+// Mobile: 4 abas principais + "Mais" (sheet com as avançadas) — 8 itens não
+// cabem legíveis em 375px e a regra bottom-nav-limit é de no máximo 5.
 function buildBottomNav() {
   const el = document.getElementById('bottomNav');
   if (!el) return;
   el.innerHTML = '';
-  const allCats = [...CATEGORIES, ...ADVANCED_CATEGORIES];
-  for (const cat of allCats) {
+  for (const cat of CATEGORIES) {
     const btn = document.createElement('button');
     btn.className = 'bn-tab' + (cat.id === STATE.activeTab ? ' active' : '');
     btn.dataset.tabId = cat.id;
@@ -1398,10 +1430,46 @@ function buildBottomNav() {
     btn.onclick = () => switchTab(cat.id);
     el.appendChild(btn);
   }
+  const more = document.createElement('button');
+  const advActive = ADVANCED_CATEGORIES.find(c => c.id === STATE.activeTab);
+  more.className = 'bn-tab bn-more' + (advActive ? ' active' : '');
+  more.innerHTML = `<span class="bn-icon">${advActive ? advActive.icon : '⋯'}</span><span>${advActive ? advActive.label : 'Mais'}</span>`;
+  more.onclick = _openMoreSheet;
+  el.appendChild(more);
 }
 
+function _openMoreSheet() {
+  const html = `<div class="more-sheet">${ADVANCED_CATEGORIES.map(c => `
+    <button class="more-sheet-item${c.id === STATE.activeTab ? ' active' : ''}"
+      onclick="closeModal();switchTab('${c.id}')">
+      <span class="bn-icon">${c.icon}</span><span>${c.label}</span>
+    </button>`).join('')}</div>`;
+  openModal('Mais', html);
+}
+
+const ALL_TAB_IDS = [...CATEGORIES, ...ADVANCED_CATEGORIES].map(c => c.id);
+const LS_KEY_ACTIVE_TAB = 'dashboard_active_tab';
+
+// Aba inicial: hash da URL (deep link) > última aba usada > Coleta.
+function _initialTab() {
+  const fromHash = location.hash.replace(/^#/, '');
+  if (ALL_TAB_IDS.includes(fromHash)) return fromHash;
+  let saved = null;
+  try { saved = localStorage.getItem(LS_KEY_ACTIVE_TAB); } catch (_) {}
+  return ALL_TAB_IDS.includes(saved) ? saved : 'coleta';
+}
+
+// Voltar/avançar do navegador troca de aba.
+window.addEventListener('hashchange', () => {
+  const id = location.hash.replace(/^#/, '');
+  if (ALL_TAB_IDS.includes(id) && id !== STATE.activeTab) switchTab(id);
+});
+
 function switchTab(id) {
+  if (!ALL_TAB_IDS.includes(id)) id = 'coleta';
   STATE.activeTab = id;
+  try { localStorage.setItem(LS_KEY_ACTIVE_TAB, id); } catch (_) {}
+  if (location.hash !== '#' + id) history.pushState(null, '', '#' + id);
   _updatePageTitle?.();
 
   // Auto-expand Avançado if navigating to one of its children
@@ -1418,9 +1486,7 @@ function switchTab(id) {
   document.querySelectorAll('.sidebar .sub-tab').forEach(el => {
     el.classList.toggle('active', el.dataset.tabId === id);
   });
-  document.querySelectorAll('.bottom-nav .bn-tab').forEach(el => {
-    el.classList.toggle('active', el.dataset.tabId === id);
-  });
+  buildBottomNav();
 
   const numSec = document.getElementById('numbersSection');
   const bar = document.getElementById('actionsBar');
@@ -1445,8 +1511,8 @@ function switchTab(id) {
       <div class="section-title">✅ Validação do Modelo</div>
       <div style="display:flex;align-items:center;gap:0.3rem">
         <label style="font-size:0.68rem;color:var(--muted)">Últimos</label>
-        <input type="number" id="validacaoLastNInput" value="${STATE.validacaoLastN}" min="10" max="500"
-          style="width:52px;font-size:0.68rem;padding:1px 4px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:3px">
+        <input type="number" id="validacaoLastNInput" class="inline-num-input" value="${STATE.validacaoLastN}" min="10" max="500"
+          onkeydown="if(event.key==='Enter')_recalcValidacao()">
         <label style="font-size:0.68rem;color:var(--muted)">sorteios</label>
       </div>
       <button class="action-btn" onclick="_recalcValidacao()"><span class="icon">↻</span> Recalcular</button>`;
@@ -1493,7 +1559,8 @@ async function fetchCommands() {
   try {
     const r = await fetch('/api/commands');
     COMMANDS_DATA = await r.json();
-    renderActions();
+    // Só a Coleta usa a barra de comandos; as demais abas desenham a própria.
+    if (STATE.activeTab === 'coleta') { renderActions(); _renderColetaStats(); }
   } catch (e) { logClient('error', 'Falha ao carregar comandos', { error: e.message }); }
 }
 
@@ -1501,7 +1568,7 @@ function renderActions() {
   const bar = document.getElementById('actionsBar');
   const cat = STATE.activeTab;
   if (!COMMANDS_DATA || !COMMANDS_DATA[cat]) {
-    bar.innerHTML = `<div class="section-title">Nenhum comando disponível</div>`;
+    bar.innerHTML = `<div class="section-title">${COMMANDS_DATA ? 'Nenhum comando disponível' : 'Carregando comandos…'}</div>`;
     return;
   }
   const data = COMMANDS_DATA[cat];
@@ -1619,6 +1686,8 @@ function updateButtonState(actionId, running) {
       if (timerEl) timerEl.textContent = ` ${mm}:${ss}`;
     }, 1000);
   } else {
+    const timerEl = btn.querySelector('.timer');
+    if (timerEl) timerEl.textContent = '';
     if (STATE.timerIntervals[actionId]) {
       clearInterval(STATE.timerIntervals[actionId]);
       delete STATE.timerIntervals[actionId];
@@ -2150,8 +2219,10 @@ async function _renderColetaStats() {
     const freq = await freqR.json().catch(() => null);
     const lc = status.last_concurso;
     const total = status.total_draws || freq?.total_draws || '—';
+    // O usuário pode ter trocado de aba enquanto as requisições voltavam.
+    if (STATE.activeTab !== 'coleta') return;
     const statsHtml = `
-      <div style="margin-top:1rem;padding:0.75rem;background:var(--surface);border-radius:8px;border:1px solid var(--border);font-size:0.72rem">
+      <div id="coletaStats" style="margin-top:1rem;padding:0.75rem;background:var(--surface);border-radius:8px;border:1px solid var(--border);font-size:0.72rem">
         <div style="font-weight:600;color:var(--text);margin-bottom:0.5rem">📊 Status da base</div>
         <div style="display:flex;gap:1.5rem;flex-wrap:wrap">
           <div><span style="color:var(--muted)">Total sorteios</span><br><b style="color:var(--accent);font-size:1rem">${fmt(total)}</b></div>
@@ -2160,6 +2231,7 @@ async function _renderColetaStats() {
           ${lc?.dezenas?.length ? `<div><span style="color:var(--muted)">Dezenas sorteadas</span><br><div class="pred-balls" style="display:inline-flex;gap:2px;margin-top:2px">${lc.dezenas.map(n=>`<span class="ball ${_ballClass(n)}" style="font-size:0.6rem;width:20px;height:20px;line-height:20px">${String(n).padStart(2,'0')}</span>`).join('')}</div></div>` : ''}
         </div>
       </div>`;
+    document.getElementById('coletaStats')?.remove();
     bar.insertAdjacentHTML('beforeend', statsHtml);
   } catch(e) { /* silencioso */ }
 }
@@ -3994,9 +4066,12 @@ function closeBacktestModal() {
 // ═══════════════════════════════════════════════════════════════
 // KEYBOARD SHORTCUTS + PAGE TITLE
 // ═══════════════════════════════════════════════════════════════
-const _TAB_KEYS = { 'c': 'coleta', 'd': 'dados', 'm': 'modelos', 'j': 'jogos', 'v': 'validacao' };
+const _TAB_KEYS = {
+  'c': 'coleta', 'm': 'modelos', 'b': 'backtest', 'j': 'jogos',
+  'd': 'dados', 'v': 'validacao', 'r': 'roi_lab', 'g': 'geracao',
+};
 const _SUBTAB_KEYS = { '1': 'treinar', '2': 'lista', '3': 'gerar', '4': 'comparar' };
-const _TAB_LABELS = { coleta: 'Coleta', dados: 'Dados', modelos: 'Modelos', jogos: 'Jogos', validacao: 'Validação' };
+const _TAB_LABELS = Object.fromEntries([...CATEGORIES, ...ADVANCED_CATEGORIES].map(c => [c.id, c.label]));
 
 function _openShortcuts()  { const m = document.getElementById('shortcutsModal'); if(m) m.style.display='flex'; }
 function _closeShortcuts() { const m = document.getElementById('shortcutsModal'); if(m) m.style.display='none'; }
@@ -4011,13 +4086,29 @@ document.addEventListener('keydown', e => {
   const tag = document.activeElement?.tagName?.toLowerCase();
   if (['input','select','textarea'].includes(tag)) return;
 
-  // Escape: close modals
+  // Escape: fecha a camada mais ao topo. Modais de treino/backtest só fecham
+  // quando o job terminou (botão Fechar habilitado) — fechar no meio perderia
+  // o acompanhamento do progresso.
   if (e.key === 'Escape') {
     const sm = document.getElementById('shortcutsModal');
     if (sm?.style.display === 'flex') { _closeShortcuts(); return; }
-    const overlay = document.getElementById('treinoModalOverlay');
-    if (overlay?.classList.contains('visible')) { closeTreinoModal(); return; }
+    if (document.getElementById('treinoModalOverlay')?.classList.contains('visible')) {
+      if (!document.getElementById('treinoCloseBtn').disabled) closeTreinoModal();
+      return;
+    }
+    if (document.getElementById('backtestModalOverlay')?.classList.contains('visible')) {
+      if (!document.getElementById('backtestCloseBtn').disabled) closeBacktestModal();
+      return;
+    }
+    if (document.getElementById('modalOverlay')?.classList.contains('open')) { closeModal(); return; }
+    if (STATE.consoleOpen) { closeConsole(); return; }
+    return;
   }
+
+  // Letras sem modificador não devem trocar de aba com um modal aberto por cima.
+  const anyModalOpen = document.getElementById('shortcutsModal')?.style.display === 'flex'
+    || document.querySelector('.treino-modal-overlay.visible, .modal-overlay.open');
+  if (anyModalOpen) return;
 
   // ? → shortcuts help
   if (e.key === '?' && !e.ctrlKey && !e.metaKey) { _openShortcuts(); return; }
