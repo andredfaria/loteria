@@ -16,7 +16,7 @@ from flask import (
 from megasena.dominio.regras import TAMANHO_APOSTA_MAX, TAMANHO_APOSTA_MIN, TOTAL_NUMEROS
 from megasena.infra.dados.api_caixa import MegasenaFetcher
 from megasena.infra.dados.banco import DatabaseManager
-from megasena.servicos.bolao import avaliar_bolao
+from megasena.servicos.bolao import avaliar_bolao, comparar_boloes
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +31,8 @@ STATIC_DIR = Path(__file__).resolve().parent / "static"
 APOSTAS_MAX = 10_000
 COTAS_MAX = 10_000
 VALOR_MAX = 100_000_000.0
+BOLOES_COMPARAR_MAX = 10
+NOME_BOLAO_MAX = 60
 
 
 # ─── Autenticacao (falha fechado) ──────────────────────────────
@@ -241,24 +243,55 @@ def api_atualizar():
 def api_bolao_avaliar():
     body = request.get_json(force=True, silent=True) or {}
     try:
-        valor_total = float(body.get("valor_total"))
-    except (ValueError, TypeError):
-        return jsonify({"error": "valor_total deve ser um numero"}), 400
-    if not (0 < valor_total <= VALOR_MAX):
-        return jsonify({"error": f"valor_total deve ser maior que zero e no maximo {VALOR_MAX:.0f}"}), 400
-
-    try:
-        apostas = _inteiro_em_faixa(body.get("apostas"), "apostas", 1, APOSTAS_MAX)
-        dezenas = _inteiro_em_faixa(
-            body.get("dezenas"), "dezenas", TAMANHO_APOSTA_MIN, TAMANHO_APOSTA_MAX,
-        )
-        cotas = None
-        if body.get("cotas") not in (None, ""):
-            cotas = _inteiro_em_faixa(body.get("cotas"), "cotas", 1, COTAS_MAX)
+        bolao = _ler_bolao(body)
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
+    return jsonify(avaliar_bolao(**bolao))
 
-    return jsonify(avaliar_bolao(valor_total, apostas, dezenas, cotas))
+
+@app.route("/comparar")
+def comparar():
+    return send_from_directory(str(STATIC_DIR), "comparar.html")
+
+
+@app.route("/api/bolao/comparar", methods=["POST"])
+def api_bolao_comparar():
+    body = request.get_json(force=True, silent=True) or {}
+    lista = body.get("boloes")
+    if not isinstance(lista, list) or not (2 <= len(lista) <= BOLOES_COMPARAR_MAX):
+        return jsonify({"error": f"boloes deve ser uma lista com 2 a {BOLOES_COMPARAR_MAX} itens"}), 400
+
+    boloes = []
+    for i, item in enumerate(lista, start=1):
+        if not isinstance(item, dict):
+            return jsonify({"error": f"bolão {i}: formato invalido"}), 400
+        try:
+            bolao = _ler_bolao(item)
+        except ValueError as exc:
+            return jsonify({"error": f"bolão {i}: {exc}"}), 400
+        nome = str(item.get("nome") or "").strip()[:NOME_BOLAO_MAX]
+        boloes.append({**bolao, "nome": nome or None})
+
+    return jsonify(comparar_boloes(boloes))
+
+
+def _ler_bolao(body: dict) -> dict:
+    """Valida os campos de um bolão vindos do JSON. Levanta ValueError."""
+    try:
+        valor_total = float(body.get("valor_total"))
+    except (ValueError, TypeError):
+        raise ValueError("valor_total deve ser um numero")
+    if not (0 < valor_total <= VALOR_MAX):
+        raise ValueError(f"valor_total deve ser maior que zero e no maximo {VALOR_MAX:.0f}")
+
+    apostas = _inteiro_em_faixa(body.get("apostas"), "apostas", 1, APOSTAS_MAX)
+    dezenas = _inteiro_em_faixa(
+        body.get("dezenas"), "dezenas", TAMANHO_APOSTA_MIN, TAMANHO_APOSTA_MAX,
+    )
+    cotas = None
+    if body.get("cotas") not in (None, ""):
+        cotas = _inteiro_em_faixa(body.get("cotas"), "cotas", 1, COTAS_MAX)
+    return {"valor_total": valor_total, "apostas": apostas, "dezenas": dezenas, "cotas": cotas}
 
 
 def _inteiro_em_faixa(valor, nome, minimo, maximo):
