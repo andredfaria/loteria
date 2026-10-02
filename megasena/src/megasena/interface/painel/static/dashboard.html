@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mega-Sena — Painel de Dados</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #0f1115;
+    --card: #1a1d24;
+    --border: #2a2e37;
+    --text: #e8eaed;
+    --muted: #9aa0a8;
+    --accent: #4f8cff;
+    --accent-2: #22c55e;
+    --danger: #ef4444;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #f5f6f8;
+      --card: #ffffff;
+      --border: #e2e5ea;
+      --text: #16181d;
+      --muted: #5b6270;
+      --accent: #2563eb;
+      --accent-2: #16a34a;
+      --danger: #dc2626;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 24px;
+  }
+  h1 { font-size: 1.4rem; margin: 0 0 20px; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px;
+  }
+  .card h2 { font-size: 0.95rem; color: var(--muted); margin: 0 0 12px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .stat { font-size: 1.8rem; font-weight: 600; }
+  .dezenas { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+  .bola {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: var(--accent); color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.85rem; font-weight: 600;
+  }
+  button {
+    background: var(--accent); color: #fff; border: none;
+    padding: 10px 16px; border-radius: 8px; font-size: 0.9rem;
+    cursor: pointer; margin-top: 12px;
+  }
+  button:disabled { opacity: 0.6; cursor: default; }
+  .erro { color: var(--danger); font-size: 0.85rem; margin-top: 8px; }
+  .freq-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; font-size: 0.72rem; }
+  .freq-cell { text-align: center; padding: 4px 2px; border-radius: 4px; background: var(--border); }
+  table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  th, td { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 500; }
+  .card-largo { grid-column: 1 / -1; }
+  .form-bolao { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; align-items: end; }
+  .form-bolao label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 4px; }
+  .form-bolao input {
+    width: 100%; padding: 9px 10px; border-radius: 8px; font-size: 0.95rem;
+    border: 1px solid var(--border); background: var(--bg); color: var(--text);
+  }
+  .form-bolao button { margin-top: 0; }
+  .veredito { margin-top: 16px; padding: 12px 14px; border-radius: 8px; font-weight: 600; border: 1px solid; }
+  .veredito.aceitavel { color: var(--accent-2); border-color: var(--accent-2); }
+  .veredito.sobrepreco { color: var(--danger); border-color: var(--danger); }
+  .veredito.abaixo_do_custo { color: #d97706; border-color: #d97706; }
+  .metricas { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-top: 14px; }
+  .metrica { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
+  .metrica .rotulo { font-size: 0.75rem; color: var(--muted); }
+  .metrica .valor { font-size: 1.15rem; font-weight: 600; margin-top: 2px; }
+  .aviso { font-size: 0.78rem; color: var(--muted); margin-top: 14px; line-height: 1.45; }
+</style>
+</head>
+<body>
+  <h1>Mega-Sena — Painel de Dados</h1>
+  <div class="grid">
+    <div class="card">
+      <h2>Status</h2>
+      <div id="status-total" class="stat">—</div>
+      <div id="status-muted" style="color:var(--muted); font-size:0.85rem;">concursos coletados</div>
+      <div id="status-dezenas" class="dezenas"></div>
+      <button id="btn-atualizar">Atualizar dados</button>
+      <div id="status-erro" class="erro"></div>
+    </div>
+    <div class="card">
+      <h2>Frequência (1–60)</h2>
+      <div id="freq-grid" class="freq-grid"></div>
+      <div id="freq-erro" class="erro"></div>
+    </div>
+    <div class="card">
+      <h2>Maiores atrasos</h2>
+      <table>
+        <thead><tr><th>Número</th><th>Atraso</th><th>Último concurso</th></tr></thead>
+        <tbody id="atraso-body"></tbody>
+      </table>
+      <div id="atraso-erro" class="erro"></div>
+    </div>
+    <div class="card card-largo">
+      <h2>Avaliar bolão</h2>
+      <form id="form-bolao" class="form-bolao">
+        <div>
+          <label for="b-valor">Valor total do bolão (R$)</label>
+          <input id="b-valor" type="number" min="0.01" step="0.01" required placeholder="ex.: 567,00">
+        </div>
+        <div>
+          <label for="b-apostas">Quantidade de apostas</label>
+          <input id="b-apostas" type="number" min="1" step="1" required placeholder="ex.: 10">
+        </div>
+        <div>
+          <label for="b-dezenas">Dezenas por aposta</label>
+          <input id="b-dezenas" type="number" min="6" max="20" step="1" required value="6">
+        </div>
+        <div>
+          <label for="b-cotas">Cotas (opcional)</label>
+          <input id="b-cotas" type="number" min="1" step="1" placeholder="ex.: 10">
+        </div>
+        <div><button type="submit" id="btn-bolao">Avaliar</button></div>
+      </form>
+      <div id="bolao-erro" class="erro"></div>
+      <div id="bolao-resultado" hidden>
+        <div id="bolao-veredito" class="veredito"></div>
+        <div class="metricas" id="bolao-metricas"></div>
+        <p class="aviso">
+          Valor total = valor da cota × número de cotas. Lotéricas podem cobrar até 35% sobre o custo
+          oficial (R$ 6,00 por combinação simples). Probabilidade de sena assume que o bolão não repete jogos;
+          quina e quadra são por volante. Loteria tem valor esperado negativo: trate a cota como despesa de
+          entretenimento, no máximo 1–2% da renda disponível.
+        </p>
+      </div>
+    </div>
+  </div>
+
+<script>
+async function carregarStatus() {
+  const el = document.getElementById("status-erro");
+  el.textContent = "";
+  try {
+    const resp = await fetch("/api/status");
+    if (!resp.ok) throw new Error("HTTP " + resp.status);
+    const data = await resp.json();
+    document.getElementById("status-total").textContent = data.total_concursos;
+    const dezenasEl = document.getElementById("status-dezenas");
+    dezenasEl.innerHTML = "";
+    if (data.ultimo_concurso) {
+      for (const n of data.ultimo_concurso.dezenas) {
+        const b = document.createElement("div");
+        b.className = "bola";
+        b.textContent = n;
+        dezenasEl.appendChild(b);
+      }
+      document.getElementById("status-muted").textContent =
+        `concurso ${data.ultimo_concurso.concurso} — ${data.ultimo_concurso.data}`;
+    }
+  } catch (e) {
+    el.textContent = "Erro ao carregar status: " + e.message;
+  }
+}
+
+async function carregarFrequencia() {
+  const el = document.getElementById("freq-erro");
+  el.textContent = "";
+  try {
+    const resp = await fetch("/api/frequencia");
+    if (!resp.ok) throw new Error("HTTP " + resp.status);
+    const data = await resp.json();
+    const grid = document.getElementById("freq-grid");
+    grid.innerHTML = "";
+    for (let n = 1; n <= 60; n++) {
+      const cell = document.createElement("div");
+      cell.className = "freq-cell";
+      cell.textContent = n + ":" + data.frequencia[String(n)];
+      grid.appendChild(cell);
+    }
+  } catch (e) {
+    el.textContent = "Erro ao carregar frequência: " + e.message;
+  }
+}
+
+async function carregarAtraso() {
+  const el = document.getElementById("atraso-erro");
+  el.textContent = "";
+  try {
+    const resp = await fetch("/api/atraso");
+    if (!resp.ok) throw new Error("HTTP " + resp.status);
+    const data = await resp.json();
+    const rows = Object.entries(data.atraso)
+      .map(([n, v]) => ({ n: Number(n), ...v }))
+      .sort((a, b) => b.atraso - a.atraso)
+      .slice(0, 15);
+    const body = document.getElementById("atraso-body");
+    body.innerHTML = "";
+    for (const r of rows) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td>${r.n}</td><td>${r.atraso}</td><td>${r.ultimo_concurso ?? "—"}</td>`;
+      body.appendChild(tr);
+    }
+  } catch (e) {
+    el.textContent = "Erro ao carregar atraso: " + e.message;
+  }
+}
+
+async function carregarTudo() {
+  await Promise.all([carregarStatus(), carregarFrequencia(), carregarAtraso()]);
+}
+
+document.getElementById("btn-atualizar").addEventListener("click", async () => {
+  const btn = document.getElementById("btn-atualizar");
+  const el = document.getElementById("status-erro");
+  btn.disabled = true;
+  btn.textContent = "Atualizando...";
+  el.textContent = "";
+  try {
+    const resp = await fetch("/api/atualizar", { method: "POST" });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error || "HTTP " + resp.status);
+    await carregarTudo();
+  } catch (e) {
+    el.textContent = "Erro ao atualizar: " + e.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Atualizar dados";
+  }
+});
+
+const brl = (v) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const pct = (v) => (v * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 }) + "%";
+const umEm = (n) => n == null ? "—" : "1 em " + n.toLocaleString("pt-BR");
+const VEREDITOS = { aceitavel: "Vale a pena (preço justo)", sobrepreco: "Não vale a pena (sobrepreço)", abaixo_do_custo: "Atenção: abaixo do custo oficial" };
+
+function metrica(rotulo, valor) {
+  const d = document.createElement("div");
+  d.className = "metrica";
+  const r = document.createElement("div"); r.className = "rotulo"; r.textContent = rotulo;
+  const v = document.createElement("div"); v.className = "valor"; v.textContent = valor;
+  d.append(r, v);
+  return d;
+}
+
+document.getElementById("form-bolao").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const erro = document.getElementById("bolao-erro");
+  const btn = document.getElementById("btn-bolao");
+  erro.textContent = "";
+  btn.disabled = true;
+  try {
+    const resp = await fetch("/api/bolao/avaliar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        valor_total: document.getElementById("b-valor").value,
+        apostas: document.getElementById("b-apostas").value,
+        dezenas: document.getElementById("b-dezenas").value,
+        cotas: document.getElementById("b-cotas").value,
+      }),
+    });
+    const r = await resp.json();
+    if (!resp.ok) throw new Error(r.error || "HTTP " + resp.status);
+
+    const ver = document.getElementById("bolao-veredito");
+    ver.className = "veredito " + r.veredito;
+    ver.textContent = VEREDITOS[r.veredito] + " — " + r.mensagem;
+
+    const m = document.getElementById("bolao-metricas");
+    m.innerHTML = "";
+    m.append(
+      metrica("Combinações simples", r.combinacoes_total.toLocaleString("pt-BR") + " (" + r.combinacoes_por_aposta + " por aposta)"),
+      metrica("Custo oficial", brl(r.custo_oficial)),
+      metrica("Teto com taxa de 35%", brl(r.teto_comercial)),
+      metrica("Taxa cobrada", pct(r.taxa_cobrada)),
+      metrica("Chance de sena do bolão", umEm(r.sena.um_em)),
+      metrica("Quina por volante", umEm(r.por_volante.quina.um_em)),
+      metrica("Quadra por volante", umEm(r.por_volante.quadra.um_em)),
+    );
+    if (r.por_cota) {
+      m.append(
+        metrica("Cota cobrada", brl(r.por_cota.cobrado)),
+        metrica("Cota justa (sem taxa)", brl(r.por_cota.justo_sem_taxa)),
+        metrica("Cota máxima (com taxa)", brl(r.por_cota.maximo_com_taxa)),
+      );
+    }
+    document.getElementById("bolao-resultado").hidden = false;
+  } catch (e) {
+    erro.textContent = "Erro ao avaliar: " + e.message;
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+carregarTudo();
+</script>
+</body>
+</html>

@@ -41,3 +41,24 @@ def gerar_combinacoes(n: int) -> Iterator[tuple[int, ...]]:
 
 def total_combinacoes(n: int = NUMEROS_POR_SORTEIO) -> int:
     return comb(TOTAL_NUMEROS, n)
+
+# ─── Preço oficial ────────────────────────────────────────────
+# A Caixa não dá desconto por volume: uma aposta de n dezenas custa exatamente
+# C(n, 6) apostas simples.
+PRECO_APOSTA_SIMPLES = 6.00
+TAMANHO_APOSTA_MIN = NUMEROS_POR_SORTEIO
+TAMANHO_APOSTA_MAX = 20
+
+
+def combinacoes_por_aposta(n: int) -> int:
+    """Quantas apostas simples de 6 dezenas um volante de n dezenas contém."""
+    if not (TAMANHO_APOSTA_MIN <= n <= TAMANHO_APOSTA_MAX):
+        raise ValueError(
+            f"Tamanho de aposta deve estar entre {TAMANHO_APOSTA_MIN} e {TAMANHO_APOSTA_MAX}, recebido {n}"
+        )
+    return comb(n, NUMEROS_POR_SORTEIO)
+
+
+def custo_aposta(n: int) -> float:
+    """Custo oficial de um volante de n dezenas."""
+    return round(combinacoes_por_aposta(n) * PRECO_APOSTA_SIMPLES, 2)

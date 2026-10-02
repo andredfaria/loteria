@@ -105,12 +105,13 @@ Cada projeto contém apenas **amostras** (`dados/sample/` ou `testes/fixtures/`)
 
 ## Deploy (EasyPanel)
 
-Os projetos com dashboard web (lotofacil, quina) possuem `Dockerfile` próprio:
+Os projetos com dashboard web (lotofacil, quina, megasena) possuem `Dockerfile` próprio:
 
 | Projeto | Build Context | Dockerfile Path | Port |
 |---------|---------------|------------------|------|
 | lotofacil | `lotofacil` | `Dockerfile` | `5000` |
 | quina | `quina` | `Dockerfile` | `5000` |
+| megasena | `megasena` | `Dockerfile` | `5000` |
 
 > O `Dockerfile` na raiz do repositório é legado e **não deve ser usado**.
 
@@ -124,8 +125,9 @@ de sessão (sem ela, restart/redeploy derruba todas as sessões de login).
 treino, backtest — podem rodar ao mesmo tempo antes de responder `429`.
 Detalhes em [lotofacil/README.md](lotofacil/README.md#autenticação-e-variáveis-de-ambiente).
 
-O dashboard do **quina** ainda não tem autenticação — não exponha sua porta
-diretamente à internet sem um proxy/tunnel com autenticação na frente.
+Os dashboards do **quina** e da **megasena** seguem o mesmo contrato:
+`DASHBOARD_PASSWORD` ou `DASHBOARD_PUBLICO=1` são obrigatórias, e
+`DASHBOARD_AUTH_SECRET` mantém as sessões entre restarts.
 
 ---
 
