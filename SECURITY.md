@@ -15,7 +15,7 @@ SLA. Faço o possível para responder em uma semana.
 
 O que interessa reportar:
 
-- Acesso não autenticado aos painéis web (`lotofacil`, `quina`).
+- Acesso não autenticado aos painéis web (`lotofacil`, `quina`, `megasena`).
 - Execução remota de comandos, injeção de SQL ou path traversal.
 - Negação de serviço via parâmetro de API sem limite.
 - Vazamento de segredos, credenciais ou caminhos do servidor em respostas de erro.
