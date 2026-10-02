@@ -51,6 +51,8 @@ DASHBOARD_PASSWORD=... gunicorn megasena.interface.painel.server:app \
 | `GET` | `/api/atraso` | Atraso por número |
 | `POST` | `/api/atualizar` | Sincroniza novos concursos |
 | `POST` | `/api/bolao/avaliar` | Avalia preço e probabilidade de um bolão |
+| `GET` | `/comparar` | Tela de comparação de bolões |
+| `POST` | `/api/bolao/comparar` | Ranqueia de 2 a 10 bolões por custo-benefício |
 
 ### Avaliador de bolão
 
@@ -61,6 +63,17 @@ o número de cotas. O cálculo segue
 converte tudo em combinações simples (R$ 6,00 cada), compara o valor cobrado com
 o teto de 35% de taxa das lotéricas e mostra a chance de sena do bolão e de
 quina/quadra por volante.
+
+### Comparar bolões
+
+Tela **`/comparar`** (link no card do avaliador): cadastre de 2 a 10 bolões,
+cada um com nome, valor total, apostas, dezenas por aposta e cotas, e
+compare-os lado a lado. O ranking segue o **custo cobrado por combinação
+simples** (menor é melhor) e desempata por mais dezenas por volante. A tabela
+também mostra taxa, valor da sua cota, sua parte do prêmio, chance de sena,
+combinações e quina por volante; clique numa coluna para reordenar. O motivo
+de o critério ser esse, e não a maior chance ou a cota mais barata, está na
+seção 7 do guia. Lógica em `megasena.servicos.bolao.comparar_boloes`.
 
 ---
 
@@ -90,10 +103,10 @@ src/megasena/
 │   ├── atributos/     # engenharia de features (frequência, atraso, coocorrência, tendência...)
 │   ├── modelos/       # base_model, frequency_ensemble, ml_model, probabilistic, ensemble
 │   └── geracao/       # optimizers.py (simulated annealing p/ jogo de 6 números)
-├── servicos/          # bolao.py (avaliação de preço e probabilidade de bolão)
+├── servicos/          # bolao.py (avaliação e comparação de bolões)
 └── interface/
     ├── cli/           # Typer CLI (megasena dados|modelo)
-    └── painel/        # Flask dashboard (server.py + static/dashboard.html)
+    └── painel/        # Flask dashboard (server.py + static/dashboard.html, comparar.html)
 ```
 
 ### Regras do jogo

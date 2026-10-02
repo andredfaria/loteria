@@ -112,3 +112,52 @@ def avaliar_bolao(
             "maximo_com_taxa": round(teto_comercial / cotas, 2),
         }
     return resultado
+
+
+def comparar_boloes(boloes: list[dict]) -> dict:
+    """Ordena bolões do melhor para o pior custo-benefício para quem compra uma cota.
+
+    Quem compra 1 de N cotas tem a chance de sena do bolão inteiro, mas leva
+    1/N do prêmio. O prêmio esperado por real pago fica então proporcional a
+    combinações / valor_total — o número de cotas se cancela. Por isso o
+    critério é o **custo cobrado por combinação simples** (menor é melhor).
+    Empate: mais dezenas por volante, que paga quinas/quadras em cascata
+    quando a sena sai. Ver docs/guia_e_racional_de_avalia_o_de_bol_es.md, seção 7.
+
+    Cada item de `boloes` tem as chaves de `avaliar_bolao` e, opcionalmente, `nome`.
+    """
+    if len(boloes) < 2:
+        raise ValueError("informe pelo menos 2 bolões para comparar")
+
+    itens = []
+    for i, b in enumerate(boloes, start=1):
+        cotas = b.get("cotas")
+        avaliacao = avaliar_bolao(b["valor_total"], b["apostas"], b["dezenas"], cotas)
+        valor_total = avaliacao["entrada"]["valor_total"]
+        itens.append({
+            "nome": b.get("nome") or f"Bolão {i}",
+            "valor_cota": round(valor_total / cotas, 2) if cotas else round(valor_total, 2),
+            "fracao_premio": 1 / cotas if cotas else 1.0,
+            "custo_por_combinacao": valor_total / avaliacao["combinacoes_total"],
+            "avaliacao": avaliacao,
+        })
+
+    itens.sort(key=lambda x: (
+        round(x["custo_por_combinacao"], 6),
+        -x["avaliacao"]["entrada"]["dezenas"],
+        -x["avaliacao"]["combinacoes_total"],
+    ))
+    for posicao, item in enumerate(itens, start=1):
+        item["posicao"] = posicao
+
+    maior_chance = max(itens, key=lambda x: x["avaliacao"]["sena"]["probabilidade"])
+    menor_cota = min(itens, key=lambda x: x["valor_cota"])
+    return {
+        "ranking": itens,
+        "melhor": itens[0]["nome"],
+        "destaques": {
+            "custo_beneficio": itens[0]["nome"],
+            "maior_chance": maior_chance["nome"],
+            "menor_cota": menor_cota["nome"],
+        },
+    }

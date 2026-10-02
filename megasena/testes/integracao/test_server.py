@@ -180,3 +180,37 @@ class TestApiBolao:
         resp = client.post("/api/bolao/avaliar", json=body)
         assert resp.status_code == 400
         assert campo in resp.get_json()["error"]
+
+
+class TestCompararBoloes:
+    def test_pagina_comparar(self, client):
+        resp = client.get("/comparar")
+        assert resp.status_code == 200
+        assert b"Comparar" in resp.data
+
+    def test_ranking(self, client):
+        resp = client.post("/api/bolao/comparar", json={"boloes": [
+            {"nome": "Lotérica A", "valor_total": 567, "apostas": 10, "dezenas": 7, "cotas": 10},
+            {"nome": "Amigos", "valor_total": "420", "apostas": "10", "dezenas": "7", "cotas": ""},
+        ]})
+        data = resp.get_json()
+
+        assert resp.status_code == 200
+        assert data["melhor"] == "Amigos"
+        assert [b["posicao"] for b in data["ranking"]] == [1, 2]
+        assert data["ranking"][1]["valor_cota"] == 56.7
+
+    @pytest.mark.parametrize("body,trecho", [
+        ({}, "boloes"),
+        ({"boloes": [{"valor_total": 6, "apostas": 1, "dezenas": 6}]}, "boloes"),
+        ({"boloes": [{"valor_total": 6, "apostas": 1, "dezenas": 6}] * 11}, "boloes"),
+        ({"boloes": [{"valor_total": 6, "apostas": 1, "dezenas": 6}, "x"]}, "bolão 2"),
+        ({"boloes": [
+            {"valor_total": 6, "apostas": 1, "dezenas": 6},
+            {"valor_total": 6, "apostas": 1, "dezenas": 21},
+        ]}, "bolão 2: dezenas"),
+    ])
+    def test_entradas_invalidas(self, client, body, trecho):
+        resp = client.post("/api/bolao/comparar", json=body)
+        assert resp.status_code == 400
+        assert trecho in resp.get_json()["error"]

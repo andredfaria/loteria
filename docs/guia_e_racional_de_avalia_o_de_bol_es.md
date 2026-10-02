@@ -105,3 +105,43 @@ $$\text{Valor Máximo Aceitável por Cota (Com Taxa)} = \frac{\text{Custo Oficia
    $$\text{Taxa \%} = \left( \frac{\text{Custo Total Cobrado}}{\text{Custo Oficial Base}} - 1 \right) \times 100$$
    * Se a taxa estiver entre $0\%$ e $35\%$, o preço é aceitável.
    * Se for maior que $35\%$, a cota apresenta sobrepreço desvantajoso.
+---
+
+## 7. Comparando Bolões: Qual Vale Mais a Pena?
+
+Quando há vários bolões à venda, a pergunta muda de "este preço é aceitável?" para "em qual deles meu dinheiro rende mais?". Três critérios parecem naturais e **dois deles enganam**:
+
+| Critério | Problema |
+| :--- | :--- |
+| Maior chance de ganhar | O bolão maior quase sempre ganha, mas você divide o prêmio com mais cotistas e pode estar pagando mais caro por isso. |
+| Cota mais barata | Uma cota barata pode vir de um bolão com taxa alta: você paga pouco, mas recebe ainda menos chance por real. |
+| **Custo por combinação** | **É o critério correto** — veja a dedução abaixo. |
+
+### A) Por que o número de cotas se cancela
+
+Ao comprar **1 cota** de um bolão com $N$ cotas, $C$ combinações simples e valor total $V$:
+
+* Sua chance de sena é a do bolão inteiro: $\frac{C}{50.063.860}$.
+* Se sair, você leva $\frac{1}{N}$ do prêmio $P$.
+* Você paga $\frac{V}{N}$.
+
+$$\frac{\text{Prêmio esperado}}{\text{Valor pago}} = \frac{\frac{C}{50.063.860} \times \frac{P}{N}}{\frac{V}{N}} = \frac{P}{50.063.860} \times \frac{C}{V}$$
+
+O $N$ some. Para o mesmo concurso (mesmo $P$), o que decide é $\frac{C}{V}$, ou seja, o inverso do **custo cobrado por combinação**, $\frac{V}{C}$. O piso é $R\$ 6,00$ (sem taxa) e o teto legal é $R\$ 8,10$ (taxa de $35\%$). Comparar custo por combinação equivale a comparar a taxa cobrada.
+
+### B) Desempate: dezenas por volante
+
+Dois bolões com o mesmo custo por combinação têm o mesmo prêmio esperado de sena. O desempate favorece o que tem **mais dezenas por volante**, pela premiação em cascata da seção 5: 1 volante de 8 dezenas e 28 volantes de 6 dezenas custam o mesmo ($R\$ 168,00$), mas só o primeiro paga quinas e quadras junto com a sena.
+
+### C) Exemplo
+
+| Bolão | Estrutura | Valor total | Cotas | Sua cota | Custo/combinação | Chance de sena |
+| :--- | :--- | ---: | ---: | ---: | ---: | ---: |
+| Grande | 10 × 8 dezenas (280 comb.) | $R\$ 2.268,00$ | 20 | $R\$ 113,40$ | $R\$ 8,10$ | 1 em 178.800 |
+| Pequeno | 1 × 7 dezenas (7 comb.) | $R\$ 42,00$ | 5 | $R\$ 8,40$ | $R\$ 6,00$ | 1 em 7.151.980 |
+
+O **Grande** tem 40 vezes mais chance, mas cobra $35\%$ de taxa. O **Pequeno** rende cerca de $35\%$ mais prêmio esperado por real e vence o ranking.
+
+### D) Na prática
+
+A tela **Comparar bolões** do painel da Mega-Sena (`/comparar`) aplica essa regra: ordena pelo custo por combinação, desempata por dezenas por volante e mostra separadamente o bolão de maior chance e o de cota mais barata, para que a escolha seja consciente.

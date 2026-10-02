@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mega-Sena — Comparar bolões</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #0f1115;
+    --card: #1a1d24;
+    --border: #2a2e37;
+    --text: #e8eaed;
+    --muted: #9aa0a8;
+    --accent: #4f8cff;
+    --accent-2: #22c55e;
+    --danger: #ef4444;
+    --warn: #d97706;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #f5f6f8;
+      --card: #ffffff;
+      --border: #e2e5ea;
+      --text: #16181d;
+      --muted: #5b6270;
+      --accent: #2563eb;
+      --accent-2: #16a34a;
+      --danger: #dc2626;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 24px;
+  }
+  .topo { max-width: 1100px; margin: 0 auto 20px; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  h1 { font-size: 1.4rem; margin: 0; }
+  a { color: var(--accent); }
+  .pilha { max-width: 1100px; margin: 0 auto; display: grid; gap: 16px; }
+  .pilha > * { min-width: 0; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 18px; }
+  .card h2 { font-size: 0.95rem; color: var(--muted); margin: 0 0 12px; text-transform: uppercase; letter-spacing: 0.04em; }
+  button {
+    background: var(--accent); color: #fff; border: none;
+    padding: 10px 16px; border-radius: 8px; font-size: 0.9rem; cursor: pointer;
+  }
+  button:disabled { opacity: 0.6; cursor: default; }
+  button.secundario { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+  button.remover { background: transparent; color: var(--muted); border: 1px solid var(--border); padding: 8px 10px; }
+  button.remover:hover { color: var(--danger); border-color: var(--danger); }
+  .acoes { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+  .erro { color: var(--danger); font-size: 0.85rem; margin-top: 8px; }
+  .rolagem { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  th { color: var(--muted); font-weight: 500; }
+  td.num, th.num { text-align: right; }
+  .entrada input {
+    width: 100%; min-width: 80px; padding: 8px 9px; border-radius: 8px; font-size: 0.9rem;
+    border: 1px solid var(--border); background: var(--bg); color: var(--text);
+  }
+  .entrada td { padding: 4px; }
+  .entrada td.nome input { min-width: 140px; }
+  th.ordenavel { cursor: pointer; user-select: none; }
+  th.ordenavel:hover { color: var(--text); }
+  th.ativo { color: var(--accent); }
+  tr.vencedor td { background: color-mix(in srgb, var(--accent-2) 12%, transparent); }
+  .vencedor-banner { padding: 12px 14px; border-radius: 8px; border: 1px solid var(--accent-2); color: var(--accent-2); font-weight: 600; }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0 14px; }
+  .chip { font-size: 0.8rem; border: 1px solid var(--border); border-radius: 999px; padding: 4px 10px; color: var(--muted); }
+  .chip b { color: var(--text); font-weight: 600; }
+  .tag { font-size: 0.75rem; padding: 2px 8px; border-radius: 999px; border: 1px solid; }
+  .tag.aceitavel { color: var(--accent-2); }
+  .tag.sobrepreco { color: var(--danger); }
+  .tag.abaixo_do_custo { color: var(--warn); }
+  .aviso { font-size: 0.82rem; color: var(--muted); line-height: 1.5; margin: 0; }
+  .aviso + .aviso { margin-top: 8px; }
+  @media (max-width: 600px) { body { padding: 16px; } }
+</style>
+</head>
+<body>
+  <div class="topo">
+    <h1>Mega-Sena — Comparar bolões</h1>
+    <a href="/">← Voltar ao painel</a>
+  </div>
+
+  <div class="pilha">
+    <div class="card">
+      <h2>Bolões</h2>
+      <div class="rolagem">
+        <table class="entrada">
+          <thead>
+            <tr>
+              <th>Nome</th><th>Valor total (R$)</th><th>Apostas</th><th>Dezenas por aposta</th><th>Cotas</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="linhas"></tbody>
+        </table>
+      </div>
+      <div class="acoes">
+        <button type="button" id="btn-adicionar" class="secundario">+ Adicionar bolão</button>
+        <button type="button" id="btn-comparar">Comparar</button>
+      </div>
+      <div id="erro" class="erro"></div>
+    </div>
+
+    <div class="card" id="resultado" hidden>
+      <h2>Resultado</h2>
+      <div id="vencedor" class="vencedor-banner"></div>
+      <div id="chips" class="chips"></div>
+      <div class="rolagem">
+        <table>
+          <thead><tr id="cabecalho"></tr></thead>
+          <tbody id="ranking"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Como o ranking é feito</h2>
+      <p class="aviso">
+        Valor total = valor da cota × número de cotas. Deixe <b>Cotas</b> vazio se você paga o bolão inteiro.
+      </p>
+      <p class="aviso">
+        Ao comprar 1 de N cotas, você tem a chance de sena do bolão inteiro, mas leva só 1/N do prêmio.
+        Fazendo a conta, o número de cotas se cancela: o prêmio esperado por real pago depende apenas de
+        quanto o bolão cobra por <b>combinação simples</b> (R$ 6,00 é o preço oficial). Por isso o ranking
+        ordena pelo <b>custo por combinação</b>, do menor para o maior. Em caso de empate, vence o bolão com
+        mais dezenas por volante, porque, se a sena sair, ele também paga quinas e quadras do mesmo bilhete.
+      </p>
+      <p class="aviso">
+        O bolão com mais chance de sena nem sempre é o melhor negócio, e a cota mais barata pode ser a mais cara
+        por combinação. Clique nos títulos das colunas para reordenar. Loteria tem valor esperado negativo:
+        trate a cota como despesa de entretenimento, no máximo 1–2% da renda disponível.
+      </p>
+    </div>
+  </div>
+
+<script>
+const MAX_BOLOES = 10;
+const CHAVE_RASCUNHO = "megasena.comparar.rascunho";
+const CAMPOS = [
+  { chave: "nome", tipo: "text", placeholder: "ex.: Lotérica do centro", classe: "nome" },
+  { chave: "valor_total", tipo: "number", placeholder: "567,00", min: "0.01", step: "0.01" },
+  { chave: "apostas", tipo: "number", placeholder: "10", min: "1", step: "1" },
+  { chave: "dezenas", tipo: "number", placeholder: "6", min: "6", max: "20", step: "1", padrao: "6" },
+  { chave: "cotas", tipo: "number", placeholder: "opcional", min: "1", step: "1" },
+];
+
+const brl = (v) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const pct = (v) => (v * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 }) + "%";
+const umEm = (n) => n == null ? "—" : "1 em " + n.toLocaleString("pt-BR");
+const VEREDITOS = { aceitavel: "Preço justo", sobrepreco: "Sobrepreço", abaixo_do_custo: "Abaixo do custo" };
+
+const linhas = document.getElementById("linhas");
+
+function adicionarLinha(valores = {}) {
+  if (linhas.children.length >= MAX_BOLOES) return;
+  const tr = document.createElement("tr");
+  for (const c of CAMPOS) {
+    const td = document.createElement("td");
+    if (c.classe) td.className = c.classe;
+    const input = document.createElement("input");
+    input.type = c.tipo;
+    input.dataset.chave = c.chave;
+    input.placeholder = c.placeholder;
+    input.setAttribute("aria-label", c.chave);
+    for (const a of ["min", "max", "step"]) if (c[a]) input[a] = c[a];
+    input.value = valores[c.chave] ?? c.padrao ?? "";
+    input.addEventListener("input", salvarRascunho);
+    td.appendChild(input);
+    tr.appendChild(td);
+  }
+  const tdRemover = document.createElement("td");
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "remover";
+  btn.textContent = "✕";
+  btn.title = "Remover bolão";
+  btn.addEventListener("click", () => {
+    if (linhas.children.length > 2) { tr.remove(); atualizarBotoes(); salvarRascunho(); }
+  });
+  tdRemover.appendChild(btn);
+  tr.appendChild(tdRemover);
+  linhas.appendChild(tr);
+  atualizarBotoes();
+}
+
+function lerLinhas() {
+  return [...linhas.children].map((tr) => {
+    const o = {};
+    for (const input of tr.querySelectorAll("input")) o[input.dataset.chave] = input.value.trim();
+    return o;
+  });
+}
+
+function atualizarBotoes() {
+  document.getElementById("btn-adicionar").disabled = linhas.children.length >= MAX_BOLOES;
+  for (const b of linhas.querySelectorAll("button.remover")) b.disabled = linhas.children.length <= 2;
+}
+
+function salvarRascunho() {
+  try { localStorage.setItem(CHAVE_RASCUNHO, JSON.stringify(lerLinhas())); } catch (e) { /* sem storage */ }
+}
+
+function carregarRascunho() {
+  try {
+    const salvo = JSON.parse(localStorage.getItem(CHAVE_RASCUNHO) || "null");
+    if (Array.isArray(salvo) && salvo.length >= 2) return salvo.slice(0, MAX_BOLOES);
+  } catch (e) { /* sem storage */ }
+  return [{}, {}];
+}
+
+// ─── Resultado ────────────────────────────────────────────────
+// Cada coluna sabe exibir o valor e, se ordenável, extrair a chave de ordenação.
+const COLUNAS = [
+  { titulo: "#", num: true, chave: (b) => b.posicao, mostrar: (b) => b.posicao },
+  { titulo: "Bolão", chave: (b) => b.nome.toLocaleLowerCase("pt-BR"), mostrar: (b) => b.nome },
+  { titulo: "Custo por combinação", num: true, chave: (b) => b.custo_por_combinacao, mostrar: (b) => brl(b.custo_por_combinacao) },
+  { titulo: "Taxa", num: true, chave: (b) => b.avaliacao.taxa_cobrada, mostrar: (b) => pct(b.avaliacao.taxa_cobrada) },
+  { titulo: "Preço", chave: (b) => b.avaliacao.veredito, mostrar: (b) => {
+      const s = document.createElement("span");
+      s.className = "tag " + b.avaliacao.veredito;
+      s.textContent = VEREDITOS[b.avaliacao.veredito];
+      return s;
+    } },
+  { titulo: "Sua cota", num: true, chave: (b) => b.valor_cota, mostrar: (b) => brl(b.valor_cota) },
+  { titulo: "Sua parte do prêmio", num: true, chave: (b) => -b.fracao_premio, mostrar: (b) => pct(b.fracao_premio) },
+  { titulo: "Chance de sena", num: true, chave: (b) => -b.avaliacao.sena.probabilidade, mostrar: (b) => umEm(b.avaliacao.sena.um_em) },
+  { titulo: "Dezenas × apostas", num: true, chave: (b) => -b.avaliacao.entrada.dezenas,
+    mostrar: (b) => b.avaliacao.entrada.dezenas + " × " + b.avaliacao.entrada.apostas },
+  { titulo: "Combinações", num: true, chave: (b) => -b.avaliacao.combinacoes_total,
+    mostrar: (b) => b.avaliacao.combinacoes_total.toLocaleString("pt-BR") },
+  { titulo: "Quina por volante", num: true, chave: (b) => -b.avaliacao.por_volante.quina.probabilidade,
+    mostrar: (b) => umEm(b.avaliacao.por_volante.quina.um_em) },
+];
+
+let resultado = null;
+let ordem = { coluna: 0, inverso: false };
+
+function renderizarTabela() {
+  const cab = document.getElementById("cabecalho");
+  cab.innerHTML = "";
+  COLUNAS.forEach((c, i) => {
+    const th = document.createElement("th");
+    th.className = "ordenavel" + (c.num ? " num" : "") + (ordem.coluna === i ? " ativo" : "");
+    th.textContent = c.titulo + (ordem.coluna === i ? (ordem.inverso ? " ▲" : " ▼") : "");
+    th.addEventListener("click", () => {
+      ordem = { coluna: i, inverso: ordem.coluna === i ? !ordem.inverso : false };
+      renderizarTabela();
+    });
+    cab.appendChild(th);
+  });
+
+  const c = COLUNAS[ordem.coluna];
+  const itens = [...resultado.ranking].sort((a, b) => {
+    const ka = c.chave(a), kb = c.chave(b);
+    const d = ka < kb ? -1 : ka > kb ? 1 : a.posicao - b.posicao;
+    return ordem.inverso ? -d : d;
+  });
+
+  const corpo = document.getElementById("ranking");
+  corpo.innerHTML = "";
+  for (const b of itens) {
+    const tr = document.createElement("tr");
+    if (b.posicao === 1) tr.className = "vencedor";
+    for (const col of COLUNAS) {
+      const td = document.createElement("td");
+      if (col.num) td.className = "num";
+      const v = col.mostrar(b);
+      if (v instanceof Node) td.appendChild(v); else td.textContent = v;
+      tr.appendChild(td);
+    }
+    corpo.appendChild(tr);
+  }
+}
+
+function chip(rotulo, nome) {
+  const s = document.createElement("span");
+  s.className = "chip";
+  s.append(rotulo + ": ");
+  const b = document.createElement("b");
+  b.textContent = nome;
+  s.appendChild(b);
+  return s;
+}
+
+function renderizarResultado() {
+  const melhor = resultado.ranking[0];
+  document.getElementById("vencedor").textContent =
+    `Melhor custo-benefício: ${melhor.nome} — ${brl(melhor.custo_por_combinacao)} por combinação ` +
+    `(taxa de ${pct(melhor.avaliacao.taxa_cobrada)}).`;
+  const chips = document.getElementById("chips");
+  chips.innerHTML = "";
+  chips.append(
+    chip("Maior chance de sena", resultado.destaques.maior_chance),
+    chip("Cota mais barata", resultado.destaques.menor_cota),
+  );
+  ordem = { coluna: 0, inverso: false };
+  renderizarTabela();
+  document.getElementById("resultado").hidden = false;
+}
+
+document.getElementById("btn-adicionar").addEventListener("click", () => { adicionarLinha(); salvarRascunho(); });
+
+document.getElementById("btn-comparar").addEventListener("click", async () => {
+  const erro = document.getElementById("erro");
+  const btn = document.getElementById("btn-comparar");
+  erro.textContent = "";
+  btn.disabled = true;
+  try {
+    const resp = await fetch("/api/bolao/comparar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ boloes: lerLinhas() }),
+    });
+    const r = await resp.json();
+    if (!resp.ok) throw new Error(r.error || "HTTP " + resp.status);
+    resultado = r;
+    renderizarResultado();
+  } catch (e) {
+    erro.textContent = "Erro ao comparar: " + e.message;
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+for (const v of carregarRascunho()) adicionarLinha(v);
+</script>
+</body>
+</html>
