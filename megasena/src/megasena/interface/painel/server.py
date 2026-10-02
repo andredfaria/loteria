@@ -13,9 +13,10 @@ from flask import (
     send_from_directory, session, url_for,
 )
 
-from megasena.dominio.regras import TOTAL_NUMEROS
+from megasena.dominio.regras import TAMANHO_APOSTA_MAX, TAMANHO_APOSTA_MIN, TOTAL_NUMEROS
 from megasena.infra.dados.api_caixa import MegasenaFetcher
 from megasena.infra.dados.banco import DatabaseManager
+from megasena.servicos.bolao import avaliar_bolao
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +25,12 @@ app.secret_key = os.environ.get("DASHBOARD_AUTH_SECRET") or secrets.token_hex(32
 app.permanent_session_lifetime = timedelta(days=30)
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
+
+# Teto generoso para entradas do avaliador de bolão. O cálculo é O(1), mas
+# números absurdos só geram respostas sem sentido.
+APOSTAS_MAX = 10_000
+COTAS_MAX = 10_000
+VALOR_MAX = 100_000_000.0
 
 
 # ─── Autenticacao (falha fechado) ──────────────────────────────
@@ -228,3 +235,40 @@ def api_atualizar():
         # Detalhe fica no log; a resposta nao expoe stack/caminhos ao cliente.
         logger.exception("Falha ao sincronizar concursos da API")
         return jsonify({"error": "falha ao sincronizar concursos"}), 500
+
+
+@app.route("/api/bolao/avaliar", methods=["POST"])
+def api_bolao_avaliar():
+    body = request.get_json(force=True, silent=True) or {}
+    try:
+        valor_total = float(body.get("valor_total"))
+    except (ValueError, TypeError):
+        return jsonify({"error": "valor_total deve ser um numero"}), 400
+    if not (0 < valor_total <= VALOR_MAX):
+        return jsonify({"error": f"valor_total deve ser maior que zero e no maximo {VALOR_MAX:.0f}"}), 400
+
+    try:
+        apostas = _inteiro_em_faixa(body.get("apostas"), "apostas", 1, APOSTAS_MAX)
+        dezenas = _inteiro_em_faixa(
+            body.get("dezenas"), "dezenas", TAMANHO_APOSTA_MIN, TAMANHO_APOSTA_MAX,
+        )
+        cotas = None
+        if body.get("cotas") not in (None, ""):
+            cotas = _inteiro_em_faixa(body.get("cotas"), "cotas", 1, COTAS_MAX)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    return jsonify(avaliar_bolao(valor_total, apostas, dezenas, cotas))
+
+
+def _inteiro_em_faixa(valor, nome, minimo, maximo):
+    """Converte para int e valida a faixa. Levanta ValueError com mensagem util."""
+    if valor is None or isinstance(valor, bool):
+        raise ValueError(f"{nome} e obrigatorio")
+    try:
+        n = int(valor)
+    except (ValueError, TypeError):
+        raise ValueError(f"{nome} deve ser um numero inteiro")
+    if not (minimo <= n <= maximo):
+        raise ValueError(f"{nome} deve estar entre {minimo} e {maximo}")
+    return n

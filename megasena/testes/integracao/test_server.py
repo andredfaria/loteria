@@ -148,3 +148,35 @@ class TestIndex:
         assert resp.status_code == 200
         assert resp.content_type.startswith("text/html")
         assert b"Mega-Sena" in resp.data
+
+
+class TestApiBolao:
+    def test_avalia_caso_do_guia(self, client):
+        resp = client.post("/api/bolao/avaliar", json={
+            "valor_total": 567, "apostas": 10, "dezenas": 7, "cotas": 10,
+        })
+        data = resp.get_json()
+
+        assert resp.status_code == 200
+        assert data["custo_oficial"] == 420.0
+        assert data["veredito"] == "aceitavel"
+        assert data["por_cota"]["cobrado"] == 56.7
+
+    def test_cotas_opcional(self, client):
+        resp = client.post("/api/bolao/avaliar", json={
+            "valor_total": 6, "apostas": 1, "dezenas": 6, "cotas": "",
+        })
+        assert resp.status_code == 200
+        assert "por_cota" not in resp.get_json()
+
+    @pytest.mark.parametrize("body,campo", [
+        ({"apostas": 1, "dezenas": 6}, "valor_total"),
+        ({"valor_total": 10, "apostas": 1, "dezenas": 21}, "dezenas"),
+        ({"valor_total": 10, "apostas": 10**9, "dezenas": 6}, "apostas"),
+        ({"valor_total": 10, "apostas": 1, "dezenas": 6, "cotas": 0}, "cotas"),
+        ({"valor_total": -5, "apostas": 1, "dezenas": 6}, "valor_total"),
+    ])
+    def test_entradas_invalidas(self, client, body, campo):
+        resp = client.post("/api/bolao/avaliar", json=body)
+        assert resp.status_code == 400
+        assert campo in resp.get_json()["error"]

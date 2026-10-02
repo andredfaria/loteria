@@ -50,6 +50,17 @@ DASHBOARD_PASSWORD=... gunicorn megasena.interface.painel.server:app \
 | `GET` | `/api/frequencia` | Frequência por número (1–60) |
 | `GET` | `/api/atraso` | Atraso por número |
 | `POST` | `/api/atualizar` | Sincroniza novos concursos |
+| `POST` | `/api/bolao/avaliar` | Avalia preço e probabilidade de um bolão |
+
+### Avaliador de bolão
+
+Card **Avaliar bolão** no painel: informe o valor total do bolão (cota × nº de
+cotas), a quantidade de apostas, as dezenas por aposta (6–20) e, opcionalmente,
+o número de cotas. O cálculo segue
+[`docs/guia_e_racional_de_avalia_o_de_bol_es.md`](../docs/guia_e_racional_de_avalia_o_de_bol_es.md):
+converte tudo em combinações simples (R$ 6,00 cada), compara o valor cobrado com
+o teto de 35% de taxa das lotéricas e mostra a chance de sena do bolão e de
+quina/quadra por volante.
 
 ---
 
@@ -79,6 +90,7 @@ src/megasena/
 │   ├── atributos/     # engenharia de features (frequência, atraso, coocorrência, tendência...)
 │   ├── modelos/       # base_model, frequency_ensemble, ml_model, probabilistic, ensemble
 │   └── geracao/       # optimizers.py (simulated annealing p/ jogo de 6 números)
+├── servicos/          # bolao.py (avaliação de preço e probabilidade de bolão)
 └── interface/
     ├── cli/           # Typer CLI (megasena dados|modelo)
     └── painel/        # Flask dashboard (server.py + static/dashboard.html)

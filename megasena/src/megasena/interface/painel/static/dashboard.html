@@ -71,6 +71,23 @@
   table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
   th, td { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--border); }
   th { color: var(--muted); font-weight: 500; }
+  .card-largo { grid-column: 1 / -1; }
+  .form-bolao { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; align-items: end; }
+  .form-bolao label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 4px; }
+  .form-bolao input {
+    width: 100%; padding: 9px 10px; border-radius: 8px; font-size: 0.95rem;
+    border: 1px solid var(--border); background: var(--bg); color: var(--text);
+  }
+  .form-bolao button { margin-top: 0; }
+  .veredito { margin-top: 16px; padding: 12px 14px; border-radius: 8px; font-weight: 600; border: 1px solid; }
+  .veredito.aceitavel { color: var(--accent-2); border-color: var(--accent-2); }
+  .veredito.sobrepreco { color: var(--danger); border-color: var(--danger); }
+  .veredito.abaixo_do_custo { color: #d97706; border-color: #d97706; }
+  .metricas { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-top: 14px; }
+  .metrica { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
+  .metrica .rotulo { font-size: 0.75rem; color: var(--muted); }
+  .metrica .valor { font-size: 1.15rem; font-weight: 600; margin-top: 2px; }
+  .aviso { font-size: 0.78rem; color: var(--muted); margin-top: 14px; line-height: 1.45; }
 </style>
 </head>
 <body>
@@ -96,6 +113,39 @@
         <tbody id="atraso-body"></tbody>
       </table>
       <div id="atraso-erro" class="erro"></div>
+    </div>
+    <div class="card card-largo">
+      <h2>Avaliar bolão</h2>
+      <form id="form-bolao" class="form-bolao">
+        <div>
+          <label for="b-valor">Valor total do bolão (R$)</label>
+          <input id="b-valor" type="number" min="0.01" step="0.01" required placeholder="ex.: 567,00">
+        </div>
+        <div>
+          <label for="b-apostas">Quantidade de apostas</label>
+          <input id="b-apostas" type="number" min="1" step="1" required placeholder="ex.: 10">
+        </div>
+        <div>
+          <label for="b-dezenas">Dezenas por aposta</label>
+          <input id="b-dezenas" type="number" min="6" max="20" step="1" required value="6">
+        </div>
+        <div>
+          <label for="b-cotas">Cotas (opcional)</label>
+          <input id="b-cotas" type="number" min="1" step="1" placeholder="ex.: 10">
+        </div>
+        <div><button type="submit" id="btn-bolao">Avaliar</button></div>
+      </form>
+      <div id="bolao-erro" class="erro"></div>
+      <div id="bolao-resultado" hidden>
+        <div id="bolao-veredito" class="veredito"></div>
+        <div class="metricas" id="bolao-metricas"></div>
+        <p class="aviso">
+          Valor total = valor da cota × número de cotas. Lotéricas podem cobrar até 35% sobre o custo
+          oficial (R$ 6,00 por combinação simples). Probabilidade de sena assume que o bolão não repete jogos;
+          quina e quadra são por volante. Loteria tem valor esperado negativo: trate a cota como despesa de
+          entretenimento, no máximo 1–2% da renda disponível.
+        </p>
+      </div>
     </div>
   </div>
 
@@ -188,6 +238,70 @@ document.getElementById("btn-atualizar").addEventListener("click", async () => {
   } finally {
     btn.disabled = false;
     btn.textContent = "Atualizar dados";
+  }
+});
+
+const brl = (v) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const pct = (v) => (v * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 }) + "%";
+const umEm = (n) => n == null ? "—" : "1 em " + n.toLocaleString("pt-BR");
+const VEREDITOS = { aceitavel: "Vale a pena (preço justo)", sobrepreco: "Não vale a pena (sobrepreço)", abaixo_do_custo: "Atenção: abaixo do custo oficial" };
+
+function metrica(rotulo, valor) {
+  const d = document.createElement("div");
+  d.className = "metrica";
+  const r = document.createElement("div"); r.className = "rotulo"; r.textContent = rotulo;
+  const v = document.createElement("div"); v.className = "valor"; v.textContent = valor;
+  d.append(r, v);
+  return d;
+}
+
+document.getElementById("form-bolao").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const erro = document.getElementById("bolao-erro");
+  const btn = document.getElementById("btn-bolao");
+  erro.textContent = "";
+  btn.disabled = true;
+  try {
+    const resp = await fetch("/api/bolao/avaliar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        valor_total: document.getElementById("b-valor").value,
+        apostas: document.getElementById("b-apostas").value,
+        dezenas: document.getElementById("b-dezenas").value,
+        cotas: document.getElementById("b-cotas").value,
+      }),
+    });
+    const r = await resp.json();
+    if (!resp.ok) throw new Error(r.error || "HTTP " + resp.status);
+
+    const ver = document.getElementById("bolao-veredito");
+    ver.className = "veredito " + r.veredito;
+    ver.textContent = VEREDITOS[r.veredito] + " — " + r.mensagem;
+
+    const m = document.getElementById("bolao-metricas");
+    m.innerHTML = "";
+    m.append(
+      metrica("Combinações simples", r.combinacoes_total.toLocaleString("pt-BR") + " (" + r.combinacoes_por_aposta + " por aposta)"),
+      metrica("Custo oficial", brl(r.custo_oficial)),
+      metrica("Teto com taxa de 35%", brl(r.teto_comercial)),
+      metrica("Taxa cobrada", pct(r.taxa_cobrada)),
+      metrica("Chance de sena do bolão", umEm(r.sena.um_em)),
+      metrica("Quina por volante", umEm(r.por_volante.quina.um_em)),
+      metrica("Quadra por volante", umEm(r.por_volante.quadra.um_em)),
+    );
+    if (r.por_cota) {
+      m.append(
+        metrica("Cota cobrada", brl(r.por_cota.cobrado)),
+        metrica("Cota justa (sem taxa)", brl(r.por_cota.justo_sem_taxa)),
+        metrica("Cota máxima (com taxa)", brl(r.por_cota.maximo_com_taxa)),
+      );
+    }
+    document.getElementById("bolao-resultado").hidden = false;
+  } catch (e) {
+    erro.textContent = "Erro ao avaliar: " + e.message;
+  } finally {
+    btn.disabled = false;
   }
 });
 

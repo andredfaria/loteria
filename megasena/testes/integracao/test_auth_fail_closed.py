@@ -74,6 +74,7 @@ class TestGuardaDeRequisicao:
         """A rota de escrita é a que mais importa."""
         monkeypatch.setenv("DASHBOARD_PASSWORD", "s3nh4")
         assert client.post("/api/atualizar").status_code == 401
+        assert client.post("/api/bolao/avaliar").status_code == 401
 
     def test_pagina_sem_sessao_redireciona_para_login(self, client, monkeypatch):
         monkeypatch.setenv("DASHBOARD_PASSWORD", "s3nh4")
