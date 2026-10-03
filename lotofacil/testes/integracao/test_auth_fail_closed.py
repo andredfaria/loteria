@@ -142,3 +142,27 @@ def test_erro_antes_do_thread_start_libera_vaga_do_semaforo(monkeypatch):
         for ok in acquired:
             if ok:
                 server_module._job_semaphore.release()
+
+
+def test_healthz_sem_sessao_responde_200(monkeypatch):
+    """O HEALTHCHECK do Docker não tem sessão: /healthz precisa responder."""
+    monkeypatch.setenv("DASHBOARD_PASSWORD", "segredo123")
+    server_module.app.testing = True
+    with server_module.app.test_client() as client:
+        resp = client.get("/healthz")
+        assert resp.status_code == 200
+        assert resp.get_json() == {"status": "ok"}
+        # e não abre o resto
+        assert client.get("/api/status").status_code == 401
+        assert client.get("/").status_code == 302
+
+
+def test_healthz_nao_toca_no_banco(monkeypatch):
+    """Primeiro boot com volume vazio ou banco quebrado: continua saudável."""
+    def explode(*a, **k):
+        raise RuntimeError("banco indisponível")
+    monkeypatch.setattr("lotofacil.infra.dados.banco.DatabaseManager", explode)
+    monkeypatch.setenv("DASHBOARD_PASSWORD", "segredo123")
+    server_module.app.testing = True
+    with server_module.app.test_client() as client:
+        assert client.get("/healthz").status_code == 200
