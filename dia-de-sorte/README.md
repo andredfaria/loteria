@@ -52,7 +52,7 @@ src/diadesorte/
 
 ### Dados
 
-A API `https://loteriascaixa-api.herokuapp.com/api/diadesorte` ([projeto no GitHub](https://github.com/guto-alves/loterias-api); serviço de terceiros, sem garantia oficial da Caixa) oferece 3 endpoints:
+A API `https://loteriascaixa-api.herokuapp.com/api/diadesorte` ([projeto no GitHub](https://github.com/guto-alves/loterias-api) e [estrutura da resposta](../docs/api-externa.md); serviço de terceiros, sem garantia oficial da Caixa) oferece 3 endpoints:
 
 | Endpoint | Uso |
 |----------|-----|

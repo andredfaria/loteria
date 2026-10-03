@@ -63,6 +63,8 @@ lotofacil lab lunar-check --data 2026-05-15
 lotofacil lab ablation --n-test 100 --retrain-every 50
 ```
 
+Os comandos de `dados` consultam a API externa loteriascaixa-api (espelho de terceiros, não oficial da Caixa). O endpoint e a estrutura da resposta estão em [`docs/api-externa.md`](../docs/api-externa.md).
+
 ---
 
 ## Dashboard Web
