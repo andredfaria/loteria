@@ -23,7 +23,7 @@ ENV PYTHONPATH="/app/src:${PYTHONPATH}"
 EXPOSE 5000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s \
-    CMD python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:5000/api/status')" || exit 1
+    CMD python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:5000/healthz')" || exit 1
 
 USER appuser
 

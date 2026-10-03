@@ -101,3 +101,24 @@ class TestGuardaDeRequisicao:
         )
         monkeypatch.delenv("DASHBOARD_PASSWORD", raising=False)
         assert client.get("/api/status").status_code == 200
+
+    def test_healthz_sem_sessao_responde_200(self, client, monkeypatch):
+        """O HEALTHCHECK do Docker não tem sessão: /healthz precisa responder."""
+        monkeypatch.setenv("DASHBOARD_PASSWORD", "s3nh4")
+        resp = client.get("/healthz")
+        assert resp.status_code == 200
+        assert resp.get_json() == {"status": "ok"}
+
+    def test_healthz_nao_abre_o_resto(self, client, monkeypatch):
+        monkeypatch.setenv("DASHBOARD_PASSWORD", "s3nh4")
+        client.get("/healthz")
+        assert client.get("/api/status").status_code == 401
+        assert client.get("/").status_code == 302
+
+    def test_healthz_nao_toca_no_banco(self, client, monkeypatch):
+        """Primeiro boot com volume vazio ou banco quebrado: continua saudável."""
+        def explode(*a, **k):
+            raise RuntimeError("banco indisponível")
+        monkeypatch.setattr(painel_server, "DatabaseManager", explode)
+        monkeypatch.setenv("DASHBOARD_PASSWORD", "s3nh4")
+        assert client.get("/healthz").status_code == 200
