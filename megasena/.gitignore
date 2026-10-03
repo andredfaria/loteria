@@ -1,8 +1,3 @@
-venv/
-__pycache__/
-*.pyc
-*.egg-info/
-.pytest_cache/
+# Gerados localmente. O resto está no .gitignore da raiz.
 /dados
-saida/
-.env
+/saida
