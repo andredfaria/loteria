@@ -1,4 +1,4 @@
-# Sobe os painéis localmente com a mesma imagem que o EasyPanel publica.
+# Sobe os painéis localmente com o mesmo Dockerfile que o EasyPanel usa.
 #
 #   cp .env.example .env        # defina DASHBOARD_PASSWORD (ou DASHBOARD_PUBLICO=1)
 #   docker compose up --build megasena
@@ -9,6 +9,9 @@
 # Este compose é para uso local: as portas ficam presas em 127.0.0.1, então só
 # esta máquina acessa os painéis. Para expor na rede, remova o prefixo
 # "127.0.0.1:" da porta, de preferência só com DASHBOARD_PASSWORD definida.
+#
+# Exige Docker Compose 2.24 ou mais novo, por causa da forma longa do env_file
+# (com required: false).
 services:
   lotofacil:
     build: ./lotofacil
