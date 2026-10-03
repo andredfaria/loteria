@@ -1,6 +1,6 @@
 # Deploy dos painéis
 
-Lotofacil, quina e megasena têm um painel web cada uma, publicado no EasyPanel como um app separado, a partir do `Dockerfile` da própria pasta. Este documento traz a configuração atual de cada app, os volumes, as variáveis de ambiente, como subir os painéis localmente com o Docker Compose e como conferir que estão de pé.
+Os projetos lotofacil, quina e megasena têm, cada um, um painel web publicado no EasyPanel como um app separado, a partir do `Dockerfile` da própria pasta. Este documento traz a configuração atual de cada app, os volumes, as variáveis de ambiente, como subir os painéis localmente com o Docker Compose e como conferir que estão de pé.
 
 ## Configuração atual no EasyPanel
 

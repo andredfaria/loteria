@@ -70,7 +70,7 @@ Cada projeto baixa o histórico de concursos com `<pacote> dados atualizar` (na 
 
 ## Painéis e deploy
 
-Lotofacil, quina e megasena têm um painel web (Flask, servido pelo Gunicorn na porta 5000 do container), com `Dockerfile` próprio, publicado no EasyPanel. O [`docker-compose.yml`](docker-compose.yml) da raiz sobe os três localmente.
+Os projetos lotofacil, quina e megasena têm, cada um, um painel web (Flask, servido pelo Gunicorn na porta 5000 do container) com `Dockerfile` próprio, publicado no EasyPanel. O [`docker-compose.yml`](docker-compose.yml) da raiz sobe os três localmente.
 
 Os painéis **falham fechado**: sem `DASHBOARD_PASSWORD` (login por senha) ou `DASHBOARD_PUBLICO=1` (painel sem senha, confirmado de propósito), o painel não inicia. A rota `/healthz`, que responde sem login, serve ao health check do container.
 

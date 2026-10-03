@@ -85,7 +85,7 @@ Este arquivo registra o que saiu ou mudou na reorganização do monorepo, com da
 
 ## 2026-10-03 — `.gitignore` enxuto: regra de projeto no projeto, caminhos mortos fora
 
-**Decisão:** o `.gitignore` da raiz guarda só o que vale para o repositório inteiro: venvs, caches do Python, modelos `.joblib`, `.keras`, `.h5` e `.pkl`, bancos SQLite, `.env`, ferramentas de IA e arquivos de IDE. Quina, megasena, dia-de-sorte e super-sete ignoram `/dados` e `/saida` no próprio `.gitignore`; a lotofacil ignora também `/backups`, `portfolio_*.txt` e `portfolio_*.json`. Saíram as regras de caminhos da lotofacil que não existem mais.
+**Decisão:** o `.gitignore` da raiz guarda só o que vale para o repositório inteiro: venvs, caches do Python, modelos `.joblib`, `.keras`, `.h5` e `.pkl`, bancos SQLite, `.env`, ferramentas de IA e arquivos de IDE. Nos projetos quina, megasena, dia-de-sorte e super-sete, o `.gitignore` da própria pasta ignora `/dados` e `/saida`; o da lotofacil ignora também `/backups`, `portfolio_*.txt` e `portfolio_*.json`. Saíram as regras de caminhos da lotofacil que não existem mais.
 
 **Motivo:** o arquivo da raiz misturava regra global com caminhos de um projeto só, muitos de uma estrutura que já não existe. Cada regra morta é ruído que esconde as que valem e pode esconder um arquivo versionado por engano.
 
