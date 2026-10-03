@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Vulnerabilidade de segurança
+    url: https://github.com/andredfaria/loteria/security/policy
+    about: Não abra issue pública para vulnerabilidade — siga o SECURITY.md.

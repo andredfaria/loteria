@@ -1,0 +1,28 @@
+name: Bug
+description: Algo não funciona como deveria
+labels: [bug]
+body:
+  - type: dropdown
+    id: projeto
+    attributes:
+      label: Projeto
+      options: [lotofacil, quina, megasena, dia-de-sorte, super-sete, raiz / CI / docs]
+    validations:
+      required: true
+  - type: textarea
+    id: oque
+    attributes:
+      label: O que aconteceu
+      description: Comando ou tela, o que você esperava e o que aconteceu.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduzir
+    attributes:
+      label: Como reproduzir
+      placeholder: "1. make instalar P=megasena\n2. megasena dados atualizar\n3. ..."
+  - type: textarea
+    id: ambiente
+    attributes:
+      label: Ambiente
+      placeholder: "SO, versão do Python, Docker/EasyPanel?"
