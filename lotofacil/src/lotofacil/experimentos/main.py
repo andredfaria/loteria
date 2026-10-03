@@ -153,9 +153,8 @@ def train(
         import tensorflow  # noqa: F401
     except ImportError:
         console.print("[red]Erro:[/red] TensorFlow não encontrado neste ambiente.")
-        # O "\\[" abaixo é de propósito: sem o escape, o rich lê "[dev]" como tag de estilo e some com ele.
         console.print(
-            "Instale as dependências de ML ([bold]pip install -e '.\\[dev]'[/bold]) "
+            "Instale as dependências do projeto ([bold]pip install -e .[/bold]) "
             "ou reconstrua a imagem Docker da lotofacil "
             "([bold]docker compose build lotofacil[/bold], na raiz do repositório)."
         )
