@@ -46,6 +46,13 @@ importar o módulo do servidor. Nenhum `Dockerfile` ou `entrypoint.sh` deste
 repositório a define. Não use em produção: ela reabre exatamente o buraco que a
 checagem de inicialização fecha.
 
+**Rota de saúde.** `/healthz` é a única rota de API dos painéis que responde
+sem login (além dela, só as páginas de login/logout — e, na lotofacil, os
+arquivos estáticos — dispensam sessão). Ela devolve só `{"status": "ok"}`, não
+acessa banco nem dados, e existe para o `HEALTHCHECK` do Docker (e o do
+EasyPanel). Toda outra rota segue exigindo sessão quando `DASHBOARD_PASSWORD`
+está definida.
+
 Os contêineres rodam como usuário não-root (`appuser`, UID/GID 1000).
 
 ## Verificação automatizada
