@@ -91,3 +91,6 @@ Thumbs.db
 *.swo
 .idea/
 .vscode/
+
+# ── Ambiente local ──
+.env

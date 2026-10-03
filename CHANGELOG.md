@@ -14,6 +14,11 @@ Este projeto segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/)
 
 - Container dos painéis (lotofacil, quina e megasena) ficava *unhealthy* com `DASHBOARD_PASSWORD` definida, porque o `HEALTHCHECK` consultava `/api/status`, que exige login. Agora consulta `/healthz`.
 
+### Segurança
+
+- `.env` agora é ignorado pelo git na raiz, para que a senha do painel não seja versionada por engano.
+- O `docker-compose.yml` publica as portas só em `127.0.0.1`. Para expor os painéis na rede, é preciso remover esse prefixo, de preferência só com `DASHBOARD_PASSWORD` definida.
+
 ### Removido
 
 - `Dockerfile`, `docker-compose.yml` e `.dockerignore` legados da raiz. Motivos em [docs/decisoes.md](docs/decisoes.md).

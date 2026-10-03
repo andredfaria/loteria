@@ -5,10 +5,14 @@
 #
 # Os painéis falham fechado: sem DASHBOARD_PASSWORD nem DASHBOARD_PUBLICO=1
 # o container não sobe. Ver SECURITY.md.
+#
+# Este compose é para uso local: as portas ficam presas em 127.0.0.1, então só
+# esta máquina acessa os painéis. Para expor na rede, remova o prefixo
+# "127.0.0.1:" da porta, de preferência só com DASHBOARD_PASSWORD definida.
 services:
   lotofacil:
     build: ./lotofacil
-    ports: ["5001:5000"]
+    ports: ["127.0.0.1:5001:5000"]
     env_file:
       - path: .env
         required: false
@@ -20,7 +24,7 @@ services:
 
   quina:
     build: ./quina
-    ports: ["5002:5000"]
+    ports: ["127.0.0.1:5002:5000"]
     env_file:
       - path: .env
         required: false
@@ -31,7 +35,7 @@ services:
 
   megasena:
     build: ./megasena
-    ports: ["5003:5000"]
+    ports: ["127.0.0.1:5003:5000"]
     env_file:
       - path: .env
         required: false
