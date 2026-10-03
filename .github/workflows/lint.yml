@@ -22,9 +22,18 @@ jobs:
       - run: ruff check .
 
       - name: nomes de arquivo portáveis
-        # Acento, espaço ou ":" no nome quebram checkout no Windows e links.
+        # Só o ":" impede o checkout no Windows. Acento e espaço quebram links e
+        # variam entre sistemas de arquivos.
         run: |
-          ruins=$(git -c core.quotepath=false ls-files -z | tr '\0' '\n' | grep -P '[^\x00-\x7F]| |:' || true)
+          set -eo pipefail
+          arquivos=$(git -c core.quotepath=false ls-files -z | tr '\0' '\n')
+          # grep: 0 = achou, 1 = não achou, mais que 1 = erro dele. O erro derruba
+          # o passo (um "|| true" esconderia isso).
+          set +e
+          ruins=$(printf '%s\n' "$arquivos" | grep -P '[^\x00-\x7F]| |:')
+          rc=$?
+          set -e
+          if [ "$rc" -gt 1 ]; then echo "grep falhou (rc=$rc)"; exit "$rc"; fi
           if [ -n "$ruins" ]; then
             echo "Arquivos com nome não portável:"; echo "$ruins"; exit 1
           fi
