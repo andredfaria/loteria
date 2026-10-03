@@ -1,0 +1,36 @@
+name: docker
+
+# Monta as imagens dos painéis como o EasyPanel monta, para que um build
+# quebrado apareça no PR e não no deploy. Não publica nada.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "lotofacil/**"
+      - "quina/**"
+      - "megasena/**"
+      - ".github/workflows/docker.yml"
+  pull_request:
+    paths:
+      - "lotofacil/**"
+      - "quina/**"
+      - "megasena/**"
+      - ".github/workflows/docker.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  imagem:
+    name: imagem (${{ matrix.projeto }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        projeto: [lotofacil, quina, megasena]
+    steps:
+      - uses: actions/checkout@v4
+      - name: docker build
+        # Contexto = pasta do projeto, igual ao EasyPanel hoje. Na fase 3 da
+        # reorganização o contexto passa a ser a raiz (por causa do nucleo/).
+        run: docker build -t "loteria-${{ matrix.projeto }}:ci" "${{ matrix.projeto }}"
