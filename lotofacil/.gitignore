@@ -5,5 +5,5 @@
 /backups
 portfolio_*.txt
 portfolio_*.json
-# `lotofacil portfolio gerar` ainda grava aqui (interface/cli/portfolio.py), e não em /saida.
+# `lotofacil portfolio` ainda grava aqui (interface/cli/portfolio.py), e não em /saida.
 /src/lotofacil/saida/
