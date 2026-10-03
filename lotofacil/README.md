@@ -233,18 +233,7 @@ O deploy de produção é feito no EasyPanel, a partir do `Dockerfile` desta pas
 
 ### Dockerfile
 
-O `Dockerfile` em `lotofacil/` é o de produção.
-
-```dockerfile
-# lotofacil/Dockerfile (produção)
-FROM python:3.12-slim
-RUN apt-get install -y gcc libgomp1   # libgomp1 necessário para TensorFlow
-COPY pyproject.toml README.md ./
-RUN pip install -e ".[dev]"           # instala tensorflow + gunicorn + tudo
-COPY src/ src/
-ENTRYPOINT ["/app/entrypoint.sh"]
-CMD ["gunicorn", ..., "--workers", "2", "--timeout", "600"]
-```
+O [`Dockerfile`](Dockerfile) desta pasta é o de produção; o que ele instala e o comando do Gunicorn (workers, threads e timeout) estão definidos no próprio arquivo.
 
 ### Configuração no EasyPanel
 
