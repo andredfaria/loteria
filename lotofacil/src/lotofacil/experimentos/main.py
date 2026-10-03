@@ -153,7 +153,12 @@ def train(
         import tensorflow  # noqa: F401
     except ImportError:
         console.print("[red]Erro:[/red] TensorFlow não encontrado neste ambiente.")
-        console.print("Reconstrua a imagem Docker: [bold]docker-compose build --no-cache[/bold]")
+        # O "\\[" abaixo é de propósito: sem o escape, o rich lê "[dev]" como tag de estilo e some com ele.
+        console.print(
+            "Instale as dependências de ML ([bold]pip install -e '.\\[dev]'[/bold]) "
+            "ou reconstrua a imagem Docker da lotofacil "
+            "([bold]docker compose build lotofacil[/bold], na raiz do repositório)."
+        )
         raise typer.Exit(1)
     import dataclasses
     import lotofacil.experimentos.config as lab_cfg
