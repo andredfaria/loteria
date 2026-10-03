@@ -229,7 +229,7 @@ Paths são sempre resolvidos via `lotofacil.infra.config` — nunca relativos a 
 
 ## Deploy com Docker
 
-O deploy de produção é feito no EasyPanel, a partir do `Dockerfile` desta pasta. O passo a passo completo fica em `docs/deploy.md` (na raiz do repositório).
+O deploy de produção é feito no EasyPanel, a partir do `Dockerfile` desta pasta. O passo a passo completo fica em [`docs/deploy.md`](../docs/deploy.md), na raiz do repositório.
 
 ### Dockerfile
 

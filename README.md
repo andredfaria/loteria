@@ -1,136 +1,87 @@
 # Loteria — Análise Estatística de Loterias Brasileiras
 
-Monorepo com sistemas de análise estatística, geração de jogos e Machine Learning para loterias da Caixa Econômica Federal.
+Monorepo com cinco projetos Python independentes, que coletam os resultados das loterias da Caixa Econômica Federal e os analisam com estatística e Machine Learning.
 
 > **Aviso:** Este projeto é para fins de estudo estatístico. Loteria é jogo de azar — cada sorteio é um evento aleatório independente. Nenhum sistema garante ganhos.
 
 ---
 
-## Subprojetos
+## Projetos
 
-| Projeto | Descrição | Status |
+| Projeto | O que tem | Status |
 |---------|-----------|--------|
-| [lotofacil/](lotofacil/) | Sistema completo: coleta, análise, ML, dashboard web | Ativo |
-| [quina/](quina/) | Coleta, CLI, dashboard Flask, ML ensemble | Ativo |
-| [dia-de-sorte/](dia-de-sorte/) | Pacote estruturado: coleta + CLI + análise estatística | Ativo |
-| [super-sete/](super-sete/) | Pacote estruturado: coleta + CLI + análise por coluna | Ativo |
-| [megasena/](megasena/) | Em desenvolvimento | Planejado |
+| [lotofacil/](lotofacil/) | Sistema completo: coleta (com lua e clima), ML clássico e neural (clima + lua), portfólio de jogos, CLI e painel web | Ativo |
+| [quina/](quina/) | Coleta, CLI, estratégias de jogo, ML e painel web | Ativo |
+| [megasena/](megasena/) | Coleta, CLI, ML e painel web com avaliador e comparador de bolão | Ativo |
+| [dia-de-sorte/](dia-de-sorte/) | Coleta, CLI e ML | Ativo |
+| [super-sete/](super-sete/) | Coleta e CLI | Ativo |
 
-Cada subprojeto é autônomo com seu próprio `pyproject.toml` e ambiente virtual.
+Cada projeto é autônomo: tem o próprio `pyproject.toml`, o próprio ambiente virtual e a própria CLI (`lotofacil`, `quina`, `megasena`, `diadesorte` e `supersete`). Os comandos de cada um estão no `README.md` da pasta. A `dia-de-sorte` e a `super-sete` ainda guardam, na pasta do projeto, os scripts do começo (legado, serão portados para a CLI).
 
 ---
 
-## Lotofácil
+## Início rápido
 
-Sistema mais completo. Pipeline de ponta a ponta: coleta → análise → ML → predição → dashboard web.
+Na raiz do repositório, com Python 3.11 ou mais novo (a CI e as imagens Docker usam o 3.12):
 
 ```bash
-cd lotofacil && source venv/bin/activate && pip install -e .
-
-lotofacil dados atualizar       # sincroniza sorteios da API
-lotofacil modelo treinar        # treina ensemble clássico
-lotofacil prever                # gera predição para o próximo concurso
+make instalar P=megasena                     # cria megasena/venv e instala o projeto com as ferramentas de teste
+make testar P=megasena                       # roda o pytest do projeto
+megasena/venv/bin/megasena dados atualizar   # baixa o histórico de concursos da API
+make lint                                    # ruff check ., o mesmo gate da CI
 ```
 
-Veja [lotofacil/README.md](lotofacil/README.md).
+Troque `megasena` por qualquer outro projeto (`lotofacil`, `quina`, `dia-de-sorte`, `super-sete`). Sem `P`, o `make testar` roda os cinco. O `make lint` precisa do `ruff` instalado (`pip install ruff`). `make ajuda` lista todos os alvos.
 
 ---
 
-## Quina
+## Estrutura
 
-Coleta, CLI, modelos de ML e dashboard Flask.
-
-```bash
-cd quina && source venv/bin/activate && pip install -e .
-
-quina dados atualizar           # sincroniza concursos da API
-quina dados status              # status do banco local
-quina modelo treinar            # walk-forward backtest
-quina prever prever             # predição ensemble
+```text
+loteria/
+├── lotofacil/            # coleta, ML clássico e neural, portfólio, CLI e painel
+├── quina/                # coleta, CLI, estratégias, ML e painel
+├── megasena/             # coleta, CLI, ML e painel com bolão
+├── dia-de-sorte/         # coleta, CLI e ML
+├── super-sete/           # coleta e CLI
+├── docs/                 # documentação que vale para mais de um projeto
+├── .github/              # CI (testes, lint, segurança, docker), templates e Dependabot
+├── docker-compose.yml    # sobe os painéis de lotofacil, quina e megasena localmente
+├── Makefile              # instalar, testar, lint e docker
+├── ruff.toml             # configuração de lint compartilhada
+└── CHANGELOG.md  CONTRIBUTING.md  CODE_OF_CONDUCT.md  SECURITY.md  LICENSE
 ```
 
-Veja [quina/README.md](quina/README.md).
+Dentro de cada projeto, o código fica em `src/<pacote>/`, os testes em `testes/` e a configuração em `pyproject.toml`. Os três painéis também têm `Dockerfile` e `entrypoint.sh`. A documentação está indexada em [docs/README.md](docs/README.md).
 
----
-
-## Dia de Sorte
-
-Pacote estruturado com CLI e API:
-
-```bash
-cd dia-de-sorte && source venv/bin/activate && pip install -e .
-
-diadesorte dados atualizar      # sincroniza concursos (bulk)
-diadesorte dados status         # total, último, dezenas, mês da sorte
-```
-
-Veja [dia-de-sorte/README.md](dia-de-sorte/README.md). Scripts legados em `analisar_diadesorte.py`.
-
----
-
-## Super Sete
-
-Pacote estruturado com CLI:
-
-```bash
-cd super-sete && source venv/bin/activate && pip install -e .
-
-supersete dados atualizar       # sincroniza concursos (bulk)
-supersete dados status          # total, último, dígitos
-```
-
-Veja [super-sete/README.md](super-sete/README.md). Scripts legados em `analise_estatistica.py`.
-
----
-
-## API Caixa
-
-Todos os projetos consomem a mesma API:
-
-```
-https://loteriascaixa-api.herokuapp.com/api/<loteria>
-https://loteriascaixa-api.herokuapp.com/api/<loteria>/latest
-https://loteriascaixa-api.herokuapp.com/api/<loteria>/<concurso>
-```
-
-`<loteria>`: `lotofacil`, `megasena`, `quina`, `supersete`, `diadesorte`, `duplasena`, `lotomania`, `timemania`, `maismilionaria`, `federal`
+O pacote `nucleo/`, com o código comum entre as loterias, chega na próxima etapa da reorganização. Por enquanto esse código vive repetido em cada projeto.
 
 ---
 
 ## Dados
 
-Cada projeto contém apenas **amostras** (`dados/sample/` ou `testes/fixtures/`) com os sorteios mais recentes. O dataset completo é baixado via CLI e ignorado pelo `.gitignore`.
+Os projetos baixam os resultados da API pública [loteriascaixa-api](https://github.com/guto-alves/loterias-api), pelo espelho `https://loteriascaixa-api.herokuapp.com/api/<loteria>` (`lotofacil`, `quina`, `megasena`, `diadesorte` e `supersete`). É um serviço de terceiros, sem garantia oficial da Caixa; a estrutura da resposta está em [docs/api-externa.md](docs/api-externa.md).
+
+Cada projeto baixa o histórico de concursos com `<pacote> dados atualizar` (na primeira vez, tudo; depois, só os concursos novos) e mostra o que já tem com `<pacote> dados status`. Os dados ficam em `<projeto>/dados/`.
+
+**Nenhum histórico é versionado.** `dados/` e `saida/` de cada projeto estão no `.gitignore`. Os testes não precisam do histórico: usam `<projeto>/testes/fixtures/` ou dados criados no próprio teste, e os poucos que dependem do histórico local são pulados quando ele não existe.
 
 ---
 
-## Deploy (EasyPanel)
+## Painéis e deploy
 
-Os projetos com dashboard web (lotofacil, quina, megasena) possuem `Dockerfile` próprio:
+Lotofacil, quina e megasena têm um painel web (Flask, servido pelo Gunicorn na porta 5000 do container), com `Dockerfile` próprio, publicado no EasyPanel. O [`docker-compose.yml`](docker-compose.yml) da raiz sobe os três localmente.
 
-| Projeto | Build Context | Dockerfile Path | Port |
-|---------|---------------|------------------|------|
-| lotofacil | `lotofacil` | `Dockerfile` | `5000` |
-| quina | `quina` | `Dockerfile` | `5000` |
-| megasena | `megasena` | `Dockerfile` | `5000` |
+Os painéis **falham fechado**: sem `DASHBOARD_PASSWORD` (login por senha) ou `DASHBOARD_PUBLICO=1` (painel sem senha, confirmado de propósito), o painel não inicia. A rota `/healthz`, que responde sem login, serve ao health check do container.
 
-> O `Dockerfile` na raiz do repositório é legado e **não deve ser usado**.
-
-### Variáveis de ambiente obrigatórias (lotofacil)
-
-O dashboard do **lotofacil** falha fechado: sem `DASHBOARD_PASSWORD` (login
-por senha) ou `DASHBOARD_PUBLICO=1` (painel público, sem senha, confirmado
-explicitamente), o container não sobe. `DASHBOARD_AUTH_SECRET` fixa a chave
-de sessão (sem ela, restart/redeploy derruba todas as sessões de login).
-`DASHBOARD_MAX_JOBS` (padrão `2`) limita quantos jobs pesados — geração,
-treino, backtest — podem rodar ao mesmo tempo antes de responder `429`.
-Detalhes em [lotofacil/README.md](lotofacil/README.md#autenticação-e-variáveis-de-ambiente).
-
-Os dashboards do **quina** e da **megasena** seguem o mesmo contrato:
-`DASHBOARD_PASSWORD` ou `DASHBOARD_PUBLICO=1` são obrigatórias, e
-`DASHBOARD_AUTH_SECRET` mantém as sessões entre restarts.
+A configuração do EasyPanel, os volumes, as variáveis de ambiente e o passo a passo local estão em [docs/deploy.md](docs/deploy.md).
 
 ---
 
-## Licença
+## Contribuir, segurança e licença
 
-MIT — veja [LICENSE](LICENSE).
+- [CONTRIBUTING.md](CONTRIBUTING.md): os princípios do projeto, como montar o ambiente e o que fazer antes de abrir um PR.
+- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md): como esperamos que a comunidade se comporte.
+- [SECURITY.md](SECURITY.md): como reportar uma vulnerabilidade e como implantar com segurança.
+- [CHANGELOG.md](CHANGELOG.md): o que mudou.
+- Licença MIT — veja [LICENSE](LICENSE).

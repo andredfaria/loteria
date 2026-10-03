@@ -33,24 +33,49 @@ Três regras que valem mais que qualquer padrão de código:
 
 ## Ambiente
 
-Cada projeto é autônomo, com seu próprio venv:
+Cada projeto é autônomo, com o próprio venv em `<projeto>/venv`. Na raiz do
+repositório:
 
 ```bash
-cd <projeto> && python -m venv venv && source venv/bin/activate
-pip install -e ".[dev]"
-pytest
+make instalar P=<projeto>   # cria <projeto>/venv, se faltar, e instala o projeto com [dev]
+make testar P=<projeto>     # roda o pytest do projeto (sem P, roda os cinco)
+make lint                   # ruff check ., o mesmo gate da CI
 ```
 
-Os painéis falham fechado. Para rodar a suíte, o `conftest.py` já define
-`DASHBOARD_SKIP_AUTH_CHECK=1`; para rodar o servidor de verdade, defina
-`DASHBOARD_PASSWORD`. Ver [SECURITY.md](SECURITY.md).
+Os projetos são `lotofacil`, `quina`, `megasena`, `dia-de-sorte` e
+`super-sete`. `make ajuda` lista todos os alvos. O `make lint` precisa do `ruff`
+instalado (`pip install ruff`). Sem `make` (no Windows, por exemplo), leia o
+[`Makefile`](Makefile): cada alvo é um comando curto de venv, pip, pytest, ruff
+ou docker.
+
+Os painéis falham fechado. Para rodar a suíte, o `make testar` e os
+`conftest.py` já definem `DASHBOARD_SKIP_AUTH_CHECK=1`; para rodar o servidor de
+verdade, defina `DASHBOARD_PASSWORD`. Ver [SECURITY.md](SECURITY.md).
+
+## Organização
+
+- Cada loteria é uma pasta na raiz, com o código em `src/<pacote>/` e os testes
+  em `testes/`.
+- Documentos de pesquisa ficam em `<projeto>/docs/pesquisa/`. Documento novo
+  ganha uma linha em [docs/README.md](docs/README.md).
+- Nomes de arquivo em ASCII e, nos documentos, em kebab-case
+  (`avaliacao-de-boloes.md`). A CI recusa acento, espaço e `:` no nome de
+  qualquer arquivo versionado.
+- Links relativos entre documentos são verificados pela CI: um `.md` que aponta
+  para um arquivo que não existe falha o PR. Para conferir antes, rode
+  `python3 .github/scripts/verificar_links.py`.
 
 ## Antes de abrir o PR
 
 ```bash
-ruff check .     # gate da CI
-pytest           # no projeto que você tocou
+make lint                  # gate da CI
+make testar P=<projeto>    # no projeto que você tocou
 ```
+
+O PR já abre com um [template](.github/pull_request_template.md) que repete
+essa lista e pergunta pelo retreino de modelos e pelo uso de score no lugar de
+probabilidade. Registre a mudança no [CHANGELOG.md](CHANGELOG.md), na seção
+"Não publicado".
 
 O ruleset do `ruff.toml` é estreito de propósito: pega bug, não estilo. Para
 ampliá-lo, escolha **uma** regra, rode `ruff check --select <REGRA> --fix`,
@@ -61,6 +86,10 @@ revise o diff e abra um PR só disso — assim o diff continua legível.
 Alterar a semântica de uma feature invalida os modelos treinados: os `.joblib`
 continuam carregando e passam a receber colunas com outro significado,
 produzindo lixo em silêncio. Diga no PR o que precisa ser retreinado.
+
+## Conduta
+
+Participar do projeto é aceitar o [Código de Conduta](CODE_OF_CONDUCT.md).
 
 ## Segurança
 

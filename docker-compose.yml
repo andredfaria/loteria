@@ -1,7 +1,8 @@
 # Sobe os painéis localmente com o mesmo Dockerfile que o EasyPanel usa.
 #
-#   cp .env.example .env        # defina DASHBOARD_PASSWORD (ou DASHBOARD_PUBLICO=1)
-#   docker compose up --build megasena
+#   1. copie .env.example para .env (se existir) ou crie um .env com as
+#      variáveis de docs/deploy.md (DASHBOARD_PASSWORD ou DASHBOARD_PUBLICO=1)
+#   2. docker compose up --build megasena
 #
 # Os painéis falham fechado: sem DASHBOARD_PASSWORD nem DASHBOARD_PUBLICO=1
 # o container não sobe. Ver SECURITY.md.
