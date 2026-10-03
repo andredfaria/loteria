@@ -21,6 +21,17 @@ jobs:
       # não estilo. Ampliar uma regra por PR (ver comentário no ruff.toml).
       - run: ruff check .
 
+      - name: nomes de arquivo portáveis
+        # Acento, espaço ou ":" no nome quebram checkout no Windows e links.
+        run: |
+          ruins=$(git -c core.quotepath=false ls-files -z | tr '\0' '\n' | grep -P '[^\x00-\x7F]| |:' || true)
+          if [ -n "$ruins" ]; then
+            echo "Arquivos com nome não portável:"; echo "$ruins"; exit 1
+          fi
+
+      - name: links relativos nos .md
+        run: python .github/scripts/verificar_links.py
+
       - name: formatação (informativo, não bloqueia)
         # 256 arquivos precisariam ser reformatados. Rodar isso como gate hoje
         # produziria um diff que enterra qualquer mudança de conteúdo. Fica
