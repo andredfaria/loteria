@@ -4,7 +4,7 @@ For each draw at index i, computes 8 scalars in [0, 1] measuring how often
 the last K draws satisfied each strategic pattern. These are context signals
 about the recent regime, not predictions for the next draw.
 
-Hierarchy (docs/Hierarquia de Estratégias na Lotofácil):
+Hierarchy (lotofacil/docs/pesquisa/hierarquia-de-estrategias.md):
   Nível 1: Soma (84%)
   Nível 2: Repetidos (70%), Par/Ímpar (56%)
   Nível 3: Moldura (55%), Primos, Fibonacci, Consecutivos, Ciclo

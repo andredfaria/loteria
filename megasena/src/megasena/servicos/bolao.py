@@ -1,6 +1,6 @@
 """Avaliação de bolão da Mega-Sena.
 
-Segue `docs/guia_e_racional_de_avalia_o_de_bol_es.md`: todo volante vira
+Segue `docs/guias/avaliacao-de-boloes.md`: todo volante vira
 combinações simples equivalentes, o custo oficial sai delas, e o valor cobrado
 é comparado com o teto de 35% de taxa de serviço permitido às lotéricas.
 """
@@ -122,7 +122,7 @@ def comparar_boloes(boloes: list[dict]) -> dict:
     combinações / valor_total — o número de cotas se cancela. Por isso o
     critério é o **custo cobrado por combinação simples** (menor é melhor).
     Empate: mais dezenas por volante, que paga quinas/quadras em cascata
-    quando a sena sai. Ver docs/guia_e_racional_de_avalia_o_de_bol_es.md, seção 7.
+    quando a sena sai. Ver docs/guias/avaliacao-de-boloes.md, seção 7.
 
     Cada item de `boloes` tem as chaves de `avaliar_bolao` e, opcionalmente, `nome`.
     """

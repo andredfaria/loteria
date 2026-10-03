@@ -1,4 +1,4 @@
-"""Avaliação de bolão — casos tirados de docs/guia_e_racional_de_avalia_o_de_bol_es.md."""
+"""Avaliação de bolão — casos tirados de docs/guias/avaliacao-de-boloes.md."""
 import pytest
 
 from megasena.dominio.regras import combinacoes_por_aposta, custo_aposta
