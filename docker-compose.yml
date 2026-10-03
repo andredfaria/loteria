@@ -1,18 +1,57 @@
+# Sobe os painéis localmente com o mesmo Dockerfile que o EasyPanel usa.
+#
+#   cp .env.example .env        # defina DASHBOARD_PASSWORD (ou DASHBOARD_PUBLICO=1)
+#   docker compose up --build megasena
+#
+# Os painéis falham fechado: sem DASHBOARD_PASSWORD nem DASHBOARD_PUBLICO=1
+# o container não sobe. Ver SECURITY.md.
+#
+# Este compose é para uso local: as portas ficam presas em 127.0.0.1, então só
+# esta máquina acessa os painéis. Para expor na rede, remova o prefixo
+# "127.0.0.1:" da porta, de preferência só com DASHBOARD_PASSWORD definida.
+#
+# Exige Docker Compose 2.24 ou mais novo, por causa da forma longa do env_file
+# (com required: false).
 services:
-  dashboard:
-    build: .
-    ports:
-      - "5000:5000"
-    environment:
-      - DASHBOARD_HOST=0.0.0.0
-      - DASHBOARD_PORT=5000
+  lotofacil:
+    build: ./lotofacil
+    ports: ["127.0.0.1:5001:5000"]
+    env_file:
+      - path: .env
+        required: false
     volumes:
       - lotofacil_dados:/app/dados
       - lotofacil_saida:/app/saida
-      - lotofacil_db:/app/src
+      - lotofacil_modelos_lab:/app/src/lotofacil/experimentos/saved_models
+    restart: unless-stopped
+
+  quina:
+    build: ./quina
+    ports: ["127.0.0.1:5002:5000"]
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      - quina_dados:/app/dados
+      - quina_saida:/app/saida
+    restart: unless-stopped
+
+  megasena:
+    build: ./megasena
+    ports: ["127.0.0.1:5003:5000"]
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      - megasena_dados:/app/dados
+      - megasena_saida:/app/saida
     restart: unless-stopped
 
 volumes:
   lotofacil_dados:
   lotofacil_saida:
-  lotofacil_db:
+  lotofacil_modelos_lab:
+  quina_dados:
+  quina_saida:
+  megasena_dados:
+  megasena_saida:

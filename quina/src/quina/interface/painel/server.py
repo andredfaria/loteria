@@ -195,7 +195,7 @@ def _check_auth():
         return None
     if session.get("authenticated"):
         return None
-    if request.endpoint in ("login_page", "logout"):
+    if request.endpoint in ("login_page", "logout", "healthz"):
         return None
     if request.path.startswith("/api/"):
         return jsonify({"error": "unauthorized"}), 401
@@ -205,6 +205,17 @@ def _check_auth():
 @app.route("/")
 def index():
     return send_from_directory(str(STATIC_DIR), "dashboard.html")
+
+
+@app.route("/healthz")
+def healthz():
+    """Liveness do container: sem login, sem banco e sem dados na resposta.
+
+    O HEALTHCHECK do Dockerfile consulta esta rota. Antes ele consultava
+    /api/status, que responde 401 quando DASHBOARD_PASSWORD está definida,
+    e o container ficava marcado como unhealthy.
+    """
+    return jsonify({"status": "ok"})
 
 
 @app.route("/api/status")

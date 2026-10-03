@@ -153,7 +153,11 @@ def train(
         import tensorflow  # noqa: F401
     except ImportError:
         console.print("[red]Erro:[/red] TensorFlow não encontrado neste ambiente.")
-        console.print("Reconstrua a imagem Docker: [bold]docker-compose build --no-cache[/bold]")
+        console.print(
+            "Instale as dependências do projeto ([bold]pip install -e .[/bold]) "
+            "ou reconstrua a imagem Docker da lotofacil "
+            "([bold]docker compose build lotofacil[/bold], na raiz do repositório)."
+        )
         raise typer.Exit(1)
     import dataclasses
     import lotofacil.experimentos.config as lab_cfg
