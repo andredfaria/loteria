@@ -11,14 +11,14 @@ P        ?=
 ajuda:
 	@echo "make instalar P=<projeto>   cria <projeto>/venv (se faltar) e instala o projeto com [dev]"
 	@echo "make testar [P=<projeto>]   roda o pytest de um projeto, ou de todos se P for omitido"
-	@echo "make lint                   ruff check . (mesmo gate da CI)"
+	@echo "make lint                   mesmo \`ruff check .\` da CI"
 	@echo "make docker P=<painel>      builda a imagem do painel ($(PAINEIS))"
 	@echo ""
 	@echo "Projetos: $(PROJETOS)"
 
 checar-projeto:
 	@test -n "$(P)" || { echo "Informe o projeto: P=<projeto>. Opções: $(PROJETOS)" >&2; exit 2; }
-	@echo " $(PROJETOS) " | grep -q " $(P) " || { echo "Projeto desconhecido: '$(P)'. Opções: $(PROJETOS)" >&2; exit 2; }
+	@printf '%s\n' $(PROJETOS) | grep -qxF -- "$(P)" || { echo "Projeto desconhecido: '$(P)'. Opções: $(PROJETOS)" >&2; exit 2; }
 
 instalar: checar-projeto
 	test -x $(P)/venv/bin/python || $(PYTHON) -m venv $(P)/venv
@@ -43,5 +43,5 @@ lint:
 	ruff check .
 
 docker: checar-projeto
-	@echo " $(PAINEIS) " | grep -q " $(P) " || { echo "'$(P)' não tem painel nem Dockerfile. Painéis: $(PAINEIS)" >&2; exit 2; }
+	@printf '%s\n' $(PAINEIS) | grep -qxF -- "$(P)" || { echo "'$(P)' não tem painel nem Dockerfile. Painéis: $(PAINEIS)" >&2; exit 2; }
 	docker build -t loteria-$(P):local $(P)

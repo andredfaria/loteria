@@ -1,15 +1,17 @@
 # Código de Conduta
 
+## Nosso compromisso
+
 Este projeto e seus participantes estão comprometidos em criar um ambiente acolhedor e respeitoso para todos, independentemente de idade, compleição física, deficiência, etnia, identidade de gênero, experiência, nacionalidade, aparência pessoal, raça, religião ou identidade e orientação sexual.
 
 ## Comportamentos Esperados
 
-Os membros da comunidade estão esperados a:
+Espera-se que os membros da comunidade:
 
-- Ser respeitoso e inclusivo em todas as interações
-- Reconhecer e respeitar a diversidade de perspectivas e experiências
-- Fornecer e aceitar feedback construtivo de forma graciosa
-- Colaborar de forma positiva para o bem comum do projeto
+- Sejam respeitosos e inclusivos em todas as interações
+- Reconheçam e respeitem a diversidade de perspectivas e experiências
+- Forneçam e aceitem feedback construtivo com receptividade
+- Colaborem de forma positiva para o bem comum do projeto
 
 ## Comportamentos Inaceitáveis
 
@@ -26,7 +28,7 @@ Este Código de Conduta se aplica a todos os espaços do projeto, incluindo repo
 
 ## Aplicação e Denúncias
 
-Violações do Código de Conduta devem ser reportadas de forma privada ao mantenedor do projeto, contatando-o através de uma mensagem privada no GitHub (@andredfaria). Todas as reclamações serão revisadas e investigadas.
+Denúncias devem ser feitas de forma privada ao mantenedor (@andredfaria), pelo mesmo canal privado descrito no [SECURITY.md](SECURITY.md) (um *security advisory* privado no GitHub). Se preferir, abra uma issue pública dizendo apenas "preciso de um contato privado sobre o código de conduta", sem detalhes. Todas as reclamações serão revisadas e investigadas.
 
 ## Consequências
 
@@ -35,7 +37,7 @@ Comportamentos que violam este Código de Conduta podem resultar em:
 - Pedido de desculpa e correção do comportamento
 - Advertência formal
 - Suspensão temporária de participação
-- Remoção permanente da comunidade
+- Banimento permanente
 
 ## Atribuição
 
