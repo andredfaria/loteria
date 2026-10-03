@@ -1,9 +1,15 @@
 # Gerados localmente. O resto está no .gitignore da raiz.
 # dados/ costuma ser symlink para fora do repositório (ex.: ~/lotofacil-dados).
+# `/dados` fica SEM barra final de propósito: `/dados/` só casaria diretório e
+# deixaria o symlink à mostra no git.
 /dados
 /saida
 /backups
 portfolio_*.txt
 portfolio_*.json
-# `lotofacil portfolio` ainda grava aqui (interface/cli/portfolio.py), e não em /saida.
+# Recebe saídas por erro de caminho (ex.: interface/cli/portfolio.py:351 usa 3
+# `.parent` em vez de 5), a corrigir na fase 6. A regra só evita versioná-las.
 /src/lotofacil/saida/
+# Relatórios do lab (`lotofacil lab ablation` e `lab compare`: metrics.json,
+# report.md e PNG), gravados em OUTPUT_DIR (experimentos/config.py).
+/src/lotofacil/experimentos/output/

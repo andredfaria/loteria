@@ -10,12 +10,13 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 *.egg-info/
+.eggs/
 dist/
 build/
 
 # ── Dados, saídas e modelos ────────────────────────────────────────────────────
-# Cada projeto ignora a própria dados/ e saida/ no seu .gitignore. Nenhum dado
-# real é versionado: os testes usam <projeto>/testes/fixtures/.
+# Cada projeto ignora a própria dados/ e saida/ no seu .gitignore.
+# Nenhum dataset é versionado; só fixtures de teste (`<projeto>/testes/fixtures/`).
 *.joblib
 *.keras
 *.h5
@@ -30,6 +31,8 @@ build/
 
 # ── Ambiente local ─────────────────────────────────────────────────────────────
 .env
+.env.*
+!.env.example
 
 # ── Ferramentas de IA (uso local de desenvolvimento, não versionar) ────────────
 CLAUDE.md
@@ -41,7 +44,6 @@ AGENTS.md
 .claude-flow/
 .swarm/
 .worktrees/
-ruvector.db
 prompt*.md
 promtp*.md
 PROMPT*.md

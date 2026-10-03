@@ -1,3 +1,6 @@
 # Gerados localmente. O resto está no .gitignore da raiz.
+# dados/ costuma ser symlink para fora do repositório (ex.: ~/quina-dados).
+# `/dados` fica SEM barra final de propósito: `/dados/` só casaria diretório e
+# deixaria o symlink à mostra no git.
 /dados
 /saida
