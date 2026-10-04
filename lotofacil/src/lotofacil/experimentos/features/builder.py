@@ -152,5 +152,49 @@ class ModularFeatureBuilder:
 
         Returns shape (1, window, n_features) — suitable for model.predict().
         """
-        X, _, _ = self.build_sequences()
-        return X[[-1]]
+        cfg = self.config
+        w = cfg.window_size
+        if self.n <= w:
+            raise ValueError(
+                f"Not enough draws: need >{w}, got {self.n}. "
+                "Reduce window_size or load more data."
+            )
+
+        # Gerar todas as sequências para usar apenas a última criava um tensor
+        # O(n × janela × atributos) em cada passo do walk-forward. As matrizes
+        # por draw mantêm exatamente a mesma definição dos atributos; aqui só
+        # recortamos a janela que build_sequences() usava como último exemplo
+        # (antes do último sorteio, já que ele é o alvo do último y).
+        latest = slice(-w - 1, -1)
+        blocks: List[np.ndarray] = []
+        climate_seq = lunar_seq = None
+        if cfg.use_base_history:
+            blocks.append(
+                feat_base.build_base_matrix(self.draws, freq_windows=cfg.freq_windows[:3])[latest]
+            )
+        if cfg.use_temporal:
+            blocks.append(feat_temporal.build_temporal_matrix(self.draws)[latest])
+        if cfg.use_strategy_priors:
+            blocks.append(feat_priors.build_strategy_priors_matrix(self.draws)[latest])
+        if cfg.use_climate:
+            climate_seq = feat_climate.get_climate_matrix(self.draws)[latest]
+            blocks.append(climate_seq)
+        if cfg.use_lunar:
+            lunar_seq = feat_lunar.get_lunar_matrix(self.draws)[latest]
+            blocks.append(lunar_seq)
+        if cfg.use_interactions:
+            if climate_seq is None or lunar_seq is None:
+                logger.warning(
+                    "use_interactions=True requires use_climate=True AND use_lunar=True. "
+                    "Skipping interactions block."
+                )
+            else:
+                blocks.append(
+                    feat_interactions.build_interaction_sequences(
+                        climate_seq[None, ...], lunar_seq[None, ...]
+                    )[0]
+                )
+
+        if not blocks:
+            raise ValueError("No feature blocks selected. Set at least one use_* flag to True.")
+        return np.concatenate(blocks, axis=-1)[None, ...].astype(np.float32, copy=False)

@@ -4249,6 +4249,22 @@ function _collectRoiFilters() {
   return filtros;
 }
 
+async function _waitDashboardJob(taskId, onWaiting) {
+  while (true) {
+    const resp = await fetch(`/api/jobs/${encodeURIComponent(taskId)}/result`);
+    const data = await resp.json();
+    if (resp.status !== 202 && !resp.ok) {
+      throw new Error(data.error || 'Erro ao consultar o processamento');
+    }
+    if (data.done) {
+      if (data.success === false || data.error) throw new Error(data.error || 'Processamento falhou');
+      return data.result;
+    }
+    if (onWaiting) onWaiting();
+    await new Promise(resolve => setTimeout(resolve, 1500));
+  }
+}
+
 async function runRoiBacktest() {
   const btn = document.getElementById('roiRunBtn');
   btn.disabled = true;
@@ -4266,9 +4282,13 @@ async function runRoiBacktest() {
     });
     const data = await resp.json();
     if (data.error) throw new Error(data.error);
-    _roiLastResult = data;
+    if (!resp.ok) throw new Error(data.error || 'Erro ao iniciar o backtest');
+    const result = await _waitDashboardJob(data.task_id, () => {
+      btn.textContent = '⏳ Backtest em andamento…';
+    });
+    _roiLastResult = result;
     _roiLastFiltros = filtros;
-    _renderRoiResults(data);
+    _renderRoiResults(result);
   } catch (e) {
     document.getElementById('roiResults').innerHTML =
       `<div style="color:var(--error,#f44);padding:1rem">Erro: ${esc(e.message)}</div>`;
@@ -4477,7 +4497,11 @@ async function runRoiAutoDiscover() {
     });
     const data = await resp.json();
     if (data.error) throw new Error(data.error);
-    _renderAutoDiscoverResult(data);
+    if (!resp.ok) throw new Error(data.error || 'Erro ao iniciar a análise');
+    const result = await _waitDashboardJob(data.task_id, () => {
+      if (btn) btn.textContent = '⏳ Analisando estratégias…';
+    });
+    _renderAutoDiscoverResult(result);
   } catch (e) {
     if (el) el.innerHTML = `<div style="color:var(--error,#f44);font-size:0.75rem">Erro: ${esc(e.message)}</div>`;
   } finally {
@@ -4568,7 +4592,10 @@ async function gerarFechamento() {
     });
     const d = await r.json();
     if (!r.ok || d.error) throw new Error(d.error || 'Erro ao gerar fechamento');
-    out.innerHTML = _renderFechamentoResultado(d);
+    const resultado = await _waitDashboardJob(d.task_id, () => {
+      out.innerHTML = '<div style="color:var(--muted);font-size:0.8rem">⏳ Calculando garantia…</div>';
+    });
+    out.innerHTML = _renderFechamentoResultado(resultado);
   } catch (e) {
     out.innerHTML = `<div style="color:#e5534b;font-size:0.82rem">❌ ${e.message}</div>`;
     showToast(`❌ ${e.message}`, 'error');

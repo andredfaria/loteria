@@ -11,41 +11,55 @@ from lotofacil.infra.dados.banco import DatabaseManager
 
 _TODOS_NUMEROS: list[int] = list(range(1, 26))
 _MAX_TENTATIVAS: int = 200
+_MASCARA_PARES = sum(1 << (n - 1) for n in range(2, 26, 2))
+_MASCARA_PRIMOS = sum(1 << (n - 1) for n in PRIMOS)
+_MASCARA_FIBONACCI = sum(1 << (n - 1) for n in FIBONACCI)
+_MASCARA_MOLDURA = sum(1 << (n - 1) for n in MOLDURA)
+
+
+def _mascara(numeros: list[int] | None) -> int:
+    mask = 0
+    for n in numeros or ():
+        mask |= 1 << (n - 1)
+    return mask
 
 
 def _valida_filtros(
     numeros: list[int],
     filtros: dict[str, Any],
     anterior: list[int] | None,
+    anterior_mask: int | None = None,
 ) -> bool:
     soma = sum(numeros)
     if (f := filtros.get("soma")) is not None and not (f[0] <= soma <= f[1]):
         return False
 
-    pares = sum(1 for n in numeros if n % 2 == 0)
+    mask = _mascara(numeros)
+    pares = (mask & _MASCARA_PARES).bit_count()
     if (f := filtros.get("pares")) is not None and not (f[0] <= pares <= f[1]):
         return False
 
-    primos = sum(1 for n in numeros if n in PRIMOS)
+    primos = (mask & _MASCARA_PRIMOS).bit_count()
     if (f := filtros.get("primos")) is not None and not (f[0] <= primos <= f[1]):
         return False
 
-    fibs = sum(1 for n in numeros if n in FIBONACCI)
+    fibs = (mask & _MASCARA_FIBONACCI).bit_count()
     if (f := filtros.get("fibonacci")) is not None and not (f[0] <= fibs <= f[1]):
         return False
 
-    moldura = sum(1 for n in numeros if n in MOLDURA)
+    moldura = (mask & _MASCARA_MOLDURA).bit_count()
     if (f := filtros.get("moldura")) is not None and not (f[0] <= moldura <= f[1]):
         return False
 
     if anterior is not None and (f := filtros.get("repeticoes")) is not None:
-        rep = len(set(numeros) & set(anterior))
+        if anterior_mask is None:
+            anterior_mask = _mascara(anterior)
+        rep = (mask & anterior_mask).bit_count()
         if not (f[0] <= rep <= f[1]):
             return False
 
     if (f := filtros.get("consecutivos")) is not None:
-        s = sorted(numeros)
-        consec = sum(1 for i in range(len(s) - 1) if s[i + 1] - s[i] == 1)
+        consec = (mask & (mask >> 1)).bit_count()
         if consec < f:
             return False
 
@@ -57,9 +71,10 @@ def _gerar_jogo_filtrado(
     anterior: list[int] | None,
     rng: random.Random,
 ) -> list[int] | None:
+    anterior_mask = _mascara(anterior)
     for _ in range(_MAX_TENTATIVAS):
         candidato = sorted(rng.sample(_TODOS_NUMEROS, 15))
-        if _valida_filtros(candidato, filtros, anterior):
+        if _valida_filtros(candidato, filtros, anterior, anterior_mask):
             return candidato
     return None
 

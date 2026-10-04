@@ -17,6 +17,8 @@ from __future__ import annotations
 import itertools
 from typing import Iterable
 
+import numpy as np
+
 TAMANHO_JOGO_PADRAO = 15
 
 
@@ -69,11 +71,49 @@ def _candidatos(pool: list[int], tamanho_jogo: int) -> list[int]:
     return [para_bitmask(c) for c in itertools.combinations(pool, tamanho_jogo)]
 
 
-def _cobre(candidatos: list[int], subsets: list[int], t: int, limite: int) -> list[int] | None:
+def _cobre(
+    candidatos: list[int], subsets: list[int], t: int, limite: int,
+    hits: np.ndarray | None = None,
+) -> list[int] | None:
     """Covering guloso: cobre todo subset com >=t acertos em <=limite jogos.
 
     Retorna a lista de jogos (<=limite) se conseguir cobrir tudo; senão None.
     """
+    if hits is not None:
+        # Cada candidato vira um bitset com os subconjuntos que cobre. A busca
+        # gulosa passa a contar subconjuntos via bit_count, sem reconstruir sets
+        # e recalcular interseções em cada iteração.
+        coberturas = []
+        for row in hits:
+            mask = 0
+            for i in np.flatnonzero(row >= t):
+                mask |= 1 << int(i)
+            coberturas.append(mask)
+        descobertos = (1 << len(subsets)) - 1
+        escolhidos: list[int] = []
+        while descobertos:
+            if len(escolhidos) >= limite:
+                return None
+            melhor_idx = -1
+            melhor_cobertura = 0
+            melhor_tamanho = 0
+            for idx, cobertura in enumerate(coberturas):
+                cobre = cobertura & descobertos
+                tamanho = cobre.bit_count()
+                if tamanho > melhor_tamanho or (
+                    tamanho == melhor_tamanho
+                    and melhor_idx >= 0
+                    and candidatos[idx] < candidatos[melhor_idx]
+                ):
+                    melhor_idx = idx
+                    melhor_cobertura = cobre
+                    melhor_tamanho = tamanho
+            if not melhor_cobertura:
+                return None
+            escolhidos.append(candidatos[melhor_idx])
+            descobertos &= ~melhor_cobertura
+        return escolhidos
+
     descobertos = set(range(len(subsets)))
     escolhidos: list[int] = []
     while descobertos:
@@ -97,9 +137,37 @@ def _cobre(candidatos: list[int], subsets: list[int], t: int, limite: int) -> li
 
 
 def _preencher(jogos: list[int], candidatos: list[int], subsets: list[int],
-               n_jogos: int) -> list[int]:
+               n_jogos: int, hits: np.ndarray | None = None) -> list[int]:
     """Preenche até n_jogos escolhendo o candidato que mais eleva a cobertura total."""
     jogos = list(jogos)
+    if hits is not None:
+        score_hits = hits.astype(np.int16, copy=False)
+        candidate_index = {cand: i for i, cand in enumerate(candidatos)}
+        if jogos:
+            melhor_por_subset = hits[[candidate_index[j] for j in jogos]].max(axis=0)
+        else:
+            melhor_por_subset = np.zeros(len(subsets), dtype=np.uint8)
+        usados = set(jogos)
+        while len(jogos) < n_jogos:
+            ganhos = np.maximum(score_hits - melhor_por_subset, 0).sum(axis=1)
+            melhor_cand = None
+            melhor_ganho = -1
+            for idx, cand in enumerate(candidatos):
+                ganho = int(ganhos[idx])
+                if ganho > melhor_ganho or (
+                    ganho == melhor_ganho and melhor_cand is not None and cand < melhor_cand
+                ):
+                    if ganho == melhor_ganho and cand in usados and melhor_cand not in usados:
+                        continue
+                    melhor_cand, melhor_ganho = cand, ganho
+                    melhor_idx = idx
+            if melhor_cand is None:
+                break
+            jogos.append(melhor_cand)
+            usados.add(melhor_cand)
+            melhor_por_subset = np.maximum(melhor_por_subset, score_hits[melhor_idx])
+        return jogos
+
     melhor_por_subset = [max((acertos(j, s) for j in jogos), default=0) for s in subsets]
     usados = set(jogos)
     while len(jogos) < n_jogos:
@@ -151,13 +219,26 @@ def gerar_fechamento(
     candidatos = _candidatos(pool, tamanho_jogo)
     subsets = _subconjuntos_mask(pool, alvo_p)
 
+    # A matriz compacta é vantajosa para tamanhos usuais (pool 15–20). Para
+    # produtos maiores, evita alocar uma tabela que não caberia confortavelmente
+    # na memória e mantém o caminho exato anterior.
+    hits = None
+    if len(candidatos) * len(subsets) <= 4_000_000:
+        hits = np.empty((len(candidatos), len(subsets)), dtype=np.uint8)
+        for i, candidato in enumerate(candidatos):
+            hits[i] = np.fromiter(
+                (acertos(candidato, subset) for subset in subsets),
+                dtype=np.uint8,
+                count=len(subsets),
+            )
+
     melhor_jogos: list[int] = []
     teto_t = min(tamanho_jogo, alvo_p)
     for t in range(teto_t, 0, -1):
-        cobertura = _cobre(candidatos, subsets, t, n_jogos)
+        cobertura = _cobre(candidatos, subsets, t, n_jogos, hits)
         if cobertura is not None:
             melhor_jogos = cobertura
             break
 
-    melhor_jogos = _preencher(melhor_jogos, candidatos, subsets, n_jogos)
+    melhor_jogos = _preencher(melhor_jogos, candidatos, subsets, n_jogos, hits)
     return [para_dezenas(m) for m in melhor_jogos]

@@ -15,6 +15,13 @@ def _count_hits(predicted: List[int], actual: List[int]) -> int:
     return len(set(predicted) & set(actual))
 
 
+def _numbers_mask(numbers: List[int]) -> int:
+    mask = 0
+    for number in numbers:
+        mask |= 1 << (number - 1)
+    return mask
+
+
 class LotofacilMetrics:
 
     @staticmethod
@@ -26,7 +33,9 @@ class LotofacilMetrics:
         """
         dist = {t: 0 for t in HIT_THRESHOLDS}
         for r in results:
-            hits = r.get("hits", _count_hits(r["predicted"], r["actual"]))
+            # dict.get avalia o default eagerly: recalcular os acertos aqui fazia
+            # interseções de sets mesmo quando o backtest já os havia informado.
+            hits = r["hits"] if "hits" in r else _count_hits(r["predicted"], r["actual"])
             if hits in dist:
                 dist[hits] += 1
         return dist
@@ -37,7 +46,7 @@ class LotofacilMetrics:
         if not results:
             return 0.0
         totals = [
-            r.get("hits", _count_hits(r["predicted"], r["actual"]))
+            r["hits"] if "hits" in r else _count_hits(r["predicted"], r["actual"])
             for r in results
         ]
         return float(np.mean(totals))
@@ -70,17 +79,18 @@ class LotofacilMetrics:
         all_numbers = list(range(1, TOTAL_NUMBERS + 1))
 
         model_hits = [
-            r.get("hits", _count_hits(r["predicted"], r["actual"]))
+            r["hits"] if "hits" in r else _count_hits(r["predicted"], r["actual"])
             for r in results
         ]
+        actual_masks = [_numbers_mask(r["actual"]) for r in results]
         model_mean = float(np.mean(model_hits)) if model_hits else 0.0
 
         sim_means = []
         for _ in range(n_simulations):
             sim_hits = []
-            for r in results:
+            for actual_mask in actual_masks:
                 rand_pick = rng.sample(all_numbers, NUMBERS_PER_DRAW)
-                sim_hits.append(_count_hits(rand_pick, r["actual"]))
+                sim_hits.append((_numbers_mask(rand_pick) & actual_mask).bit_count())
             sim_means.append(float(np.mean(sim_hits)))
 
         random_mean = float(np.mean(sim_means))
@@ -111,7 +121,7 @@ def rmse_expected_hits(results: List[dict]) -> float:
         return 0.0
     errors = []
     for r in results:
-        actual_hits = r.get("hits", _count_hits(r["predicted"], r["actual"]))
+        actual_hits = r["hits"] if "hits" in r else _count_hits(r["predicted"], r["actual"])
         probas = r.get("probas")
         if probas is not None:
             expected = float(sum(probas[n - 1] for n in r["actual"]))
@@ -129,7 +139,7 @@ def mae_expected_hits(results: List[dict]) -> float:
         return 0.0
     errors = []
     for r in results:
-        actual_hits = r.get("hits", _count_hits(r["predicted"], r["actual"]))
+        actual_hits = r["hits"] if "hits" in r else _count_hits(r["predicted"], r["actual"])
         probas = r.get("probas")
         if probas is not None:
             expected = float(sum(probas[n - 1] for n in r["actual"]))

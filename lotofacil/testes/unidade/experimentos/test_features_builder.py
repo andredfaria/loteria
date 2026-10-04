@@ -88,3 +88,14 @@ def test_build_for_prediction_shape(sample_draws):
     x = builder.build_for_prediction()
     assert x.shape[0] == 1
     assert x.shape[1] == _W
+
+
+@pytest.mark.parametrize("cfg", [
+    _cfg(),
+    _cfg(use_temporal=True, use_strategy_priors=True),
+    _cfg(use_lunar=True),
+])
+def test_build_for_prediction_matches_last_training_sequence(sample_draws, cfg):
+    builder = ModularFeatureBuilder(sample_draws, cfg)
+    sequences, _, _ = builder.build_sequences()
+    np.testing.assert_array_equal(builder.build_for_prediction(), sequences[-1:])

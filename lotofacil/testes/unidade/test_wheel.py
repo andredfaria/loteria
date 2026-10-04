@@ -88,6 +88,21 @@ def test_respeita_orcamento_e_pool():
         assert set(j) <= set(pool)
 
 
+def test_otimizacao_preserva_jogos_do_pool_padrao():
+    # Snapshot da implementação anterior: aceleração deve preservar inclusive
+    # os desempates determinísticos do algoritmo guloso.
+    assert gerar_fechamento(list(range(1, 19)), n_jogos=8) == [
+        list(range(1, 16)),
+        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 16, 17, 18],
+        [1, 2, 3, 4, 5, 6, 7, 8, 9, 13, 14, 15, 16, 17, 18],
+        [1, 2, 3, 4, 5, 6, 10, 11, 12, 13, 14, 15, 16, 17, 18],
+        [1, 2, 3, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18],
+        [1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
+        [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 17, 18],
+        [1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 13, 14, 16, 17, 18],
+    ]
+
+
 def test_monotonicidade_mais_jogos_nao_piora():
     pool = [1, 2, 3, 4, 5, 6]
     poucos = [para_bitmask(j) for j in gerar_fechamento(pool, n_jogos=2, tamanho_jogo=3)]

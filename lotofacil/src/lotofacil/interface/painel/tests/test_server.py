@@ -1,6 +1,7 @@
 """Tests for dashboard server API endpoints."""
 import json
 import sqlite3 as _sqlite3
+import time
 from pathlib import Path
 
 import pytest
@@ -221,29 +222,48 @@ def test_api_dados_atraso_chaves(client):
 
 # ── ROI Lab endpoints ──────────────────────────────────────────
 
-def test_api_roi_backtest_retorna_200(client):
+def test_api_roi_backtest_retorna_job_background(client, tmp_path, monkeypatch):
     from unittest.mock import patch
 
-    fake_draws = [
-        {"concurso": i, "data": "01/01/2020", "dezenas": list(range(i, i + 15))}
-        for i in range(1, 4)
-    ]
-    with patch("lotofacil.servicos.roi_lab.DatabaseManager") as MockDB:
-        MockDB.return_value.get_all_concursos.return_value = fake_draws
+    monkeypatch.setattr(server_module, "_registry", TreinoRegistry(tmp_path / "jobs.db"))
+    monkeypatch.setattr(server_module, "_JOB_RESULTS_DIR", tmp_path / "results")
+    with patch.object(server_module, "_rodar_backtest_roi", return_value={"ok": True}):
         resp = client.post(
             "/api/roi/backtest",
             json={"filtros": {"soma": [171, 220]}, "n_jogos": 2, "janela": None},
         )
-    assert resp.status_code == 200
+        assert resp.status_code == 202
+        task_id = json.loads(resp.data)["task_id"]
+        result = None
+        for _ in range(100):
+            result_resp = client.get(f"/api/jobs/{task_id}/result")
+            if result_resp.status_code == 200:
+                result = json.loads(result_resp.data)
+                break
+            time.sleep(0.01)
+    assert result == {"done": True, "success": True, "result": {"ok": True}}
 
 
-def test_api_roi_backtest_chaves_resposta(client):
+def test_api_roi_backtest_resultado_preserva_payload(client, tmp_path, monkeypatch):
     from unittest.mock import patch
 
-    fake_draws = [{"concurso": 1, "data": "01/01/2020", "dezenas": list(range(1, 16))}]
-    with patch("lotofacil.servicos.roi_lab.DatabaseManager") as MockDB:
-        MockDB.return_value.get_all_concursos.return_value = fake_draws
-        data = json.loads(client.post("/api/roi/backtest", json={"filtros": {}, "n_jogos": 1}).data)
+    roi_result = {
+        "estrategia": {"roi_pct": -10},
+        "baseline": {"roi_pct": -12},
+    }
+    monkeypatch.setattr(server_module, "_registry", TreinoRegistry(tmp_path / "jobs.db"))
+    monkeypatch.setattr(server_module, "_JOB_RESULTS_DIR", tmp_path / "results")
+    with patch.object(server_module, "_rodar_backtest_roi", return_value=roi_result):
+        started = client.post("/api/roi/backtest", json={"filtros": {}, "n_jogos": 1})
+        task_id = json.loads(started.data)["task_id"]
+        data = None
+        for _ in range(100):
+            response = client.get(f"/api/jobs/{task_id}/result")
+            if response.status_code == 200:
+                data = json.loads(response.data)["result"]
+                break
+            time.sleep(0.01)
+    assert data is not None
     assert "estrategia" in data
     assert "baseline" in data
     assert "roi_pct" in data["estrategia"]

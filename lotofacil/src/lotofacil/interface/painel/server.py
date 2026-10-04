@@ -57,6 +57,7 @@ _model_cache: dict = {}
 # Serializa load + predict (Keras não é thread-safe para predict concorrente);
 # mantém o resto do dashboard responsivo enquanto a geração roda.
 _model_lock = threading.Lock()
+_job_result_lock = threading.Lock()
 _SRC = Path(__file__).resolve().parent.parent.parent.parent.parent / "src"
 _LOTOFACIL_BIN = str(Path(sys.executable).parent / "lotofacil")
 
@@ -65,9 +66,11 @@ _LOTOFACIL_BIN = str(Path(sys.executable).parent / "lotofacil")
 # TensorFlow simultâneos — DoS trivial de CPU/memória. Não enfileira: acima
 # do limite, a requisição recebe 429 imediatamente (ver _acquire_job_slot).
 try:
-    DASHBOARD_MAX_JOBS = max(1, int(os.environ.get("DASHBOARD_MAX_JOBS", "2")))
+    # Treino, backtest, ROI e fechamento disputam os mesmos núcleos; por padrão
+    # serializa jobs CPU-bound para evitar que duas tarefas saturem o container.
+    DASHBOARD_MAX_JOBS = max(1, int(os.environ.get("DASHBOARD_MAX_JOBS", "1")))
 except ValueError:
-    DASHBOARD_MAX_JOBS = 2
+    DASHBOARD_MAX_JOBS = 1
 _job_semaphore = threading.Semaphore(DASHBOARD_MAX_JOBS)
 
 
@@ -85,6 +88,7 @@ SAIDA_DIR = _SAIDA_DIR
 _ROI_STRATEGIES_PATH: Path = _SAIDA_DIR / "roi_strategies.json"
 MODELS_CORE_DIR = MODELOS_DIR
 MODELS_LAB_DIR = SAIDA_DIR / "experimentos"
+_JOB_RESULTS_DIR = SAIDA_DIR / "job_results"
 
 # Lab experiment models: src/lotofacil/experimentos/saved_models/
 _LAB_MODELS_DIR = Path(__file__).resolve().parents[2] / "experimentos" / "saved_models"
@@ -475,6 +479,7 @@ def _build_quality_payload(window_size: int = 120) -> dict:
 
     rng = random.Random(RANDOM_SEED)
     all_numbers = list(range(1, TOTAL_NUMBERS + 1))
+    number_bits = {number: 1 << (number - 1) for number in all_numbers}
 
     models = []
     for approach, grp in sorted(by_approach.items()):
@@ -483,7 +488,13 @@ def _build_quality_payload(window_size: int = 120) -> dict:
         baseline = LotofacilMetrics.vs_random_baseline(results, n_simulations=200)
 
         model_hits = [g["hits"] for g in grp_sorted]
-        baseline_hits = [len(set(rng.sample(all_numbers, NUMBERS_PER_DRAW)) & set(g["actual"])) for g in grp_sorted]
+        actual_masks = [sum(number_bits[n] for n in set(g["actual"])) for g in grp_sorted]
+        baseline_hits = []
+        for actual_mask in actual_masks:
+            random_mask = 0
+            for number in rng.sample(all_numbers, NUMBERS_PER_DRAW):
+                random_mask |= number_bits[number]
+            baseline_hits.append((random_mask & actual_mask).bit_count())
         sig = compare_vs_baseline(model_hits, baseline_hits)
 
         std_hits = float(statistics.pstdev(model_hits)) if len(model_hits) > 1 else 0.0
@@ -572,11 +583,19 @@ def _build_model_trend(window_short: int = 20, window_long: int = 50) -> dict:
     series.sort(key=lambda r: r["concurso"])
     hits_values = [r["hits"] for r in series]
 
+    # Prefix sums reduce the rolling averages from O(n * janela) to O(n).
+    prefix = [0]
+    for hits in hits_values:
+        prefix.append(prefix[-1] + hits)
     for i, row in enumerate(series):
-        short_slice = hits_values[max(0, i - window_short + 1):i + 1]
-        long_slice = hits_values[max(0, i - window_long + 1):i + 1]
-        row["rolling_mean_20"] = round(float(sum(short_slice) / len(short_slice)), 4)
-        row["rolling_mean_50"] = round(float(sum(long_slice) / len(long_slice)), 4)
+        short_start = max(0, i - window_short + 1)
+        long_start = max(0, i - window_long + 1)
+        row["rolling_mean_20"] = round(
+            (prefix[i + 1] - prefix[short_start]) / (i + 1 - short_start), 4
+        )
+        row["rolling_mean_50"] = round(
+            (prefix[i + 1] - prefix[long_start]) / (i + 1 - long_start), 4
+        )
 
     tail_short = series[-window_short:]
     hit_rate_11_short = sum(1 for r in tail_short if r["hits"] >= 11) / len(tail_short)
@@ -638,6 +657,15 @@ def _build_dados_page(page: int, per_page: int) -> dict:
     clima_dir = DADOS_DIR / "clima"
     lua_dir = DADOS_DIR / "lua"
 
+    # Um glob por requisição, em vez de varrer todos os arquivos de clima para
+    # cada concurso exibido (O(páginas × arquivos_clima)). O padrão de arquivo
+    # contém o concurso antes do hífen.
+    clima_por_concurso: dict[str, Path] = {}
+    if clima_dir.exists():
+        for clima_file in clima_dir.glob("clima_concurso*.json"):
+            nome = clima_file.name.removeprefix("clima_concurso").split("-", 1)[0]
+            clima_por_concurso.setdefault(nome, clima_file)
+
     items = []
     for f in page_files:
         try:
@@ -649,10 +677,10 @@ def _build_dados_page(page: int, per_page: int) -> dict:
             # Climate
             clima = None
             if clima_dir.exists():
-                matches = list(clima_dir.glob(f"clima_concurso{concurso}-*.json"))
-                if matches:
+                clima_file = clima_por_concurso.get(str(concurso))
+                if clima_file:
                     try:
-                        c = json.loads(matches[0].read_text())
+                        c = json.loads(clima_file.read_text())
                         hourly = c.get("hourly", {})
                         temps = hourly.get("temperature_2m", [])
                         precips = hourly.get("precipitation", [])
@@ -1192,6 +1220,73 @@ def _run_command_slotted(
         _release_job_slot()
 
 
+def _run_callable_slotted(task_id: str, callback) -> None:
+    """Run an in-process CPU task behind the same bounded job semaphore."""
+    result_path = _JOB_RESULTS_DIR / f"{task_id}.json"
+    success = False
+    try:
+        _JOB_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+        _registry.write_line(task_id, "Processamento iniciado em background.")
+        result = callback()
+        temporary_path = result_path.with_suffix(".tmp")
+        temporary_path.write_text(
+            json.dumps({"success": True, "result": result}, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        temporary_path.replace(result_path)
+        _registry.write_line(task_id, "Processamento concluído.")
+        success = True
+    except Exception as exc:
+        LOGGER.exception("TASK %s failed", task_id)
+        try:
+            _JOB_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+            result_path.write_text(
+                json.dumps({"success": False, "error": str(exc)}, ensure_ascii=False),
+                encoding="utf-8",
+            )
+            _registry.write_line(task_id, f"Erro: {exc}")
+        except Exception:
+            LOGGER.exception("TASK %s: failed to persist error", task_id)
+    finally:
+        _release_job_slot()
+        try:
+            _registry.finish_job(task_id, success)
+        except Exception:
+            LOGGER.exception("TASK %s: failed to finish job record", task_id)
+
+
+def _start_callable_job(task_prefix: str, callback) -> str | None:
+    """Create and start one bounded background job, returning its task id."""
+    if not _acquire_job_slot():
+        return None
+    try:
+        with _job_result_lock:
+            _JOB_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+            results = sorted(
+            _JOB_RESULTS_DIR.glob("*.json"),
+                key=lambda path: path.stat().st_mtime,
+                reverse=True,
+            )
+            cutoff = time.time() - 7 * 24 * 60 * 60
+            for stale in results[100:]:
+                stale.unlink(missing_ok=True)
+            for result in results[:100]:
+                if result.stat().st_mtime < cutoff:
+                    result.unlink(missing_ok=True)
+        task_id = f"{task_prefix}_{int(time.time() * 1000)}_{uuid.uuid4().hex[:8]}"
+        _registry.create_job(task_id)
+        thread = threading.Thread(
+            target=_run_callable_slotted,
+            args=(task_id, callback),
+            daemon=True,
+        )
+        thread.start()
+    except BaseException:
+        _release_job_slot()
+        raise
+    return task_id
+
+
 def _run_command(
     task_id: str,
     registry: "TreinoRegistry",
@@ -1513,6 +1608,21 @@ def api_treinos_comparar():
 def api_jobs_poll(task_id: str):
     offset = request.args.get("offset", default=0, type=int)
     return jsonify(_registry.poll_job(task_id, offset))
+
+
+@app.route("/api/jobs/<task_id>/result")
+def api_jobs_result(task_id: str):
+    if not re.fullmatch(r"(?:roi_(?:backtest|autodiscover)|fechamento)_\d+_[a-f0-9]{8}", task_id):
+        return jsonify({"error": "Job inválido"}), 404
+    status = _registry.poll_job(task_id, 0)
+    if not status["done"]:
+        return jsonify({"done": False}), 202
+    path = _JOB_RESULTS_DIR / f"{task_id}.json"
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return jsonify({"done": True, "error": "Resultado do job indisponível"}), 500
+    return jsonify({"done": True, **payload})
 
 
 @app.route("/api/jobs/<task_id>/cancel", methods=["POST"])
@@ -1927,16 +2037,21 @@ def api_roi_backtest():
     except (TypeError, ValueError):
         holdout_pct = 0.0
     try:
-        result = _rodar_backtest_roi(
-            filtros,
-            n_jogos_por_sorteio=n_jogos,
-            janela=janela,
-            holdout_pct=holdout_pct,
+        task_id = _start_callable_job(
+            "roi_backtest",
+            lambda: _rodar_backtest_roi(
+                filtros,
+                n_jogos_por_sorteio=n_jogos,
+                janela=janela,
+                holdout_pct=holdout_pct,
+            ),
         )
-        return jsonify(result)
     except Exception as exc:
-        LOGGER.exception("roi backtest error")
+        LOGGER.exception("roi backtest startup error")
         return jsonify({"error": str(exc)}), 500
+    if task_id is None:
+        return _too_many_jobs_response()
+    return jsonify({"task_id": task_id}), 202
 
 
 @app.route("/api/roi/strategies", methods=["GET"])
@@ -1978,11 +2093,19 @@ def api_roi_autodiscover():
     except (TypeError, ValueError):
         n_jogos, holdout_pct = 3, 0.2
     try:
-        result = _auto_descobrir_roi(n_jogos_por_sorteio=n_jogos, holdout_pct=holdout_pct)
-        return jsonify(result)
+        task_id = _start_callable_job(
+            "roi_autodiscover",
+            lambda: _auto_descobrir_roi(
+                n_jogos_por_sorteio=n_jogos,
+                holdout_pct=holdout_pct,
+            ),
+        )
     except Exception as exc:
-        LOGGER.exception("roi autodiscover error")
+        LOGGER.exception("roi autodiscover startup error")
         return jsonify({"error": str(exc)}), 500
+    if task_id is None:
+        return _too_many_jobs_response()
+    return jsonify({"task_id": task_id}), 202
 
 
 @app.route("/api/fechamento", methods=["POST"])
@@ -2001,7 +2124,10 @@ def api_fechamento():
     except (TypeError, ValueError):
         return jsonify({"error": "parâmetros inválidos"}), 400
 
-    try:
+    if not 15 <= pool_size <= 25:
+        return jsonify({"error": "pool_size deve estar entre 15 e 25"}), 400
+
+    def executar_fechamento() -> dict:
         r = gerar_fechamento_service(
             pool_size=pool_size,
             n_jogos=n_jogos,
@@ -2011,21 +2137,24 @@ def api_fechamento():
             dados_dir=DADOS_DIR,
             salvar=bool(body.get("salvar", False)),
         )
-    except ValueError as exc:
-        return jsonify({"error": str(exc)}), 400
-    except Exception as exc:
-        LOGGER.exception("fechamento error")
-        return jsonify({"error": str(exc)}), 500
+        return {
+            "concurso_alvo": r.concurso_alvo,
+            "pool": r.pool,
+            "jogos": r.jogos,
+            "curva_garantia": {str(k): v for k, v in r.curva_garantia.items()},
+            "n_jogos": r.n_jogos,
+            "custo_total": r.custo_total,
+            "nota_ev": r.nota_ev,
+        }
 
-    return jsonify({
-        "concurso_alvo": r.concurso_alvo,
-        "pool": r.pool,
-        "jogos": r.jogos,
-        "curva_garantia": {str(k): v for k, v in r.curva_garantia.items()},
-        "n_jogos": r.n_jogos,
-        "custo_total": r.custo_total,
-        "nota_ev": r.nota_ev,
-    })
+    try:
+        task_id = _start_callable_job("fechamento", executar_fechamento)
+    except Exception as exc:
+        LOGGER.exception("fechamento startup error")
+        return jsonify({"error": str(exc)}), 500
+    if task_id is None:
+        return _too_many_jobs_response()
+    return jsonify({"task_id": task_id}), 202
 
 
 @app.route("/api/jobs/<task_id>/stream")

@@ -13,5 +13,17 @@ lives in this package's conftest.py (pytest loads it before collecting the
 sibling test modules).
 """
 import os
+import threading
+
+import pytest
 
 os.environ.setdefault("DASHBOARD_SKIP_AUTH_CHECK", "1")
+
+
+@pytest.fixture(autouse=True)
+def reset_dashboard_job_semaphore():
+    """Keep process-local capacity isolated when tests stub thread startup."""
+    from lotofacil.interface.painel import server
+
+    yield
+    server._job_semaphore = threading.Semaphore(server.DASHBOARD_MAX_JOBS)
