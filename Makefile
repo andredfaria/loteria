@@ -33,7 +33,7 @@ ifeq ($(strip $(P)),)
 	done; \
 	if [ -n "$$falhou" ]; then echo "Falharam:$$falhou"; exit 1; fi
 else
-	@$(MAKE) --no-print-directory checar-projeto P=$(P)
+	@$(MAKE) --no-print-directory checar-projeto P="$(P)"
 	@test -x $(P)/venv/bin/python || { echo "Sem venv em $(P)/venv: rode 'make instalar P=$(P)'" >&2; exit 2; }
 	cd $(P) && DASHBOARD_SKIP_AUTH_CHECK=1 venv/bin/python -m pytest -q
 endif

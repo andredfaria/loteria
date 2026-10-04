@@ -39,7 +39,7 @@ repositório:
 ```bash
 make instalar P=<projeto>   # cria <projeto>/venv, se faltar, e instala o projeto com [dev]
 make testar P=<projeto>     # roda o pytest do projeto (sem P, roda os cinco)
-make lint                   # ruff check ., o mesmo gate da CI
+make lint                   # o mesmo `ruff check .` da CI
 ```
 
 Os projetos são `lotofacil`, `quina`, `megasena`, `dia-de-sorte` e
@@ -68,9 +68,13 @@ verdade, defina `DASHBOARD_PASSWORD`. Ver [SECURITY.md](SECURITY.md).
 ## Antes de abrir o PR
 
 ```bash
-make lint                  # gate da CI
+make lint                  # o mesmo `ruff check .` da CI
 make testar P=<projeto>    # no projeto que você tocou
 ```
+
+Além do `ruff check .`, a CI roda `python3 .github/scripts/verificar_links.py` e
+a checagem de nomes de arquivo portáveis (veja "Organização", acima); o
+`make lint` não faz essas duas.
 
 O PR já abre com um [template](.github/pull_request_template.md) que repete
 essa lista e pergunta pelo retreino de modelos e pelo uso de score no lugar de

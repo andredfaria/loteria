@@ -54,11 +54,13 @@ O [`docker-compose.yml`](../docker-compose.yml) da raiz monta os três painéis 
 
 1. Crie, na raiz do repositório, um arquivo `.env` com as variáveis da seção anterior. O git o ignora; nunca o versione.
 
+   Se você já tem um `.env`, edite-o em vez de rodar o comando abaixo: o `>` o **sobrescreve**.
+
    ```bash
    printf 'DASHBOARD_PASSWORD=%s\nDASHBOARD_AUTH_SECRET=%s\n' 'troque-esta-senha' "$(python3 -c 'import secrets; print(secrets.token_hex(32))')" > .env
    ```
 
-   O `>` **sobrescreve** um `.env` que já exista: se você já tem um, edite-o à mão em vez de rodar o comando. `troque-esta-senha` é só um exemplo; escolha uma senha sua e não use a do exemplo de verdade.
+   `troque-esta-senha` é só um exemplo; escolha uma senha sua e não use a do exemplo de verdade.
 
    Para um painel sem senha, escreva `DASHBOARD_PUBLICO=1` no lugar de `DASHBOARD_PASSWORD`. O compose só repassa ao container o que está no `.env`: variáveis exportadas no terminal não chegam lá. Se a senha tiver `$`, escreva o valor entre aspas simples (`DASHBOARD_PASSWORD='a$b'`); sem elas, o Compose lê `$b` como uma variável e corta a senha.
 

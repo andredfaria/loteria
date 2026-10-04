@@ -218,3 +218,11 @@ A reorganização acontece em fases numeradas: 1 (saúde dos painéis e raiz Doc
 **Motivo:** o arquivo está planejado desde a fase 1, e o `.gitignore` já o libera (`!.env.example`). Mas a ferramenta usada na reorganização não pode ler nem criar arquivos `.env*`: é uma regra de permissão do dono do repositório, e o bloqueio não foi contornado.
 
 **Evidência:** a criação do arquivo foi negada por essa regra, nas fases 1 e 2. Pendente: o dono cria o arquivo, com as variáveis da tabela do `deploy.md`, ou estreita a regra. Quando o arquivo existir, o cabeçalho do compose pode perder o "se existir" e o CHANGELOG ganha a linha dele.
+
+## 2026-10-04 — `docs/arquitetura.md` e os itens do CONTRIBUTING sobre o núcleo ficam para a fase 3
+
+**Decisão:** `docs/arquitetura.md` e os itens do CONTRIBUTING que dependem do núcleo (a instalação com o núcleo e a regra "lógica comum vai para o núcleo") ficam para a fase 3.
+
+**Motivo:** esses textos descrevem o pacote `nucleo/`, que só existe a partir da fase 3. Escrevê-los antes documentaria algo que não existe.
+
+**Evidência:** a spec da reorganização lista `docs/arquitetura.md` como entrega da fase 2 (seção 11), e o plano das fases 1 e 2 o omitiu.

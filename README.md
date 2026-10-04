@@ -28,12 +28,12 @@ Na raiz do repositório, com Python 3.11 ou mais novo (a CI e as imagens Docker 
 make instalar P=megasena                     # cria megasena/venv e instala o projeto com as ferramentas de teste
 make testar P=megasena                       # roda o pytest do projeto
 megasena/venv/bin/megasena dados atualizar   # baixa o histórico de concursos da API
-make lint                                    # ruff check ., o mesmo gate da CI
+make lint                                    # o mesmo `ruff check .` da CI
 ```
 
 Para outro projeto, troque o valor de `P` pela pasta dele (`lotofacil`, `quina`, `megasena`, `dia-de-sorte` ou `super-sete`). A CLI fica em `<projeto>/venv/bin/<cli>`, e `<cli>` é o nome do pacote, que nem sempre é o da pasta: `lotofacil`, `quina`, `megasena`, `diadesorte` (pasta `dia-de-sorte`) e `supersete` (pasta `super-sete`). Por exemplo, `dia-de-sorte/venv/bin/diadesorte dados atualizar`. Com o venv ativado (`source <projeto>/venv/bin/activate`), basta digitar o nome da CLI.
 
-Sem `P`, o `make testar` roda os cinco. O `make lint` precisa do `ruff` instalado (`pip install ruff`). `make ajuda` lista todos os alvos.
+Sem `P`, o `make testar` roda os cinco. O `make lint` precisa do `ruff` instalado (`pip install ruff`). `make ajuda` lista todos os alvos. Além do `ruff check .`, a CI roda `python3 .github/scripts/verificar_links.py` (links relativos nos `.md`) e confere que nenhum arquivo versionado tem acento, espaço ou `:` no nome; o `make lint` não faz essas duas checagens.
 
 ---
 
