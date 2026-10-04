@@ -59,7 +59,7 @@ DASHBOARD_PASSWORD=... gunicorn megasena.interface.painel.server:app \
 Card **Avaliar bolão** no painel: informe o valor total do bolão (cota × nº de
 cotas), a quantidade de apostas, as dezenas por aposta (6–20) e, opcionalmente,
 o número de cotas. O cálculo segue
-[`docs/guia_e_racional_de_avalia_o_de_bol_es.md`](../docs/guia_e_racional_de_avalia_o_de_bol_es.md):
+[`docs/guias/avaliacao-de-boloes.md`](../docs/guias/avaliacao-de-boloes.md):
 converte tudo em combinações simples (R$ 6,00 cada), compara o valor cobrado com
 o teto de 35% de taxa das lotéricas e mostra a chance de sena do bolão e de
 quina/quadra por volante.

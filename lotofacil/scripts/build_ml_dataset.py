@@ -34,7 +34,7 @@ def main() -> None:
     dataset_ml.write_schema_json(schema_path)
     log.info("Schema: %s", schema_path)
 
-    dic_path = docs_dir / "dicionario_dados_ml.md"
+    dic_path = docs_dir / "dicionario-dados-ml.md"
     dataset_ml.generate_data_dictionary_md(dic_path)
     log.info("Dicionário: %s", dic_path)
 

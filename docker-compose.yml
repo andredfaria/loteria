@@ -1,10 +1,12 @@
 # Sobe os painéis localmente com o mesmo Dockerfile que o EasyPanel usa.
 #
-#   cp .env.example .env        # defina DASHBOARD_PASSWORD (ou DASHBOARD_PUBLICO=1)
-#   docker compose up --build megasena
+#   1. copie .env.example para .env (se existir) ou crie um .env com as
+#      variáveis de docs/deploy.md (DASHBOARD_PASSWORD ou DASHBOARD_PUBLICO=1)
+#   2. docker compose up --build megasena
 #
-# Os painéis falham fechado: sem DASHBOARD_PASSWORD nem DASHBOARD_PUBLICO=1
-# o container não sobe. Ver SECURITY.md.
+# Os painéis falham fechado: sem DASHBOARD_PASSWORD nem DASHBOARD_PUBLICO=1 o
+# painel não inicia: o worker do gunicorn reinicia em loop e o container fica
+# unhealthy (ver docs/deploy.md e SECURITY.md).
 #
 # Este compose é para uso local: as portas ficam presas em 127.0.0.1, então só
 # esta máquina acessa os painéis. Para expor na rede, remova o prefixo

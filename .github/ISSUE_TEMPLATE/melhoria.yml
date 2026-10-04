@@ -1,0 +1,25 @@
+name: Melhoria
+description: Ideia de funcionalidade ou análise
+labels: [enhancement]
+body:
+  - type: dropdown
+    id: projeto
+    attributes:
+      label: Projeto
+      options: [lotofacil, quina, megasena, dia-de-sorte, super-sete, todos, raiz / CI / docs]
+    validations:
+      required: true
+  - type: textarea
+    id: proposta
+    attributes:
+      label: Proposta
+      description: O que você quer e por quê.
+    validations:
+      required: true
+  - type: textarea
+    id: evidencia
+    attributes:
+      label: Como medir
+      description: >-
+        Se a proposta envolve poder preditivo, diga como medir contra o acaso
+        (ver CONTRIBUTING.md: "nunca chame score de probabilidade").

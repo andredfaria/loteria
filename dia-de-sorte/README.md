@@ -52,7 +52,7 @@ src/diadesorte/
 
 ### Dados
 
-A API `https://loteriascaixa-api.herokuapp.com/api/diadesorte` oferece 3 endpoints:
+A API `https://loteriascaixa-api.herokuapp.com/api/diadesorte` ([projeto no GitHub](https://github.com/guto-alves/loterias-api) e [estrutura da resposta](../docs/api-externa.md); serviço de terceiros, sem garantia oficial da Caixa) oferece 3 endpoints:
 
 | Endpoint | Uso |
 |----------|-----|
@@ -71,7 +71,7 @@ O `analisar_diadesorte.py` implementa 4 estratégias com score 0-100:
 - **mista** — combina frequentes + atrasados com limites configuráveis
 - **equilibrada** — rejection sampling forçando paridade (2-5 pares) e faixa (2-5 baixos)
 
-Documentação detalhada em [`docs/`](docs/).
+Documentação detalhada de cada estratégia em [`docs/pesquisa/`](docs/pesquisa/).
 
 ---
 

@@ -63,6 +63,8 @@ lotofacil lab lunar-check --data 2026-05-15
 lotofacil lab ablation --n-test 100 --retrain-every 50
 ```
 
+Os comandos de `dados` consultam a API externa loteriascaixa-api (espelho de terceiros, não oficial da Caixa). O endpoint e a estrutura da resposta estão em [`docs/api-externa.md`](../docs/api-externa.md).
+
 ---
 
 ## Dashboard Web
@@ -198,8 +200,7 @@ lotofacil/
 │       ├── models/        # NeuralModular, baselines
 │       └── experiments/   # Ablation grid, runner, report
 │
-├── dados/
-│   └── sample/            # 100 sorteios mais recentes (committed)
+├── dados/                 # Gerado por "lotofacil dados atualizar" (gitignored)
 ├── saida/                 # Gerado em runtime (gitignored)
 │   ├── jogos/             # JSONs de predições e jogos gerados
 │   ├── modelos/           # Modelos clássicos (.joblib)
@@ -207,7 +208,6 @@ lotofacil/
 │   └── treinos.db         # SQLite: treinos + job output
 ├── Dockerfile             # Imagem de produção (Python 3.12 + Gunicorn)
 ├── entrypoint.sh          # Cria estrutura de diretórios no volume
-├── docker-compose.yml     # Para desenvolvimento local com volumes nomeados
 └── pyproject.toml         # Dependências e entry point CLI
 ```
 
@@ -229,20 +229,11 @@ Paths são sempre resolvidos via `lotofacil.infra.config` — nunca relativos a 
 
 ## Deploy com Docker
 
-### Dockerfile correto
+O deploy de produção é feito no EasyPanel, a partir do `Dockerfile` desta pasta. O passo a passo completo fica em [`docs/deploy.md`](../docs/deploy.md), na raiz do repositório.
 
-O `Dockerfile` em `lotofacil/` é o de produção. O `Dockerfile` na raiz do repositório `loteria/` é uma versão legada e **não deve ser usada**.
+### Dockerfile
 
-```dockerfile
-# lotofacil/Dockerfile (produção)
-FROM python:3.12-slim
-RUN apt-get install -y gcc libgomp1   # libgomp1 necessário para TensorFlow
-COPY pyproject.toml README.md ./
-RUN pip install -e ".[dev]"           # instala tensorflow + gunicorn + tudo
-COPY src/ src/
-ENTRYPOINT ["/app/entrypoint.sh"]
-CMD ["gunicorn", ..., "--workers", "2", "--timeout", "600"]
-```
+O [`Dockerfile`](Dockerfile) desta pasta é o de produção; o que ele instala e o comando do Gunicorn (workers, threads e timeout) estão definidos no próprio arquivo.
 
 ### Configuração no EasyPanel
 
@@ -252,19 +243,19 @@ CMD ["gunicorn", ..., "--workers", "2", "--timeout", "600"]
 | **Dockerfile Path** | `Dockerfile` |
 | **Port** | `5000` |
 
-> Se apontar para o `Dockerfile` da raiz, o TensorFlow **não será instalado** e o servidor de desenvolvimento Flask será usado em vez do Gunicorn.
-
 Configure em "Environment Variables": `DASHBOARD_PASSWORD` (ou `DASHBOARD_PUBLICO=1`) e `DASHBOARD_AUTH_SECRET` — sem a primeira, o container não sobe (ver [Autenticação e variáveis de ambiente](#autenticação-e-variáveis-de-ambiente)); sem a segunda, o login é derrubado a cada redeploy. Opcionalmente `DASHBOARD_MAX_JOBS` para ajustar o teto de jobs concorrentes.
 
 ### Volumes necessários
 
-Configure três volumes persistentes no EasyPanel (ou via `docker-compose.yml` localmente):
+Configure três volumes persistentes no EasyPanel, um para cada caminho abaixo (o nome do volume é livre):
 
-| Volume | Caminho no container | Conteúdo |
-|--------|----------------------|----------|
-| `lotofacil_dados` | `/app/dados` | Sorteios JSON, clima, lua |
-| `lotofacil_saida` | `/app/saida` | Jogos gerados, modelos, logs, treinos.db |
-| `lotofacil_lab_models` | `/app/src/lotofacil/experimentos/saved_models` | Modelos neurais `.keras` |
+| Caminho no container | Conteúdo |
+|----------------------|----------|
+| `/app/dados` | Sorteios JSON, clima, lua |
+| `/app/saida` | Jogos gerados, modelos, logs, treinos.db |
+| `/app/src/lotofacil/experimentos/saved_models` | Modelos neurais `.keras` |
+
+Para rodar o painel localmente em container, use o [`docker-compose.yml`](../docker-compose.yml) da raiz do repositório: ele sobe os painéis (o da lotofacil em `http://127.0.0.1:5001`) e já cria esses três volumes.
 
 ### Primeira execução
 

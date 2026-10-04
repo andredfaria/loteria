@@ -30,16 +30,16 @@ O que **não** é vulnerabilidade neste projeto:
 
 ## Como implantar com segurança
 
-Os painéis **falham fechado**: sem configuração de segurança, o processo não
+Os painéis **falham fechado**: sem configuração de segurança, o painel não
 inicia. Isso é deliberado — a versão anterior liberava tudo quando nenhuma
 senha estava definida, então o estado padrão de um deploy era o inseguro.
 
 | Variável | Efeito se ausente |
 |---|---|
-| `DASHBOARD_PASSWORD` | Sem ela **e** sem `DASHBOARD_PUBLICO=1`, o servidor recusa iniciar. |
+| `DASHBOARD_PASSWORD` | Sem ela **e** sem `DASHBOARD_PUBLICO=1`, o painel não inicia. Em Docker, o worker do `gunicorn` reinicia em loop e o container fica *unhealthy* (veja [docs/deploy.md](docs/deploy.md)). |
 | `DASHBOARD_AUTH_SECRET` | A chave de sessão é sorteada a cada início: todo restart desloga todo mundo, e com `--workers > 1` o login falha de forma intermitente. |
 | `DASHBOARD_PUBLICO=1` | Confirma explicitamente o painel sem autenticação. Só atrás de rede ou tunnel confiável. |
-| `DASHBOARD_MAX_JOBS` | Padrão `2`. Limita treinos/backtests simultâneos; acima disso a API responde `429`. |
+| `DASHBOARD_MAX_JOBS` | Só vale na lotofacil. Padrão `2`. Limita treinos/backtests simultâneos; acima disso a API responde `429`. |
 
 `DASHBOARD_SKIP_AUTH_CHECK=1` existe **apenas** para a suíte de testes poder
 importar o módulo do servidor. Nenhum `Dockerfile` ou `entrypoint.sh` deste
@@ -65,6 +65,8 @@ Rodam em todo push e PR (`.github/workflows/seguranca.yml`):
 
 ## Dados
 
-O repositório contém apenas amostras de resultados de loteria — informação
-pública da Caixa. Não há dados pessoais, credenciais ou datasets privados
-versionados. O histórico completo é baixado pela CLI e está no `.gitignore`.
+Os resultados de loteria são informação pública da Caixa. **Nenhum histórico é
+versionado:** a CLI baixa o histórico completo para `<projeto>/dados/`, que está
+no `.gitignore`. O repositório só tem fixtures de teste, em
+`<projeto>/testes/fixtures/`. Não há dados pessoais, credenciais ou datasets
+privados versionados.

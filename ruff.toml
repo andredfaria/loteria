@@ -11,11 +11,9 @@
 line-length = 100
 target-version = "py311"
 
-exclude = [
-    "venv", "*/venv", ".venv", "*/.venv",
-    "**/__pycache__",
-    "*/legado",
-]
+# Sem `exclude`/`extend-exclude`: os padrões do ruff já ignoram
+# venv/.venv/dist/site-packages/… em qualquer nível, e `build/` fica de fora pelo
+# `.gitignore` (respect-gitignore). Não use `exclude`, que substitui os padrões.
 
 [lint]
 select = [

@@ -106,7 +106,7 @@ SCORE_SIMILAR_WEIGHT = 0.5
 SCORE_PADROES21_WEIGHT = 0.5
 PADROES21_JANELA = 21
 
-# Faixas-alvo para 15-numbers (baseadas em docs/Hierarquia de Estratégias)
+# Faixas-alvo para 15-numbers (baseadas em lotofacil/docs/pesquisa/hierarquia-de-estrategias.md)
 STRATEGY_RANGES = {
     "soma": (171, 220),
     "repetidos": (8, 10),
