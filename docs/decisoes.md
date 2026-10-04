@@ -2,6 +2,8 @@
 
 Este arquivo registra o que saiu ou mudou na reorganização do monorepo, com data, motivo e evidência, para que ninguém precise reconstruir o porquê pelo histórico do git.
 
+A reorganização acontece em fases numeradas: 1 (saúde dos painéis e raiz Docker), 2 (higiene e open source), 3 (núcleo, megasena e troca do contexto de build), 4 (ML no núcleo e quina), 5 (dia-de-sorte e super-sete) e 6 (lotofacil). As entradas abaixo cobrem as fases 1 e 2; quando uma entrada cita a fase 3 ou a 6, é trabalho que ainda vai ser feito.
+
 ## 2026-10-02 — Rota `/healthz` e `HEALTHCHECK`
 
 **Decisão:** os painéis de lotofacil, quina e megasena ganharam `GET /healthz`, que responde `200` com `{"status": "ok"}`, sem login e sem acessar banco ou dados. O `HEALTHCHECK` do `Dockerfile` de cada painel passou a consultar essa rota no lugar de `/api/status`.
@@ -110,7 +112,7 @@ Este arquivo registra o que saiu ou mudou na reorganização do monorepo, com da
 
 **Evidência:**
 
-- `git ls-files` contava 6 + 27 + 6 = 39 arquivos nesses três diretórios (commit `09373fb`). Antes da mudança, `git ls-files -ci --exclude-standard` listava só os 6 de `lotofacil/.superpowers/`; os outros 33 nem constavam como ignorados.
+- Antes da mudança, `git ls-files` contava 6 + 27 + 6 = 39 arquivos nesses três diretórios, e `git ls-files -ci --exclude-standard` listava só os 6 de `lotofacil/.superpowers/`: os outros 33 nem constavam como ignorados. O commit `09373fb` tirou os 39 do índice.
 - Depois do `git rm -r --cached`: 0 rastreados nos três diretórios e 39 de 39 ignorados (`git check-ignore`). Os arquivos seguem no disco, com o mesmo sha256 de antes.
 - Sair do índice não apaga o histórico: os arquivos continuam nos commits antigos (o último que os tocou antes da remoção é de 2026-07-09). Limpar o histórico seria outra decisão, com reescrita e republicação.
 
@@ -201,9 +203,9 @@ Este arquivo registra o que saiu ou mudou na reorganização do monorepo, com da
 - `.editorconfig`: UTF-8, LF e 4 espaços (2 em YAML, JSON, HTML, CSS e JS), tabs no `Makefile`, e `*.md` sem remover espaço no fim da linha.
 - `Makefile`: `make testar` sem `P` roda os cinco projetos; `P` é validado contra a lista (`P=inexistente`, `P=mega` e `P=quina/` saem com código 2 e listam as opções); `make docker` só aceita os três projetos com `Dockerfile`; `make lint` avisa como instalar o `ruff` quando ele falta. `make testar P=megasena` roda a suíte (120 testes passando) e `make lint` passa com `All checks passed!`.
 
-## 2026-10-03 — `.dockerignore` da raiz fica para a fase 3
+## 2026-10-03 — `.dockerignore` novo da raiz fica para a fase 3
 
-**Decisão:** o `.dockerignore` da raiz, que a fase 1 previa, não foi criado. Ele nasce na fase 3, quando o build dos painéis passar a usar a raiz do repositório como contexto, e precisará excluir `.env` e `**/.env`.
+**Decisão:** o `.dockerignore` **novo** da raiz, que a fase 1 previa, não foi criado. (O legado da raiz foi apagado na fase 1; ver a entrada "Remoção do `.dockerignore` da raiz".) O novo nasce na fase 3, quando o build dos painéis passar a usar a raiz do repositório como contexto, e precisará excluir `.env` e `**/.env`.
 
 **Motivo:** o Docker só lê o `.dockerignore` que está na raiz do contexto de build, e hoje nenhum build usa a raiz como contexto. Quando usar, sem essa exclusão um `COPY` poderia levar para dentro da imagem um `.env` com a senha do painel.
 

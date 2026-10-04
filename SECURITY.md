@@ -39,7 +39,7 @@ senha estava definida, então o estado padrão de um deploy era o inseguro.
 | `DASHBOARD_PASSWORD` | Sem ela **e** sem `DASHBOARD_PUBLICO=1`, o servidor recusa iniciar. |
 | `DASHBOARD_AUTH_SECRET` | A chave de sessão é sorteada a cada início: todo restart desloga todo mundo, e com `--workers > 1` o login falha de forma intermitente. |
 | `DASHBOARD_PUBLICO=1` | Confirma explicitamente o painel sem autenticação. Só atrás de rede ou tunnel confiável. |
-| `DASHBOARD_MAX_JOBS` | Padrão `2`. Limita treinos/backtests simultâneos; acima disso a API responde `429`. |
+| `DASHBOARD_MAX_JOBS` | Só vale na lotofacil. Padrão `2`. Limita treinos/backtests simultâneos; acima disso a API responde `429`. |
 
 `DASHBOARD_SKIP_AUTH_CHECK=1` existe **apenas** para a suíte de testes poder
 importar o módulo do servidor. Nenhum `Dockerfile` ou `entrypoint.sh` deste

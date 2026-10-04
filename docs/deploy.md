@@ -14,7 +14,7 @@ O health check é o `HEALTHCHECK` do próprio `Dockerfile`: de 30 em 30 segundos
 
 O workflow `docker.yml` monta as três imagens em todo PR que mexe nesses projetos, então um `Dockerfile` quebrado aparece no PR, e não no deploy.
 
-> **Vai mudar na fase 3 da reorganização.** O Build Context passa a ser `/` (a raiz do repositório) e o Dockerfile passa a ser `<projeto>/Dockerfile`, por causa do `nucleo/`, o código comum entre as loterias. Haverá aviso antes; até lá, vale a tabela acima.
+> **Vai mudar na fase 3 da reorganização.** O monorepo está sendo reorganizado em fases numeradas (a lista e o registro de cada decisão estão em [decisoes.md](decisoes.md)). A fase 3 introduz o pacote `nucleo/`, com o código comum entre as loterias, e muda o Build Context dos painéis para a raiz do repositório: o Build Context passa a ser `/` e o Dockerfile passa a ser `<projeto>/Dockerfile`. Haverá aviso antes; até lá, vale a tabela acima.
 
 ## Volumes
 
@@ -34,12 +34,19 @@ As imagens rodam como `appuser` (UID e GID 1000). Um volume nomeado novo herda o
 
 Defina em *Environment Variables* de cada app. Os painéis **falham fechado**: sem `DASHBOARD_PASSWORD` nem `DASHBOARD_PUBLICO=1` o painel não inicia. A justificativa está no [SECURITY.md](../SECURITY.md).
 
-| Variável | Painéis | Obrigatória | O que faz e o que acontece se faltar |
-|----------|---------|-------------|--------------------------------------|
-| `DASHBOARD_PASSWORD` | todos | uma das duas | Exige login por senha em todas as rotas, menos `/healthz` e as páginas de login e logout. Recomendada. Sem ela **e** sem `DASHBOARD_PUBLICO=1`, o painel não inicia: o `gunicorn` reinicia o worker em loop, o log repete a mensagem que pede uma das duas variáveis e o container fica *unhealthy*. Vazia conta como ausente |
-| `DASHBOARD_PUBLICO` | todos | uma das duas | Só vale o valor `1`. Confirma de propósito que o painel roda **sem senha**: quem alcançar a porta lê os dados e dispara trabalho. Só atrás de rede ou túnel confiável. Se `DASHBOARD_PASSWORD` também estiver definida, o login continua exigido |
-| `DASHBOARD_AUTH_SECRET` | todos | recomendada | Chave fixa que assina a sessão de login. Sem ela, a chave é sorteada a cada início: todo restart ou redeploy derruba os logins (o log avisa), e com mais de um worker do gunicorn o login falha de forma intermitente (os `Dockerfile` usam 1 worker). Gere uma com `python3 -c "import secrets; print(secrets.token_hex(32))"` |
-| `DASHBOARD_MAX_JOBS` | só lotofacil | opcional | Teto de jobs pesados (geração, treino, backtest) ao mesmo tempo. Padrão `2`. Acima do teto, a API responde `429` em vez de enfileirar |
+| Variável | Painéis | Obrigatória | Para que serve |
+|----------|---------|-------------|----------------|
+| `DASHBOARD_PASSWORD` | todos | uma das duas | Login por senha. Recomendada |
+| `DASHBOARD_PUBLICO` | todos | uma das duas | `1` confirma o painel sem senha |
+| `DASHBOARD_AUTH_SECRET` | todos | recomendada | Chave fixa da sessão de login |
+| `DASHBOARD_MAX_JOBS` | só lotofacil | opcional | Teto de jobs pesados ao mesmo tempo (padrão `2`) |
+
+O que cada uma faz e o que acontece se faltar:
+
+- **`DASHBOARD_PASSWORD`**: exige login por senha em todas as rotas, menos `/healthz` e as páginas de login e logout. Sem ela **e** sem `DASHBOARD_PUBLICO=1`, o painel não inicia: o `gunicorn` reinicia o worker em loop, o log repete a mensagem que pede uma das duas variáveis e o container fica *unhealthy*. Uma variável vazia conta como ausente.
+- **`DASHBOARD_PUBLICO`**: só vale o valor `1`. Confirma de propósito que o painel roda **sem senha**: quem alcançar a porta lê os dados e dispara trabalho. Use só atrás de rede ou túnel confiável. Se `DASHBOARD_PASSWORD` também estiver definida, o login continua exigido.
+- **`DASHBOARD_AUTH_SECRET`**: chave fixa que assina a sessão de login. Sem ela, a chave é sorteada a cada início: todo restart ou redeploy derruba os logins (o log avisa), e com mais de um worker do gunicorn o login falha de forma intermitente (os `Dockerfile` usam 1 worker). Gere uma com `python3 -c "import secrets; print(secrets.token_hex(32))"`.
+- **`DASHBOARD_MAX_JOBS`** (só lotofacil): teto de jobs pesados (geração, treino, backtest) ao mesmo tempo. Padrão `2`. Acima do teto, a API responde `429` em vez de enfileirar.
 
 ## Subir localmente com o Docker Compose
 
@@ -51,6 +58,8 @@ O [`docker-compose.yml`](../docker-compose.yml) da raiz monta os três painéis 
    printf 'DASHBOARD_PASSWORD=%s\nDASHBOARD_AUTH_SECRET=%s\n' 'troque-esta-senha' "$(python3 -c 'import secrets; print(secrets.token_hex(32))')" > .env
    ```
 
+   O `>` **sobrescreve** um `.env` que já exista: se você já tem um, edite-o à mão em vez de rodar o comando. `troque-esta-senha` é só um exemplo; escolha uma senha sua e não use a do exemplo de verdade.
+
    Para um painel sem senha, escreva `DASHBOARD_PUBLICO=1` no lugar de `DASHBOARD_PASSWORD`. O compose só repassa ao container o que está no `.env`: variáveis exportadas no terminal não chegam lá. Se a senha tiver `$`, escreva o valor entre aspas simples (`DASHBOARD_PASSWORD='a$b'`); sem elas, o Compose lê `$b` como uma variável e corta a senha.
 
 2. Suba o painel que quiser:
@@ -59,7 +68,7 @@ O [`docker-compose.yml`](../docker-compose.yml) da raiz monta os três painéis 
    docker compose up --build megasena     # ou quina, ou lotofacil
    ```
 
-   Sem o nome, `docker compose up --build` sobe os três. A imagem da lotofacil inclui o TensorFlow (cerca de 3,5 GB) e é, de longe, a maior das três. Para só montar a imagem de um painel, sem subir, use `make docker P=megasena`.
+   Sem o nome, `docker compose up --build` sobe os três. A imagem da lotofacil inclui o TensorFlow (mais de 3 GB) e é, de longe, a maior das três. Para só montar a imagem de um painel, sem subir, use `make docker P=megasena`.
 
 3. Abra o painel no navegador e entre com a senha:
 

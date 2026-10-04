@@ -20,7 +20,20 @@ Este projeto segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/)
 ### Alterado
 
 - Quem usava localmente o `lotofacil/docker-compose.yml` não reaproveita os volumes: o projeto Compose agora é o da raiz do repositório e o volume dos modelos neurais passou de `lotofacil_lab_models` para `lotofacil_modelos_lab`. Os volumes do EasyPanel não mudam.
-- Quem usava localmente o `docker-compose.yml` **legado da raiz** não pode subir o compose novo direto. Ele reaproveita os volumes `loteria_lotofacil_dados` e `loteria_lotofacil_saida` (o prefixo é o nome da pasta do repositório), que o compose antigo criou como root, porque a imagem antiga não tinha `USER`. A imagem nova roda como `appuser` (UID 1000) e não consegue gravar neles (`Permission denied`). Antes de subir, corrija o dono de cada volume, com `docker run --rm -v loteria_lotofacil_dados:/v alpine chown -R 1000:1000 /v` (e o mesmo para `loteria_lotofacil_saida`), ou apague os dois. O volume `loteria_lotofacil_db`, que o compose antigo montava em `/app/src`, deixa de ser usado; se você treinou modelos naquele container, eles estão nele, então copie o que quiser guardar antes de apagá-lo.
+- Quem usava localmente o `docker-compose.yml` **legado da raiz** precisa mexer nos volumes antes de
+  subir o compose novo. O compose novo reaproveita `loteria_lotofacil_dados` e
+  `loteria_lotofacil_saida` (o prefixo é o nome da pasta do repositório), que o compose antigo criou
+  como root, porque a imagem antiga não tinha `USER`. A imagem nova roda como `appuser` (UID 1000) e
+  não consegue gravar neles (`Permission denied`). Corrija o dono dos dois volumes:
+
+  ```bash
+  docker run --rm -v loteria_lotofacil_dados:/v alpine chown -R 1000:1000 /v
+  docker run --rm -v loteria_lotofacil_saida:/v alpine chown -R 1000:1000 /v
+  ```
+
+  Se preferir, apague os dois volumes. O volume `loteria_lotofacil_db`, que o compose antigo montava
+  em `/app/src`, deixa de ser usado; se você treinou modelos naquele container, eles estão nele,
+  então copie o que quiser guardar antes de apagá-lo.
 - O `.gitignore` da raiz ficou só com o que vale para o repositório inteiro; cada projeto ignora a própria `dados/` e `saida/` no seu `.gitignore` (a lotofacil também `backups/` e `portfolio_*`). Motivos em [docs/decisoes.md](docs/decisoes.md).
 - O `ruff.toml` não define mais `exclude` nem `extend-exclude`: os padrões do ruff já cobrem venvs e `dist`, e `build/` fica de fora pelo `.gitignore`.
 - Documentos dos projetos reorganizados e com nome só em ASCII: `docs/guias/avaliacao-de-boloes.md`, `lotofacil/docs/pesquisa/`, `lotofacil/docs/estrategias/onze-dezenas.md`, `lotofacil/docs/painel.md`, `lotofacil/docs/clima.md`, `lotofacil/docs/dicionario-dados-ml.md`, `super-sete/docs/pesquisa/` e `dia-de-sorte/docs/pesquisa/`. O `scripts/build_ml_dataset.py` da lotofacil passa a gravar `docs/dicionario-dados-ml.md`.

@@ -31,7 +31,9 @@ megasena/venv/bin/megasena dados atualizar   # baixa o histórico de concursos d
 make lint                                    # ruff check ., o mesmo gate da CI
 ```
 
-Troque `megasena` por qualquer outro projeto (`lotofacil`, `quina`, `dia-de-sorte`, `super-sete`). Sem `P`, o `make testar` roda os cinco. O `make lint` precisa do `ruff` instalado (`pip install ruff`). `make ajuda` lista todos os alvos.
+Para outro projeto, troque o valor de `P` pela pasta dele (`lotofacil`, `quina`, `megasena`, `dia-de-sorte` ou `super-sete`). A CLI fica em `<projeto>/venv/bin/<cli>`, e `<cli>` é o nome do pacote, que nem sempre é o da pasta: `lotofacil`, `quina`, `megasena`, `diadesorte` (pasta `dia-de-sorte`) e `supersete` (pasta `super-sete`). Por exemplo, `dia-de-sorte/venv/bin/diadesorte dados atualizar`. Com o venv ativado (`source <projeto>/venv/bin/activate`), basta digitar o nome da CLI.
+
+Sem `P`, o `make testar` roda os cinco. O `make lint` precisa do `ruff` instalado (`pip install ruff`). `make ajuda` lista todos os alvos.
 
 ---
 
