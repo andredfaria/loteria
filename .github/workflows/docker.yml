@@ -9,12 +9,20 @@ on:
       - "lotofacil/**"
       - "quina/**"
       - "megasena/**"
+      - "nucleo/**"
+      - ".dockerignore"
+      - "docker-compose.yml"
+      - "pyproject.toml"
       - ".github/workflows/docker.yml"
   pull_request:
     paths:
       - "lotofacil/**"
       - "quina/**"
       - "megasena/**"
+      - "nucleo/**"
+      - ".dockerignore"
+      - "docker-compose.yml"
+      - "pyproject.toml"
       - ".github/workflows/docker.yml"
 
 permissions:
@@ -31,6 +39,4 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: docker build
-        # Contexto = pasta do projeto, igual ao EasyPanel hoje. Na fase 3 da
-        # reorganização o contexto passa a ser a raiz (por causa do nucleo/).
-        run: docker build -t "loteria-${{ matrix.projeto }}:ci" "${{ matrix.projeto }}"
+        run: docker build -f "${{ matrix.projeto }}/Dockerfile" -t "loteria-${{ matrix.projeto }}:ci" .

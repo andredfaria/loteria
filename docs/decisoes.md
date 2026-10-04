@@ -2,7 +2,17 @@
 
 Este arquivo registra o que saiu ou mudou na reorganização do monorepo, com data, motivo e evidência, para que ninguém precise reconstruir o porquê pelo histórico do git.
 
-A reorganização acontece em fases numeradas: 1 (saúde dos painéis e raiz Docker), 2 (higiene e open source), 3 (núcleo, megasena e troca do contexto de build), 4 (ML no núcleo e quina), 5 (dia-de-sorte e super-sete) e 6 (lotofacil). As entradas abaixo cobrem as fases 1 e 2; quando uma entrada cita a fase 3 ou a 6, é trabalho que ainda vai ser feito.
+A reorganização acontece em fases numeradas: 1 (saúde dos painéis e raiz Docker), 2 (higiene e open source), 3 (núcleo, megasena e troca do contexto de build), 4 (ML no núcleo e quina), 5 (dia-de-sorte e super-sete) e 6 (lotofacil).
+
+## 2026-10-04 — Pacote interno `loteria-nucleo` e builds com contexto raiz
+
+**Decisão:** criado `nucleo/`, com distribuição local `loteria-nucleo` e import `loteria_nucleo`. A Mega-Sena passou a descrever suas regras com `LoteriaSpec` e a usar as funções compartilhadas de combinatória e resolução de caminhos. Os cinco projetos declaram o núcleo como dependência local do monorepo. Os três Dockerfiles de painel, Compose e CI passaram a usar a raiz como contexto; `.dockerignore` exclui segredos, ambientes virtuais, bancos e dados locais.
+
+**Motivo:** centralizar contratos compartilhados gradualmente sem mudar os caminhos dentro dos containers ou os volumes de produção. O núcleo não é publicado no PyPI; instalações locais devem usar `make instalar` para instalar `./nucleo` junto com o projeto.
+
+**Evidência:** a imagem copia `nucleo/` para `/opt/nucleo` e instala antes do projeto; o código da Mega-Sena importa `LoteriaSpec`, combinatória e `caminhos_do_projeto` do pacote. O Docker Compose e a CI constroem explicitamente com `context: .`.
+
+**Ação operacional:** após a publicação da fase, configurar os três apps no EasyPanel com Build Context `/` e Dockerfile `<projeto>/Dockerfile` antes do próximo deploy. Até lá, o container existente continua em execução, mas novo build com os campos antigos falha por não encontrar `nucleo/`.
 
 ## 2026-10-02 — Rota `/healthz` e `HEALTHCHECK`
 

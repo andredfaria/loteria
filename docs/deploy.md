@@ -1,20 +1,20 @@
 # Deploy dos painéis
 
-Os projetos lotofacil, quina e megasena têm, cada um, um painel web publicado no EasyPanel como um app separado, a partir do `Dockerfile` da própria pasta. Este documento traz a configuração atual de cada app, os volumes, as variáveis de ambiente, como subir os painéis localmente com o Docker Compose e como conferir que estão de pé.
+Os projetos lotofacil, quina e megasena têm, cada um, um painel web publicado no EasyPanel como um app separado, a partir do `Dockerfile` da própria pasta. Os Dockerfiles usam a raiz do repositório como contexto para instalar o pacote compartilhado `nucleo/`.
 
 ## Configuração atual no EasyPanel
 
 | App | Build Context | Dockerfile | Porta |
 |-----|---------------|------------|-------|
-| lotofacil | `lotofacil` | `Dockerfile` | `5000` |
-| quina | `quina` | `Dockerfile` | `5000` |
-| megasena | `megasena` | `Dockerfile` | `5000` |
+| lotofacil | `/` | `lotofacil/Dockerfile` | `5000` |
+| quina | `/` | `quina/Dockerfile` | `5000` |
+| megasena | `/` | `megasena/Dockerfile` | `5000` |
 
 O health check é o `HEALTHCHECK` do próprio `Dockerfile`: de 30 em 30 segundos (depois de 15 s de carência, e com limite de 5 s por tentativa), ele consulta `GET /healthz` dentro do container. A rota responde `200` com `{"status":"ok"}`, não pede login e não acessa banco nem dados. Se o seu painel de deploy pedir uma URL de health check, use `/healthz`: a `/api/status` exige login quando `DASHBOARD_PASSWORD` está definida e responderia `401`.
 
-O workflow `docker.yml` monta as três imagens em todo PR que mexe nesses projetos, então um `Dockerfile` quebrado aparece no PR, e não no deploy.
+O workflow `docker.yml` monta as três imagens com contexto raiz em todo PR que mexe nos projetos, no núcleo ou na configuração do build.
 
-> **Vai mudar na fase 3 da reorganização.** O monorepo está sendo reorganizado em fases numeradas (a lista e o registro de cada decisão estão em [decisoes.md](decisoes.md)). A fase 3 introduz o pacote `nucleo/`, com o código comum entre as loterias, e muda o Build Context dos painéis para a raiz do repositório: o Build Context passa a ser `/` e o Dockerfile passa a ser `<projeto>/Dockerfile`. Haverá aviso antes; até lá, vale a tabela acima.
+> **Ação após a publicação desta fase:** em cada app no EasyPanel, defina Build Context como `/` (raiz do repositório) e Dockerfile como `lotofacil/Dockerfile`, `quina/Dockerfile` ou `megasena/Dockerfile`, conforme o app. Faça isso antes de disparar um novo deploy. Até atualizar os campos, o container publicado continua servindo, mas um novo build com a configuração antiga não encontrará `nucleo/`.
 
 ## Volumes
 

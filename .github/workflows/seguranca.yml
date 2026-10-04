@@ -27,14 +27,14 @@ jobs:
           python-version: "3.12"
       - run: pip install pip-audit
       - name: pip-audit
-        # --skip-editable: o próprio pacote é instalado em modo editável e não
-        # existe no PyPI, então não há o que auditar nele.
+        # --skip-editable: os pacotes locais são instalados em modo editável e
+        # não são publicados no PyPI, então não há o que auditar neles.
         # Sem --strict de propósito: --strict falha quando QUALQUER dependência
         # não pôde ser auditada, incluindo as puladas — as duas flags se anulam
         # e o job morre antes de reportar CVE. O pip-audit já sai com código
         # não-zero quando encontra vulnerabilidade, que é o gate que queremos.
         run: |
-          pip install -e "./${{ matrix.projeto }}"
+          pip install -e ./nucleo -e "./${{ matrix.projeto }}"
           pip-audit --desc --skip-editable
 
   segredos:
@@ -67,5 +67,5 @@ jobs:
         # bandit entrar nos venvs e devolver dezenas de milhares de achados de
         # terceiros, afogando o sinal.
         run: |
-          bandit -r lotofacil/src quina/src megasena/src dia-de-sorte/src super-sete/src \
+          bandit -r nucleo/src lotofacil/src quina/src megasena/src dia-de-sorte/src super-sete/src \
                  -ll -x '*/tests/*,*/testes/*'

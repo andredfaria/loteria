@@ -25,7 +25,7 @@ jobs:
           cache: pip
 
       - name: Instalar o pacote
-        run: pip install -e "./${{ matrix.projeto }}[dev]"
+        run: pip install -e "./nucleo[dev]" -e "./${{ matrix.projeto }}[dev]"
 
       - name: Rodar a suíte
         # O painel falha fechado por design: sem esta variável o import do

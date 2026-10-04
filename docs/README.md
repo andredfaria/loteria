@@ -1,5 +1,12 @@
 # Documentação
 
+- [Arquitetura](arquitetura.md): relação entre o núcleo e as loterias.
+- [Adicionar uma loteria](nova-loteria.md): estrutura e integração ao monorepo.
+- [Deploy](deploy.md): Docker Compose e configuração dos painéis.
+- [Decisões](decisoes.md): registro das decisões da reorganização.
+- [API externa](api-externa.md): estrutura de respostas usada na coleta de resultados.
+- [Avaliação de bolões](guias/avaliacao-de-boloes.md): critérios e cálculos do painel.
+
 Índice dos documentos do repositório. Os que valem para mais de um projeto ficam nesta pasta; os de cada loteria ficam em `<projeto>/docs/`. O que cada projeto faz e como usá-lo está no `README.md` da pasta dele, a partir do [README da raiz](../README.md).
 
 ## Repositório

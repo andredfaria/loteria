@@ -12,7 +12,7 @@ Sistema de coleta, análise estatística e geração de jogos para o Dia de Sort
 git clone https://github.com/andredfaria/loteria.git
 cd loteria/dia-de-sorte
 python -m venv venv && source venv/bin/activate
-pip install -e ".[dev]"
+cd .. && make instalar P=dia-de-sorte
 ```
 
 Requer Python ≥ 3.11.

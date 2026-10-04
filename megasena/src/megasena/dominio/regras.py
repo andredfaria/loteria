@@ -4,6 +4,19 @@ from itertools import combinations
 from math import comb
 from typing import Iterator
 
+from loteria_nucleo.combinatoria import (
+    combinacoes_por_aposta as _combinacoes_por_aposta,
+    custo_aposta as _custo_aposta,
+    total_combinacoes as _total_combinacoes,
+)
+from loteria_nucleo.spec import LoteriaSpec
+
+MEGASENA_SPEC = LoteriaSpec(
+    slug="megasena", nome="Mega-Sena", menor_numero=1, maior_numero=60,
+    numeros_por_sorteio=6, aposta_minima=6, aposta_maxima=20,
+    preco_aposta_simples=6.0, faixas={6: "sena", 5: "quina", 4: "quadra"},
+)
+
 TOTAL_NUMEROS = 60
 NUMEROS_POR_SORTEIO = 6
 VALID_NUMBERS = set(range(1, TOTAL_NUMEROS + 1))
@@ -40,6 +53,8 @@ def gerar_combinacoes(n: int) -> Iterator[tuple[int, ...]]:
 
 
 def total_combinacoes(n: int = NUMEROS_POR_SORTEIO) -> int:
+    if n == NUMEROS_POR_SORTEIO:
+        return _total_combinacoes(MEGASENA_SPEC)
     return comb(TOTAL_NUMEROS, n)
 
 # ─── Preço oficial ────────────────────────────────────────────
@@ -52,13 +67,9 @@ TAMANHO_APOSTA_MAX = 20
 
 def combinacoes_por_aposta(n: int) -> int:
     """Quantas apostas simples de 6 dezenas um volante de n dezenas contém."""
-    if not (TAMANHO_APOSTA_MIN <= n <= TAMANHO_APOSTA_MAX):
-        raise ValueError(
-            f"Tamanho de aposta deve estar entre {TAMANHO_APOSTA_MIN} e {TAMANHO_APOSTA_MAX}, recebido {n}"
-        )
-    return comb(n, NUMEROS_POR_SORTEIO)
+    return _combinacoes_por_aposta(MEGASENA_SPEC, n)
 
 
 def custo_aposta(n: int) -> float:
     """Custo oficial de um volante de n dezenas."""
-    return round(combinacoes_por_aposta(n) * PRECO_APOSTA_SIMPLES, 2)
+    return _custo_aposta(MEGASENA_SPEC, n)

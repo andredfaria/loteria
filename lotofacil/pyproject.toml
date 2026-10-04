@@ -20,6 +20,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Information Analysis",
 ]
 dependencies = [
+    "loteria-nucleo[ml,painel]",
     "requests>=2.31.0",
     "tenacity>=8.2.0",
     "numpy>=1.24.0",

@@ -16,7 +16,9 @@
 # (com required: false).
 services:
   lotofacil:
-    build: ./lotofacil
+    build:
+      context: .
+      dockerfile: lotofacil/Dockerfile
     ports: ["127.0.0.1:5001:5000"]
     env_file:
       - path: .env
@@ -28,7 +30,9 @@ services:
     restart: unless-stopped
 
   quina:
-    build: ./quina
+    build:
+      context: .
+      dockerfile: quina/Dockerfile
     ports: ["127.0.0.1:5002:5000"]
     env_file:
       - path: .env
@@ -39,7 +43,9 @@ services:
     restart: unless-stopped
 
   megasena:
-    build: ./megasena
+    build:
+      context: .
+      dockerfile: megasena/Dockerfile
     ports: ["127.0.0.1:5003:5000"]
     env_file:
       - path: .env

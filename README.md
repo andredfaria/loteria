@@ -16,7 +16,7 @@ Monorepo com cinco projetos Python independentes, que coletam os resultados das 
 | [dia-de-sorte/](dia-de-sorte/) | Coleta, CLI e ML | Ativo |
 | [super-sete/](super-sete/) | Coleta e CLI | Ativo |
 
-Cada projeto é autônomo: tem o próprio `pyproject.toml`, o próprio ambiente virtual e a própria CLI (`lotofacil`, `quina`, `megasena`, `diadesorte` e `supersete`). Os comandos de cada um estão no `README.md` da pasta. A `dia-de-sorte` e a `super-sete` ainda guardam, na pasta do projeto, os scripts do começo (legado, serão portados para a CLI).
+Cada projeto tem o próprio `pyproject.toml`, ambiente virtual e CLI (`lotofacil`, `quina`, `megasena`, `diadesorte` e `supersete`); o código compartilhado fica em `nucleo/`. Os comandos de cada um estão no `README.md` da pasta. A `dia-de-sorte` e a `super-sete` ainda guardam, na pasta do projeto, os scripts do começo (legado, serão portados para a CLI).
 
 ---
 
@@ -41,6 +41,7 @@ Sem `P`, o `make testar` roda os cinco. O `make lint` precisa do `ruff` instalad
 
 ```text
 loteria/
+├── nucleo/               # componentes compartilhados (instalado localmente)
 ├── lotofacil/            # coleta, ML clássico e neural, portfólio, CLI e painel
 ├── quina/                # coleta, CLI, estratégias, ML e painel
 ├── megasena/             # coleta, CLI, ML e painel com bolão

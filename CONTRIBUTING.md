@@ -37,7 +37,7 @@ Cada projeto é autônomo, com o próprio venv em `<projeto>/venv`. Na raiz do
 repositório:
 
 ```bash
-make instalar P=<projeto>   # cria <projeto>/venv, se faltar, e instala o projeto com [dev]
+make instalar P=<projeto>   # cria <projeto>/venv e instala nucleo/ + projeto[dev]
 make testar P=<projeto>     # roda o pytest do projeto (sem P, roda os cinco)
 make lint                   # o mesmo `ruff check .` da CI
 ```
@@ -56,6 +56,9 @@ verdade, defina `DASHBOARD_PASSWORD`. Ver [SECURITY.md](SECURITY.md).
 
 - Cada loteria é uma pasta na raiz, com o código em `src/<pacote>/` e os testes
   em `testes/`.
+- Lógica realmente comum deve ir para `nucleo/src/loteria_nucleo/`; regras e
+  fluxos específicos permanecem no projeto da loteria. Instale sempre o núcleo
+  local com `make instalar P=<projeto>` (não pelo PyPI).
 - Documentos de pesquisa ficam em `<projeto>/docs/pesquisa/`. Documento novo
   ganha uma linha em [docs/README.md](docs/README.md).
 - Nomes de arquivo em ASCII e, nos documentos, em kebab-case

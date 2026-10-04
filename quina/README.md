@@ -12,7 +12,7 @@ Sistema de coleta, análise estatística, predição e geração de jogos para a
 git clone https://github.com/andredfaria/loteria.git
 cd loteria/quina
 python -m venv venv && source venv/bin/activate
-pip install -e ".[dev]"
+cd .. && make instalar P=quina
 ```
 
 Requer Python ≥ 3.11.

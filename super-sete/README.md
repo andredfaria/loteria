@@ -12,7 +12,7 @@ Sistema de coleta e análise estatística para a Super Sete (7 colunas, cada uma
 git clone https://github.com/andredfaria/loteria.git
 cd loteria/super-sete
 python -m venv venv && source venv/bin/activate
-pip install -e ".[dev]"
+cd .. && make instalar P=super-sete
 ```
 
 Requer Python ≥ 3.11.

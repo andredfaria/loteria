@@ -7,13 +7,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-COPY pyproject.toml README.md ./
-COPY src/ src/
+COPY nucleo/ /opt/nucleo/
+RUN pip install --no-cache-dir -e "/opt/nucleo[painel,ml]"
+
+COPY lotofacil/pyproject.toml lotofacil/README.md ./
+COPY lotofacil/src/ src/
 RUN pip install --no-cache-dir -e ".[dev]"
 
 RUN mkdir -p dados saida 2>/dev/null || true
 
-COPY entrypoint.sh /app/entrypoint.sh
+COPY lotofacil/entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
 
 # Roda a app como usuário sem privilégios — nenhum processo do dashboard

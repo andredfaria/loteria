@@ -6,6 +6,9 @@ Este projeto segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/)
 
 ### Adicionado
 
+- Pacote interno `nucleo/` (`loteria-nucleo`, import `loteria_nucleo`) com especificação de loterias, combinatória e caminhos configuráveis; Mega-Sena passou a usar esses contratos.
+- `docs/arquitetura.md`, `docs/nova-loteria.md` e `.dockerignore` para builds com contexto na raiz.
+
 - Rota `GET /healthz` nos painéis de lotofacil, quina e megasena. Responde `200` com `{"status": "ok"}`, sem login e sem acessar banco ou dados.
 - Novo `docker-compose.yml` na raiz, que substitui o legado e sobe os três painéis: lotofacil na porta 5001, quina na 5002 e megasena na 5003.
 - Workflow de CI `docker.yml`, que monta as imagens dos três painéis em todo PR e em todo push na `main` que alterem esses projetos. Não publica nada.
@@ -18,6 +21,9 @@ Este projeto segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/)
 - `docs/README.md`, o índice da documentação, e `docs/deploy.md`, com a configuração do EasyPanel, os volumes, as variáveis de ambiente e o passo a passo para subir os painéis com o Docker Compose.
 
 ### Alterado
+
+- Os Dockerfiles dos três painéis, o Compose e a CI agora constroem a partir da raiz para incluir `nucleo/`. No EasyPanel, atualize Build Context para `/` e Dockerfile para `<projeto>/Dockerfile` antes do próximo deploy.
+- `make instalar` instala o núcleo local e o projeto selecionado no venv desse projeto.
 
 - Quem usava localmente o `lotofacil/docker-compose.yml` não reaproveita os volumes: o projeto Compose agora é o da raiz do repositório e o volume dos modelos neurais passou de `lotofacil_lab_models` para `lotofacil_modelos_lab`. Os volumes do EasyPanel não mudam.
 - Quem usava localmente o `docker-compose.yml` **legado da raiz** precisa mexer nos volumes antes de

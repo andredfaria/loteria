@@ -9,7 +9,7 @@ P        ?=
 .PHONY: ajuda instalar testar lint docker checar-projeto
 
 ajuda:
-	@echo "make instalar P=<projeto>   cria <projeto>/venv (se faltar) e instala o projeto com [dev]"
+	@echo "make instalar P=<projeto>   cria <projeto>/venv e instala nucleo/ + projeto[dev]"
 	@echo "make testar [P=<projeto>]   roda o pytest de um projeto, ou de todos se P for omitido"
 	@echo "make lint                   mesmo \`ruff check .\` da CI"
 	@echo "make docker P=<painel>      builda a imagem do painel ($(PAINEIS))"
@@ -22,7 +22,7 @@ checar-projeto:
 
 instalar: checar-projeto
 	test -x $(P)/venv/bin/python || $(PYTHON) -m venv $(P)/venv
-	$(P)/venv/bin/pip install -e "$(P)[dev]"
+	$(P)/venv/bin/pip install -e ./nucleo -e "./$(P)[dev]"
 
 testar:
 ifeq ($(strip $(P)),)

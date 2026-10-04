@@ -1,14 +1,17 @@
-import os
 from pathlib import Path
 
+from loteria_nucleo.dados.caminhos import caminhos_do_projeto
+from megasena.dominio.regras import MEGASENA_SPEC
+
 PROJETO_RAIZ = Path(__file__).resolve().parent.parent.parent.parent
-DADOS_DIR = PROJETO_RAIZ / "dados"
-SAIDA_DIR = PROJETO_RAIZ / "saida"
+_CAMINHOS = caminhos_do_projeto(MEGASENA_SPEC, PROJETO_RAIZ)
+DADOS_DIR = _CAMINHOS.dados
+SAIDA_DIR = _CAMINHOS.saida
 MODELOS_DIR = SAIDA_DIR / "modelos"
 
 
 def get_db_path() -> Path:
-    return Path(os.environ.get("MEGASENA_DB_PATH", str(DADOS_DIR / "megasena.db")))
+    return caminhos_do_projeto(MEGASENA_SPEC, PROJETO_RAIZ).banco
 
 
 DB_PATH = get_db_path()

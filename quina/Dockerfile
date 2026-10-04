@@ -2,13 +2,16 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-COPY pyproject.toml ./
-COPY src/ src/
+COPY nucleo/ /opt/nucleo/
+RUN pip install --no-cache-dir -e "/opt/nucleo[painel,ml]"
+
+COPY quina/pyproject.toml ./
+COPY quina/src/ src/
 RUN pip install --no-cache-dir -e .
 
 RUN mkdir -p dados saida
 
-COPY entrypoint.sh /app/entrypoint.sh
+COPY quina/entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
 
 # Roda a app como usuário sem privilégios — nada no dashboard precisa de

@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=77.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "loteria-nucleo"
+version = "0.1.0"
+description = "Componentes compartilhados pelos projetos de loterias brasileiras"
+requires-python = ">=3.11"
+dependencies = [
+    "requests>=2.31.0",
+    "tenacity>=8.2.0",
+    "pydantic>=2.0.0",
+    "typer>=0.9.0",
+    "rich>=13.0.0",
+]
+
+[project.optional-dependencies]
+painel = ["flask>=3.0.0", "gunicorn>=22.0.0"]
+ml = ["numpy>=1.24.0", "scikit-learn>=1.3.0", "joblib>=1.3.0"]
+ml-extra = ["xgboost>=2.0.0", "lightgbm>=4.0.0"]
+dev = ["pytest>=7.4.0", "responses>=0.23.0"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["loteria_nucleo*"]
+
+[tool.pytest.ini_options]
+testpaths = ["testes"]

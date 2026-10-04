@@ -23,7 +23,7 @@ Sistema modular de predição para a Lotofácil (15 números sorteados de 1–25
 git clone https://github.com/andredfaria/loteria.git
 cd loteria/lotofacil
 python -m venv venv && source venv/bin/activate
-pip install -e ".[dev]"
+cd .. && make instalar P=lotofacil
 ```
 
 > Requer Python ≥ 3.12. TensorFlow é instalado automaticamente (necessário para treino neural).

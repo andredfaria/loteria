@@ -32,6 +32,8 @@ build/
 # ── Ambiente local ─────────────────────────────────────────────────────────────
 .env
 .env.*
+*.env
+.envrc
 !.env.example
 
 # ── Ferramentas de IA (uso local de desenvolvimento, não versionar) ────────────

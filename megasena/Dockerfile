@@ -2,13 +2,16 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-COPY pyproject.toml README.md ./
-COPY src/ src/
+COPY nucleo/ /opt/nucleo/
+RUN pip install --no-cache-dir -e "/opt/nucleo[painel,ml]"
+
+COPY megasena/pyproject.toml megasena/README.md ./
+COPY megasena/src/ src/
 RUN pip install --no-cache-dir -e .
 
 RUN mkdir -p dados saida
 
-COPY entrypoint.sh /app/entrypoint.sh
+COPY megasena/entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
 
 # Roda a app como usuário sem privilégios — nada no dashboard precisa de

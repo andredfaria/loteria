@@ -9,9 +9,8 @@ Sistema de coleta, análise estatística e predição ML para a Mega-Sena (6 nú
 ## Instalação
 
 ```bash
-cd loteria/megasena
-python -m venv venv && source venv/bin/activate
-pip install -e ".[dev,ml]"
+cd loteria
+make instalar P=megasena
 ```
 
 Requer Python ≥ 3.11.
@@ -79,7 +78,7 @@ seção 7 do guia. Lógica em `megasena.servicos.bolao.comparar_boloes`.
 
 ## Deploy com Docker (EasyPanel)
 
-Build context `megasena`, Dockerfile `Dockerfile`, porta `5000`. Monte volumes
+Build Context `/`, Dockerfile `megasena/Dockerfile`, porta `5000`. Monte volumes
 em `/app/dados` (SQLite + JSON dos concursos) e `/app/saida` (modelos) para
 persistir entre deploys. Com o volume vazio, use o botão **Atualizar dados**
 do painel — a primeira sincronização baixa o histórico completo.
