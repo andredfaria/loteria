@@ -77,7 +77,7 @@ Os projetos lotofacil, quina e megasena têm, cada um, um painel web (Flask, ser
 
 Os painéis **falham fechado**: sem `DASHBOARD_PASSWORD` (login por senha) ou `DASHBOARD_PUBLICO=1` (painel sem senha, confirmado de propósito), o painel não inicia. A rota `/healthz`, que responde sem login, serve ao health check do container.
 
-A configuração do EasyPanel, os volumes, as variáveis de ambiente e o passo a passo local estão em [docs/deploy.md](docs/deploy.md).
+A configuração do EasyPanel, os volumes, as variáveis de ambiente e o passo a passo local estão em [docs/deploy.md](docs/deploy.md). Para configurar ou corrigir o build de um app no EasyPanel, veja [docs/guias/easypanel.md](docs/guias/easypanel.md).
 
 ---
 

@@ -10,11 +10,11 @@ Os projetos lotofacil, quina e megasena têm, cada um, um painel web publicado n
 | quina | `/` | `quina/Dockerfile` | `5000` |
 | megasena | `/` | `megasena/Dockerfile` | `5000` |
 
-O health check é o `HEALTHCHECK` do próprio `Dockerfile`: de 30 em 30 segundos (depois de 15 s de carência, e com limite de 5 s por tentativa), ele consulta `GET /healthz` dentro do container. A rota responde `200` com `{"status":"ok"}`, não pede login e não acessa banco nem dados. Se o seu painel de deploy pedir uma URL de health check, use `/healthz`: a `/api/status` exige login quando `DASHBOARD_PASSWORD` está definida e responderia `401`.
+O health check é o `HEALTHCHECK` do próprio `Dockerfile`: de 60 em 60 segundos (depois de 15 s de carência, e com limite de 5 s por tentativa), ele consulta `GET /healthz` dentro do container. A rota responde `200` com `{"status":"ok"}`, não pede login e não acessa banco nem dados. Se o seu painel de deploy pedir uma URL de health check, use `/healthz`: a `/api/status` exige login quando `DASHBOARD_PASSWORD` está definida e responderia `401`.
 
 O workflow `docker.yml` monta as três imagens com contexto raiz em todo PR que mexe nos projetos, no núcleo ou na configuração do build.
 
-> **Ação após a publicação desta fase:** em cada app no EasyPanel, defina Build Context como `/` (raiz do repositório) e Dockerfile como `lotofacil/Dockerfile`, `quina/Dockerfile` ou `megasena/Dockerfile`, conforme o app. Faça isso antes de disparar um novo deploy. Até atualizar os campos, o container publicado continua servindo, mas um novo build com a configuração antiga não encontrará `nucleo/`.
+> **Ação após a publicação desta fase:** em cada app no EasyPanel, defina Build Context como `/` (raiz do repositório) e Dockerfile como `lotofacil/Dockerfile`, `quina/Dockerfile` ou `megasena/Dockerfile`, conforme o app. Faça isso antes de disparar um novo deploy. Até atualizar os campos, o container publicado continua servindo, mas um novo build com a configuração antiga não encontrará `nucleo/`. O passo a passo, com os nomes exatos dos campos e como confirmar pelo log, está em [guias/easypanel.md](guias/easypanel.md).
 
 ## Volumes
 
@@ -102,6 +102,7 @@ A resposta esperada do `curl` é `{"status":"ok"}`.
 
 ## Problemas comuns
 
+- **O build falha com `"/nucleo": not found` ou `"/lotofacil/entrypoint.sh": not found`.** O **Build Path** do app (aba *Source*) ainda aponta para a pasta do projeto. Mude para `/` e faça o deploy de novo. Ver [guias/easypanel.md](guias/easypanel.md).
 - **O painel não abre e o container fica `unhealthy`.** Falta `DASHBOARD_PASSWORD` ou `DASHBOARD_PUBLICO=1` (ou o valor de `DASHBOARD_PUBLICO` não é exatamente `1`). O log (`docker compose logs megasena`) repete a mensagem que pede uma das duas. No compose, confira que o `.env` está na raiz do repositório.
 - **O login cai a cada restart ou redeploy.** Falta `DASHBOARD_AUTH_SECRET`.
 - **`Permission denied` ao gravar em `/app/dados` ou `/app/saida`.** O volume pertence a root, por exemplo porque foi criado por uma imagem antiga, que não tinha `USER`. Corrija o dono com `docker run --rm -v <volume>:/v alpine chown -R 1000:1000 /v`. O contexto está no [CHANGELOG](../CHANGELOG.md).

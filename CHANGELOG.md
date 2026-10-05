@@ -6,6 +6,7 @@ Este projeto segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/)
 
 ### Adicionado
 
+- `docs/guias/easypanel.md`: passo a passo para configurar o Build Path `/` e o Dockerfile de cada app no EasyPanel, com diagnóstico do erro `"/nucleo": not found` pelo log do build.
 - Pacote interno `nucleo/` (`loteria-nucleo`, import `loteria_nucleo`) com especificação de loterias, combinatória e caminhos configuráveis; Mega-Sena passou a usar esses contratos.
 - `docs/arquitetura.md`, `docs/nova-loteria.md` e `.dockerignore` para builds com contexto na raiz.
 

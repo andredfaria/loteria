@@ -6,6 +6,7 @@
 - [Decisões](decisoes.md): registro das decisões da reorganização.
 - [API externa](api-externa.md): estrutura de respostas usada na coleta de resultados.
 - [Avaliação de bolões](guias/avaliacao-de-boloes.md): critérios e cálculos do painel.
+- [EasyPanel](guias/easypanel.md): configurar o build de cada app com contexto na raiz e diagnosticar `"/nucleo": not found`.
 
 Índice dos documentos do repositório. Os que valem para mais de um projeto ficam nesta pasta; os de cada loteria ficam em `<projeto>/docs/`. O que cada projeto faz e como usá-lo está no `README.md` da pasta dele, a partir do [README da raiz](../README.md).
 
