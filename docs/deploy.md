@@ -39,14 +39,16 @@ Defina em *Environment Variables* de cada app. Os painéis **falham fechado**: s
 | `DASHBOARD_PASSWORD` | todos | uma das duas | Login por senha. Recomendada |
 | `DASHBOARD_PUBLICO` | todos | uma das duas | `1` confirma o painel sem senha |
 | `DASHBOARD_AUTH_SECRET` | todos | recomendada | Chave fixa da sessão de login |
-| `DASHBOARD_MAX_JOBS` | só lotofacil | opcional | Teto de jobs pesados ao mesmo tempo (padrão `2`) |
+| `DASHBOARD_MAX_JOBS` | só lotofacil | opcional | Teto de jobs pesados ao mesmo tempo (padrão `1`) |
+| `OMP_NUM_THREADS`, `OPENBLAS_NUM_THREADS`, `MKL_NUM_THREADS`, `LOKY_MAX_CPU_COUNT`, `TF_NUM_INTRAOP_THREADS` | todos | opcional | Teto de threads de cálculo por processo (padrão `2`, definido no `Dockerfile`) |
 
 O que cada uma faz e o que acontece se faltar:
 
 - **`DASHBOARD_PASSWORD`**: exige login por senha em todas as rotas, menos `/healthz` e as páginas de login e logout. Sem ela **e** sem `DASHBOARD_PUBLICO=1`, o painel não inicia: o `gunicorn` reinicia o worker em loop, o log repete a mensagem que pede uma das duas variáveis e o container fica *unhealthy*. Uma variável vazia conta como ausente.
 - **`DASHBOARD_PUBLICO`**: só vale o valor `1`. Confirma de propósito que o painel roda **sem senha**: quem alcançar a porta lê os dados e dispara trabalho. Use só atrás de rede ou túnel confiável. Se `DASHBOARD_PASSWORD` também estiver definida, o login continua exigido.
 - **`DASHBOARD_AUTH_SECRET`**: chave fixa que assina a sessão de login. Sem ela, a chave é sorteada a cada início: todo restart ou redeploy derruba os logins (o log avisa), e com mais de um worker do gunicorn o login falha de forma intermitente (os `Dockerfile` usam 1 worker). Gere uma com `python3 -c "import secrets; print(secrets.token_hex(32))"`.
-- **`DASHBOARD_MAX_JOBS`** (só lotofacil): teto de jobs pesados (geração, treino, backtest) ao mesmo tempo. Padrão `2`. Acima do teto, a API responde `429` em vez de enfileirar.
+- **`DASHBOARD_MAX_JOBS`** (só lotofacil): teto de jobs pesados (geração, treino, backtest) ao mesmo tempo. Padrão `1`. Acima do teto, a API responde `429` em vez de enfileirar.
+- **Threads de cálculo** (`OMP_NUM_THREADS` e afins): sem limite, `n_jobs=-1` do sklearn/LightGBM, o BLAS e o TensorFlow enxergam todos os núcleos do servidor, e um treino ocupa a máquina inteira, derrubando os outros apps. Os `Dockerfile` fixam `2`. Para um treino mais rápido num servidor folgado, sobrescreva todas com o mesmo valor (e `TF_NUM_INTEROP_THREADS`, padrão `1`). Para um teto rígido, defina também o limite de CPU do app no EasyPanel (*Advanced → Resources*).
 
 ## Subir localmente com o Docker Compose
 

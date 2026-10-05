@@ -22,6 +22,7 @@ Este projeto segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/)
 
 ### Alterado
 
+- Dockerfiles de lotofacil, quina e megasena limitam as threads de cálculo a 2 (`OMP_NUM_THREADS`, `OPENBLAS_NUM_THREADS`, `MKL_NUM_THREADS`, `LOKY_MAX_CPU_COUNT`, `TF_NUM_INTRAOP_THREADS`; `TF_NUM_INTEROP_THREADS=1`). Antes, `n_jobs=-1` e o TensorFlow usavam todos os núcleos do host e um treino ocupava o servidor inteiro. O `HEALTHCHECK` passou de 30 s para 60 s.
 - Os Dockerfiles dos três painéis, o Compose e a CI agora constroem a partir da raiz para incluir `nucleo/`. No EasyPanel, atualize Build Context para `/` e Dockerfile para `<projeto>/Dockerfile` antes do próximo deploy.
 - `make instalar` instala o núcleo local e o projeto selecionado no venv desse projeto.
 

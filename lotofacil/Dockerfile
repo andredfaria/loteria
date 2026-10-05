@@ -29,10 +29,21 @@ RUN groupadd -r -g 1000 appuser && useradd -r -u 1000 -g appuser appuser \
     && chown -R appuser:appuser /app
 
 ENV PYTHONPATH="/app/src"
+
+# Limita as threads de cálculo. Sem isso, n_jobs=-1 (sklearn/LightGBM), BLAS e
+# TensorFlow enxergam todos os núcleos do host e um único treino ocupa o
+# servidor inteiro. Para liberar mais núcleos, sobrescreva estas variáveis no
+# EasyPanel (ver docs/deploy.md).
+ENV OMP_NUM_THREADS="2" \
+    OPENBLAS_NUM_THREADS="2" \
+    MKL_NUM_THREADS="2" \
+    LOKY_MAX_CPU_COUNT="2" \
+    TF_NUM_INTRAOP_THREADS="2" \
+    TF_NUM_INTEROP_THREADS="1"
 ENV DASHBOARD_HOST="0.0.0.0"
 ENV DASHBOARD_PORT="5000"
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=15s \
+HEALTHCHECK --interval=60s --timeout=5s --start-period=15s \
     CMD python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:5000/healthz')" || exit 1
 
 EXPOSE 5000
