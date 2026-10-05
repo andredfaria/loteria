@@ -21,7 +21,7 @@ RUN chmod +x /app/entrypoint.sh
 RUN groupadd -r -g 1000 appuser && useradd -r -u 1000 -g appuser appuser \
     && chown -R appuser:appuser /app
 
-ENV PYTHONPATH="/app/src:${PYTHONPATH}"
+ENV PYTHONPATH="/app/src"
 
 EXPOSE 5000
 

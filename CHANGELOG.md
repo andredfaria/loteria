@@ -56,6 +56,7 @@ Este projeto segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/)
 
 ### Corrigido
 
+- Dockerfiles de lotofacil, quina e megasena: `ENV PYTHONPATH` referenciava `${PYTHONPATH}`, que não existe na imagem base, e gerava o aviso `UndefinedVar` no build. Agora é só `/app/src`.
 - Container dos painéis (lotofacil, quina e megasena) ficava *unhealthy* com `DASHBOARD_PASSWORD` definida, porque o `HEALTHCHECK` consultava `/api/status`, que exige login. Agora consulta `/healthz`.
 - `README.md` da raiz: a Mega-Sena aparecia como "Planejado", e o texto falava de amostras em `dados/sample/` e de um `Dockerfile` da raiz que não existem mais.
 - `lotofacil/README.md`: deixou de citar o `docker-compose.yml` da lotofacil, o `Dockerfile` da raiz e nomes de volume que não existem mais. O bloco com uma cópia do `Dockerfile`, que mostrava `--workers 2` quando o real usa 1 worker e 4 threads, virou um link para o arquivo.
