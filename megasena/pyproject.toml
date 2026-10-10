@@ -39,7 +39,7 @@ dev = [
     "responses>=0.23.0",
 ]
 ml = [
-    "xgboost>=2.0.0",
+    "xgboost>=3.2.0",
     "lightgbm>=4.0.0",
 ]
 
