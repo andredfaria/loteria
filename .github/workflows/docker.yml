@@ -37,6 +37,6 @@ jobs:
       matrix:
         projeto: [lotofacil, quina, megasena]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: docker build
         run: docker build -f "${{ matrix.projeto }}/Dockerfile" -t "loteria-${{ matrix.projeto }}:ci" .
